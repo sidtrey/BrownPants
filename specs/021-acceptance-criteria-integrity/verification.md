@@ -17,4 +17,6 @@ Verification was run locally on Windows with PowerShell 7 and the .NET 10 SDK.
 | Feature evidence ledger | `pwsh -NoProfile -File scripts/check-acceptance-evidence.ps1 -RepositoryRoot . -SpecPath specs/021-acceptance-criteria-integrity/spec.md -TasksPath specs/021-acceptance-criteria-integrity/tasks.md -EvidencePath specs/021-acceptance-criteria-integrity/acceptance-evidence.json` | Passed; 9 tasks and 18 criteria mapped. |
 | Packed tool smoke test | Pack to a temporary directory, install with `dotnet tool install`, then run `brownpants --help` and `brownpants inspect . --format json --limit 10` | Passed; schema version 1 and a nonempty inventory returned. |
 
-These local results are from Windows. The CI matrix also runs Windows, Ubuntu, and macOS; those hosted results are produced by GitHub Actions after the change is pushed. Structural ledger checks do not establish that evidence semantically proves a criterion; review remains necessary.
+The first hosted run passed on Ubuntu and macOS but exposed a test-fixture newline assumption on Windows. The fixture now normalizes source newlines before deliberately constructing CRLF files. GitHub Actions passed all three jobs (`windows-latest`, `ubuntu-latest`, and `macos-latest`) for follow-up commit `3caf7931850b4458c9042ba949a5eed5527c732b`.
+
+Structural ledger checks do not establish that evidence semantically proves a criterion; review remains necessary.
