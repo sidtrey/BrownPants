@@ -1,50 +1,78 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# BrownPants Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Evidence First
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+Reports MUST distinguish observed facts from heuristics and candidate signals. Every
+source-level claim MUST identify its evidence and limits. BrownPants MUST NOT present
+syntax matches as resolved relationships or inventory markers as proof of buildability,
+runtime behavior, or active dependencies.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### II. Broad, Engine-Neutral Core
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+The core inventory MUST serve mixed repositories and remain independent of any single SDD
+engine. It MUST recognize supported languages and project systems through explicit evidence
+levels. Engine-specific lifecycle behavior belongs in adapters. Managed/native analysis MUST
+treat both sides of the boundary as relevant evidence.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### III. Deterministic and Reviewable Output
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+The same repository contents and options MUST produce the same report. Inventory MUST use
+stable ordering, bounded samples, repository-relative paths, and explicit evidence limits.
+Markdown MUST be readable by people; JSON MUST remain useful to tools and other SDD engines.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### IV. Safe Inspection by Default
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+Default inspection MUST read repository content without executing project code, invoking
+build tools, accessing the network, or modifying the inspected repository. Features that load
+MSBuild projects or evaluate imports MUST be opt-in and MUST explain that project targets may
+run. Repository configuration MUST remain declarative, bounded, and unable to direct reads
+outside the scanned inventory.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### V. Specified and Verified Changes
+
+Behavior changes MUST begin with a reviewed specification and implementation plan in the
+repository's Spec Kit workflow. Tasks MUST identify concrete files and observable results.
+Changed behavior MUST have fixture-based tests. A change is ready when the relevant build,
+test, adapter, and package checks pass and documentation states material evidence limits.
+
+## Technical Constraints
+
+- The CLI targets .NET 10. Roslyn provides syntax analysis for C# and Visual Basic,
+  including source from legacy .NET Framework projects.
+- Native MFC, COM, and C++/CLI findings MUST state whether they are lexical candidates,
+  syntax findings, or semantically resolved evidence.
+- The core MUST support repositories that do not use .NET and MUST NOT require an SDD
+  engine, an LLM, network access, or project evaluation for default inspection.
+- Semantic project loading remains an explicit option because MSBuild imports and targets
+  can execute code.
+
+## Development and Quality Gates
+
+- Use four spaces, nullable reference types, PascalCase public APIs, and camelCase locals
+  and parameters.
+- Add or update small temporary-repository fixtures for scanner behavior, including mixed
+  ecosystems, ignored directories, invalid configuration, and path-safety cases where
+  relevant.
+- Verify changes in Markdown and JSON where both formats expose the behavior.
+- Run `dotnet build BrownPants.sln`, `dotnet test BrownPants.sln`, and the Spec Kit and
+  OpenSpec adapter checks for changes that affect those integrations.
+- Run a packed-tool smoke check when packaging or changing the command-line contract.
+- Review generated reports before sharing them because paths and project structure may be
+  sensitive.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution governs product requirements and design decisions. [AGENTS.md](../../AGENTS.md)
+provides operational contribution guidance and MUST be read with the constitution. If a
+proposal conflicts with a principle, revise the proposal or amend the constitution through a
+separate Spec Kit constitution update. Implementation plans and reviews MUST record how the
+principles apply.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+Amendments require a documented rationale and a semantic version update. Increment MAJOR
+when a principle is removed or materially redefined; MINOR when a principle or binding
+requirement is added or materially expanded; PATCH for clarifications that do not change
+commitments. Review principle alignment during planning and before merge.
+
+**Version**: 1.0.0 | **Ratified**: TODO(RATIFICATION_DATE): Original adoption date not recorded | **Last Amended**: 2026-10-14
