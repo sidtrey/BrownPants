@@ -1,6 +1,6 @@
 # BrownPants
 
-BrownPants is a brownfield-first evidence layer for spec-driven development. It builds deterministic repository context that planning and implementation workflows can use to work from an existing codebase. The core inventory is independent of a particular SDD engine; it recognizes Spec Kit and OpenSpec artifacts, while engine adapters add workflow-specific guidance. The CLI's Markdown and JSON reports can also be consumed by other SDD engines. The scanner does not require an LLM.
+BrownPants is a brownfield-first evidence layer for spec-driven development. It builds deterministic repository context that planning and implementation workflows can use to work from an existing codebase. The core inventory is independent of a particular SDD engine; it recognizes Spec Kit and OpenSpec artifacts and supports repository-declared roots for other engines, while engine adapters add workflow-specific guidance. The CLI's Markdown and JSON reports can also be consumed by other SDD engines. The scanner does not require an LLM.
 
 ## Quick start
 
@@ -29,6 +29,27 @@ Pass `--semantic` to opt in to MSBuildWorkspace project loading. When the requir
 Native coverage includes `.vcxproj` and legacy `.vcproj` markers, MFC/CLR project settings, and source-located signals for MFC runtime macros, object factories, message maps, COM activation and marshalling, COM interface metadata, C++/CLI, C#/VB interop attributes, factory types and calls, `Func<T>` factory delegates, constructor-injected interface/factory parameters, and DI APIs such as `AddTransient`, `RegisterType`, `RegisterInstance`, `Bind`, `GetRequiredService`, `GetInstance`, and container-scoped `Resolve`/`Get<T>`. Context checks on generic `Get`, `GetObject`, and `Resolve` names reduce matches from unrelated object APIs. Pattern findings carry `EvidenceKind: Candidate` in JSON and are labeled in Markdown; they are not proof of runtime relationships. C# and VB.NET patterns are syntax-based. Native C++ matches are lexical candidates, not a full C++ parse. Inspect both sides of managed/native boundaries and the cited build configuration.
 
 ## Workflow integrations
+
+### Register another SDD engine
+
+Add `.brownpants/sdd-workflows.json` to describe an engine that does not have a built-in detector:
+
+```json
+{
+  "schemaVersion": 1,
+  "workflows": [
+    {
+      "name": "ExampleSDD",
+      "artifactRoots": ["planning"],
+      "specificationRoots": ["planning/specs"],
+      "changeRoots": ["planning/changes"],
+      "archivedChangeDirectoryNames": ["archive"]
+    }
+  ]
+}
+```
+
+`artifactRoots` is required; the other root lists are optional. BrownPants reports workflow totals and bounded paths in both output formats. Invalid declarations appear as `SddWorkflowIssues` in JSON and as diagnostics in Markdown, while built-in detection continues. Roots must be forward-slash, repository-relative directory paths without parent traversal or wildcards. BrownPants matches them against files already discovered inside the repository; it does not enumerate configured roots or execute engine code. The declaration must use schema version 1, contain no unknown properties, include at most 100 workflows, and remain under 1 MiB. See the [configuration contract](specs/005-pluggable-sdd-discovery/contracts/custom-workflow-config.md).
 
 The core inventory is workflow-neutral. Spec Kit is the first adapter and refreshes BrownPants context before constitution, specify, clarify, plan, checklist, tasks, analyze, implement, and task-to-issues phases, then again after implementation for completion review. For Codex CLI, initialize Spec Kit with `specify init --here --integration codex --integration-options="--skills"`. Its commands are installed as `.agents/skills`; the BrownPants context command runs automatically through extension hooks. To install the BrownPants adapter, build the extension manifest with `integrations/speckit/BuildExtension.ps1`, install the BrownPants .NET tool, then run `specify extension add <extension-path> --dev`.
 

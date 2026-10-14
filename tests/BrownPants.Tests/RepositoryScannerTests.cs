@@ -190,6 +190,236 @@ public sealed class RepositoryScannerTests : IDisposable
     }
 
     [Fact]
+    public void Scan_ReportsDeclaredCustomSddWorkflowInJsonAndMarkdown()
+    {
+        Write(".brownpants/sdd-workflows.json", """
+            {
+              "schemaVersion": 1,
+              "workflows": [
+                {
+                  "name": "CustomSDD",
+                  "artifactRoots": ["planning", "planning/specs"],
+                  "specificationRoots": ["planning/specs"],
+                  "changeRoots": ["planning/changes"],
+                  "archivedChangeDirectoryNames": ["archive"]
+                }
+              ]
+            }
+            """);
+        Write("planning/specs/search/spec.md", "spec");
+        Write("planning/specs/search/notes.md", "notes");
+        Write("planning/changes/add-search/proposal.md", "proposal");
+        Write("planning/changes/ARCHIVE/old/proposal.md", "archived");
+
+        var inventory = RepositoryScanner.Scan(_root, sampleLimit: 2);
+        var workflow = Assert.Single(inventory.SddWorkflows, item => item.Name == "CustomSDD");
+
+        Assert.True(workflow.IsInitialized);
+        Assert.Equal(1, workflow.SpecificationDirectoryCount);
+        Assert.Equal(1, workflow.ActiveChangeDirectoryCount);
+        Assert.Equal(4, workflow.ArtifactFileCount);
+        Assert.Equal(2, workflow.ArtifactPaths.Count);
+        Assert.Empty(inventory.SddWorkflowIssues);
+        var markdown = MarkdownReport.Render(inventory);
+        Assert.Contains("### CustomSDD", markdown);
+        Assert.Contains("2 additional artifacts omitted by the sample limit", markdown);
+
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        Assert.Equal(0, Program.Run(new[] { "inspect", _root, "--format", "json", "--limit", "2" }, output, error));
+        using var json = System.Text.Json.JsonDocument.Parse(output.ToString());
+        var jsonWorkflow = Assert.Single(json.RootElement.GetProperty("SddWorkflows").EnumerateArray(),
+            item => item.GetProperty("Name").GetString() == "CustomSDD");
+        Assert.Equal(4, jsonWorkflow.GetProperty("ArtifactFileCount").GetInt32());
+        Assert.Equal(2, jsonWorkflow.GetProperty("ArtifactPaths").GetArrayLength());
+        Assert.Empty(json.RootElement.GetProperty("SddWorkflowIssues").EnumerateArray());
+    }
+
+    [Fact]
+    public void Scan_ReportsCustomWorkflowWithoutChangeRootsAsNotInitialized()
+    {
+        Write(".brownpants/sdd-workflows.json", """
+            { "schemaVersion": 1, "workflows": [
+              { "name": "EmptySDD", "artifactRoots": ["proposals"], "specificationRoots": ["proposals/specs"] }
+            ] }
+            """);
+
+        var inventory = RepositoryScanner.Scan(_root);
+        var workflow = Assert.Single(inventory.SddWorkflows, item => item.Name == "EmptySDD");
+
+        Assert.False(workflow.IsInitialized);
+        Assert.Equal(0, workflow.SpecificationDirectoryCount);
+        Assert.Null(workflow.ActiveChangeDirectoryCount);
+        Assert.Equal(0, workflow.ArtifactFileCount);
+    }
+
+    [Fact]
+    public void Scan_DoesNotCountItsOwnWorkflowDeclarationAsAnArtifact()
+    {
+        Write(".brownpants/sdd-workflows.json", """
+            { "schemaVersion": 1, "workflows": [
+              { "name": "CustomSDD", "artifactRoots": [".brownpants"] }
+            ] }
+            """);
+
+        var workflow = Assert.Single(RepositoryScanner.Scan(_root).SddWorkflows,
+            item => item.Name == "CustomSDD");
+
+        Assert.False(workflow.IsInitialized);
+        Assert.Equal(0, workflow.ArtifactFileCount);
+        Assert.Empty(workflow.ArtifactPaths);
+    }
+
+    [Fact]
+    public void Scan_ReportsMalformedCustomWorkflowConfigurationAndKeepsBuiltInWorkflows()
+    {
+        Write(".specify/integration.json", "{}");
+        Write("openspec/config.yaml", "schema: spec-driven");
+        Write(".brownpants/sdd-workflows.json", "{ not valid json }");
+
+        var inventory = RepositoryScanner.Scan(_root);
+
+        Assert.Contains(inventory.SddWorkflows, workflow => workflow.Name == "Spec Kit");
+        Assert.Contains(inventory.SddWorkflows, workflow => workflow.Name == "OpenSpec");
+        var issue = Assert.Single(inventory.SddWorkflowIssues);
+        Assert.Equal("InvalidJson", issue.Code);
+        Assert.Equal(".brownpants/sdd-workflows.json", issue.Path);
+        var markdown = MarkdownReport.Render(inventory);
+        Assert.Contains("### Configuration diagnostics", markdown);
+        Assert.Contains("InvalidJson", markdown);
+    }
+
+    [Fact]
+    public void Scan_RejectsUnsupportedSchemaUnknownFieldsAndWorkflowNameCollisions()
+    {
+        Write("openspec/config.yaml", "schema: spec-driven");
+        Write(".brownpants/sdd-workflows.json", """
+            { "schemaVersion": 2, "workflows": [
+              { "name": "CustomSDD", "artifactRoots": ["planning"] }
+            ] }
+            """);
+        var unsupported = RepositoryScanner.Scan(_root);
+        Assert.Contains(unsupported.SddWorkflowIssues, issue => issue.Code == "UnsupportedSchemaVersion");
+        Assert.Contains(unsupported.SddWorkflows, workflow => workflow.Name == "OpenSpec");
+
+        Write(".brownpants/sdd-workflows.json", """
+            { "schemaVersion": 1, "workflows": [
+              { "name": "CustomSDD", "artifactRoots": ["planning"] },
+              { "name": "openspec", "artifactRoots": ["other"] },
+              { "name": "customsdd", "artifactRoots": ["duplicate"] },
+              { "name": "Unknown", "artifactRoots": ["invalid"], "typo": true }
+            ] }
+            """);
+        var invalid = RepositoryScanner.Scan(_root);
+
+        Assert.Contains(invalid.SddWorkflowIssues, issue => issue.Code == "UnknownProperty");
+        Assert.Equal(2, invalid.SddWorkflowIssues.Count(issue => issue.Code == "DuplicateWorkflowName"));
+        Assert.Single(invalid.SddWorkflows, workflow => workflow.Name == "CustomSDD");
+        Assert.DoesNotContain(invalid.SddWorkflows, workflow => workflow.Name.Equals("OpenSpec", StringComparison.OrdinalIgnoreCase)
+            && workflow.Name != "OpenSpec");
+        Assert.Contains(invalid.SddWorkflows, workflow => workflow.Name == "OpenSpec");
+    }
+
+    [Fact]
+    public void Scan_RejectsTraversalRootsWithoutReadingOutsideRepository()
+    {
+        var externalRoot = Path.Combine(Path.GetDirectoryName(_root)!, $"external-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(externalRoot);
+        File.WriteAllText(Path.Combine(externalRoot, "secret.md"), "outside repository");
+        try
+        {
+            var externalName = Path.GetFileName(externalRoot);
+            Write(".brownpants/sdd-workflows.json", $$"""
+                { "schemaVersion": 1, "workflows": [
+                  { "name": "Unsafe", "artifactRoots": ["../{{externalName}}"] }
+                ] }
+                """);
+
+            var inventory = RepositoryScanner.Scan(_root);
+
+            Assert.Contains(inventory.SddWorkflowIssues, issue => issue.Code == "InvalidRoot");
+            Assert.DoesNotContain(inventory.SddWorkflows.SelectMany(workflow => workflow.ArtifactPaths),
+                path => path.Contains("secret.md", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            Directory.Delete(externalRoot, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("/outside")]
+    [InlineData("C:/outside")]
+    [InlineData("planning/../outside")]
+    [InlineData("planning/*")]
+    [InlineData("planning\\outside")]
+    public void Scan_RejectsUnsafeCustomWorkflowRoots(string unsafeRoot)
+    {
+        var config = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            schemaVersion = 1,
+            workflows = new[] { new { name = "Unsafe", artifactRoots = new[] { unsafeRoot } } }
+        });
+        Write(".brownpants/sdd-workflows.json", config);
+
+        var inventory = RepositoryScanner.Scan(_root);
+
+        Assert.Contains(inventory.SddWorkflowIssues, issue => issue.Code == "InvalidRoot");
+        Assert.DoesNotContain(inventory.SddWorkflows, workflow => workflow.Name == "Unsafe");
+    }
+
+    [Fact]
+    public void Scan_RejectsCustomWorkflowConfigurationLargerThanOneMiB()
+    {
+        Write(".brownpants/sdd-workflows.json", new string(' ', 1_048_577));
+
+        var inventory = RepositoryScanner.Scan(_root);
+
+        var issue = Assert.Single(inventory.SddWorkflowIssues);
+        Assert.Equal("ConfigurationTooLarge", issue.Code);
+    }
+
+    [Fact]
+    public void Scan_RejectsMoreThanOneHundredWorkflowDefinitions()
+    {
+        var workflows = Enumerable.Range(0, 101)
+            .Select(index => new { name = $"Engine{index}", artifactRoots = new[] { $"engine{index}" } })
+            .ToArray();
+        var config = System.Text.Json.JsonSerializer.Serialize(new { schemaVersion = 1, workflows });
+        Write("openspec/config.yaml", "schema: spec-driven");
+        Write(".brownpants/sdd-workflows.json", config);
+
+        var inventory = RepositoryScanner.Scan(_root);
+
+        Assert.Contains(inventory.SddWorkflowIssues, issue => issue.Code == "TooManyWorkflowDefinitions");
+        Assert.Contains(inventory.SddWorkflows, workflow => workflow.Name == "OpenSpec");
+        Assert.DoesNotContain(inventory.SddWorkflows, workflow => workflow.Name.StartsWith("Engine", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Scan_KeepsCustomWorkflowDiagnosticsStableAcrossRuns()
+    {
+        Write("openspec/config.yaml", "schema: spec-driven");
+        Write(".brownpants/sdd-workflows.json", """
+            { "schemaVersion": 1, "workflows": [
+              { "name": "ValidCustom", "artifactRoots": ["plans"] },
+              { "name": "InvalidCustom", "artifactRoots": ["../outside"] }
+            ] }
+            """);
+        Write("plans/change/spec.md", "custom spec");
+
+        var first = RepositoryScanner.Scan(_root);
+        var second = RepositoryScanner.Scan(_root);
+
+        Assert.Equal(MarkdownReport.Render(first), MarkdownReport.Render(second));
+        Assert.Equal(first.SddWorkflowIssues, second.SddWorkflowIssues);
+        Assert.Contains(first.SddWorkflows, workflow => workflow.Name == "OpenSpec");
+        Assert.Contains(first.SddWorkflows, workflow => workflow.Name == "ValidCustom");
+        Assert.DoesNotContain(first.SddWorkflows, workflow => workflow.Name == "InvalidCustom");
+    }
+
+    [Fact]
     public void Scan_IsStableAcrossRepeatedRuns()
     {
         Write("z/Readme.md", "hello");
@@ -763,7 +993,3 @@ public sealed class RepositoryScannerTests : IDisposable
         File.WriteAllText(path, content);
     }
 }
-
-
-
-

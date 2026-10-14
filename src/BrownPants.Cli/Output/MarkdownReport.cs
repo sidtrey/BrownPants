@@ -36,7 +36,7 @@ public static class MarkdownReport
         report.AppendLine();
         AppendList(report, inventory.TopLevelEntries, "No visible entries.");
         report.AppendLine();
-        AppendSddWorkflows(report, inventory.SddWorkflows);
+        AppendSddWorkflows(report, inventory.SddWorkflows, inventory.SddWorkflowIssues);
         AppendDotNetProjects(report, inventory.DotNetProjects);
         AppendNativeProjects(report, inventory.NativeProjects);
         AppendCSharpAnalysis(report, inventory.CSharp);
@@ -68,7 +68,10 @@ public static class MarkdownReport
         report.AppendLine();
     }
 
-    private static void AppendSddWorkflows(StringBuilder report, IReadOnlyList<SddWorkflowInventory> workflows)
+    private static void AppendSddWorkflows(
+        StringBuilder report,
+        IReadOnlyList<SddWorkflowInventory> workflows,
+        IReadOnlyList<SddWorkflowConfigurationIssue> issues)
     {
         report.AppendLine("## SDD workflows");
         report.AppendLine();
@@ -76,26 +79,36 @@ public static class MarkdownReport
         {
             report.AppendLine("No supported SDD workflow artifacts detected.");
             report.AppendLine();
-            return;
+        }
+        else
+        {
+            foreach (var workflow in workflows)
+            {
+                report.AppendLine($"### {Escape(workflow.Name)}");
+                report.AppendLine();
+                report.AppendLine($"- Initialized: {YesNo(workflow.IsInitialized)}");
+                report.AppendLine($"- Specification or feature directories: {workflow.SpecificationDirectoryCount}");
+                if (workflow.ActiveChangeDirectoryCount.HasValue)
+                    report.AppendLine($"- Active change directories: {workflow.ActiveChangeDirectoryCount.Value}");
+                report.AppendLine($"- Artifact files: {workflow.ArtifactFileCount}");
+                if (workflow.ArtifactPaths.Count > 0)
+                {
+                    report.AppendLine("- Artifact path samples:");
+                    foreach (var artifact in workflow.ArtifactPaths)
+                        report.AppendLine($"  - `{Escape(artifact)}`");
+                    if (workflow.ArtifactFileCount > workflow.ArtifactPaths.Count)
+                        report.AppendLine($"  - {workflow.ArtifactFileCount - workflow.ArtifactPaths.Count} additional artifacts omitted by the sample limit.");
+                }
+                report.AppendLine();
+            }
         }
 
-        foreach (var workflow in workflows)
+        if (issues.Count > 0)
         {
-            report.AppendLine($"### {Escape(workflow.Name)}");
+            report.AppendLine("### Configuration diagnostics");
             report.AppendLine();
-            report.AppendLine($"- Initialized: {YesNo(workflow.IsInitialized)}");
-            report.AppendLine($"- Specification or feature directories: {workflow.SpecificationDirectoryCount}");
-            if (workflow.ActiveChangeDirectoryCount.HasValue)
-                report.AppendLine($"- Active change directories: {workflow.ActiveChangeDirectoryCount.Value}");
-            report.AppendLine($"- Artifact files: {workflow.ArtifactFileCount}");
-            if (workflow.ArtifactPaths.Count > 0)
-            {
-                report.AppendLine("- Artifact path samples:");
-                foreach (var artifact in workflow.ArtifactPaths)
-                    report.AppendLine($"  - `{Escape(artifact)}`");
-                if (workflow.ArtifactFileCount > workflow.ArtifactPaths.Count)
-                    report.AppendLine($"  - {workflow.ArtifactFileCount - workflow.ArtifactPaths.Count} additional artifacts omitted by the sample limit.");
-            }
+            foreach (var issue in issues)
+                report.AppendLine($"- `{Escape(issue.Path)}` **{Escape(issue.Code)}**: {Escape(issue.Message)}");
             report.AppendLine();
         }
     }

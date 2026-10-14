@@ -78,7 +78,7 @@ public static class RepositoryScanner
             .OrderBy(name => name, StablePathComparer)
             .ToArray()!;
 
-        var sddWorkflows = SddWorkflowAnalyzer.Analyze(files, sampleLimit);
+        var sddAnalysis = SddWorkflowAnalyzer.Analyze(root, files, sampleLimit);
         var dotNetProjects = DotNetProjectAnalyzer.Analyze(root,
             files.Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)
                 || file.EndsWith(".vbproj", StringComparison.OrdinalIgnoreCase)));
@@ -109,7 +109,8 @@ public static class RepositoryScanner
             languageCoverage,
             tests,
             topLevel,
-            sddWorkflows,
+            sddAnalysis.Workflows,
+            sddAnalysis.Issues,
             csharp,
             visualBasic,
             architecturePatterns,

@@ -10,6 +10,7 @@ public sealed record RepositoryInventory(
     IReadOnlyList<string> TestPaths,
     IReadOnlyList<string> TopLevelEntries,
     IReadOnlyList<SddWorkflowInventory> SddWorkflows,
+    IReadOnlyList<SddWorkflowConfigurationIssue> SddWorkflowIssues,
     CSharpAnalysis CSharp,
     VisualBasicAnalysis VisualBasic,
     ArchitecturePatternAnalysis ArchitecturePatterns,
@@ -29,6 +30,8 @@ public sealed record SddWorkflowInventory(
     int? ActiveChangeDirectoryCount,
     int ArtifactFileCount,
     IReadOnlyList<string> ArtifactPaths);
+
+public sealed record SddWorkflowConfigurationIssue(string Path, string Code, string Message);
 
 public sealed record CSharpAnalysis(
     int SourceFileCount,
