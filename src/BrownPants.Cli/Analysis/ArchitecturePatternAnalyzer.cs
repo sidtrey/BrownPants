@@ -311,7 +311,8 @@ public static class ArchitecturePatternAnalyzer
     {
         string? tripleQuoteDelimiter = null;
         var continuedQuote = '\0';
-        var lines = source.Split('\n');
+        var normalizedSource = source.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        var lines = normalizedSource.Split('\n');
         for (var index = 0; index < lines.Length; index++)
         {
             var code = RemovePythonCommentsAndStrings(lines[index], ref tripleQuoteDelimiter, ref continuedQuote);

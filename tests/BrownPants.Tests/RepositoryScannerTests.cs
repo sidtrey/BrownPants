@@ -987,7 +987,8 @@ public sealed class RepositoryScannerTests : IDisposable
             .Where(signal => signal.Path == "app/services.py")
             .ToArray();
 
-        Assert.Equal(10, signals.Length);
+        Assert.True(signals.Length == 10,
+            $"Expected ten Python signals, found: {string.Join("; ", signals.Select(signal => $"{signal.Category}@{signal.Line}: {signal.Evidence}"))}");
         Assert.Equal(new[] { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 }, signals.Select(signal => signal.Line).ToArray());
         Assert.Contains(signals, signal => signal.Category == "Factory type");
         Assert.Contains(signals, signal => signal.Category == "Factory method");
