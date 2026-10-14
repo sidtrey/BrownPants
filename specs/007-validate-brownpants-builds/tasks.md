@@ -24,7 +24,7 @@
 ## Phase 3: Polish and Cross-Cutting Concerns
 
 - [X] T006 [P] Update `specs/007-validate-brownpants-builds/quickstart.md` and `contracts/ci-validation.md` to match the final workflow commands and platform-specific tool names.
-- [ ] T007 Run `dotnet restore`, Release build/tests, both adapter scripts, and packed-tool smoke on the local Windows host; push the change and verify all three GitHub Actions matrix jobs succeed.
+- [X] T007 Run `dotnet restore`, Release build/tests, both adapter scripts, and packed-tool smoke on the local Windows host; push the change and verify all three GitHub Actions matrix jobs succeed.
 
 ## Dependencies & Execution Order
 
