@@ -19,7 +19,7 @@ public static class SourceLanguageCoverageAnalyzer
             [".mjs"] = ("JavaScript", InventoryOnly), [".cjs"] = ("JavaScript", InventoryOnly),
             [".ts"] = ("TypeScript", InventoryOnly), [".tsx"] = ("TypeScript", InventoryOnly),
             [".mts"] = ("TypeScript", InventoryOnly), [".cts"] = ("TypeScript", InventoryOnly),
-            [".py"] = ("Python", InventoryOnly), [".pyw"] = ("Python", InventoryOnly), [".pyi"] = ("Python", InventoryOnly),
+            [".py"] = ("Python", LexicalCoverage), [".pyw"] = ("Python", LexicalCoverage), [".pyi"] = ("Python", LexicalCoverage),
             [".java"] = ("Java", InventoryOnly), [".kt"] = ("Kotlin", InventoryOnly),
             [".go"] = ("Go", InventoryOnly), [".rs"] = ("Rust", InventoryOnly),
             [".rb"] = ("Ruby", InventoryOnly), [".php"] = ("PHP", InventoryOnly),

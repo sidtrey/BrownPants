@@ -267,7 +267,7 @@ public sealed class RepositoryScannerTests : IDisposable
         Assert.Contains("main.tf", systems["Infrastructure"].Select(Path.GetFileName));
         Assert.Equal(1, languages["C#"].SourceFileCount);
         Assert.Equal("Roslyn syntax and candidate patterns", languages["C#"].AnalysisLevel);
-        Assert.Equal("Inventory only", languages["Python"].AnalysisLevel);
+        Assert.Equal("Lexical candidate patterns", languages["Python"].AnalysisLevel);
         Assert.Equal(1, languages["TypeScript"].SourceFileCount);
         Assert.Equal("Inventory only", languages["TypeScript"].AnalysisLevel);
         Assert.Equal(1, languages["Kotlin"].SourceFileCount);
@@ -283,7 +283,7 @@ public sealed class RepositoryScannerTests : IDisposable
         var markdown = MarkdownReport.Render(inventory);
         Assert.Contains("## Project ecosystems", markdown);
         Assert.Contains("## Language coverage", markdown);
-        Assert.Contains("`Python` — 1 source file — Inventory only", markdown);
+        Assert.Contains("`Python` — 1 source file — Lexical candidate patterns", markdown);
         Assert.Contains("`native/Legacy.vcxproj`", markdown);
         Assert.All(inventory.ProjectSystems.SelectMany(system => system.ManifestPaths), path =>
             Assert.Contains($"`{path}`", markdown));
@@ -312,7 +312,7 @@ public sealed class RepositoryScannerTests : IDisposable
             Assert.Equal(language.AnalysisLevel, serialized.GetProperty("AnalysisLevel").GetString());
         }
         Assert.Contains(jsonLanguages, language => language.GetProperty("Language").GetString() == "Python"
-            && language.GetProperty("AnalysisLevel").GetString() == "Inventory only");
+            && language.GetProperty("AnalysisLevel").GetString() == "Lexical candidate patterns");
     }
 
     [Fact]
@@ -952,6 +952,80 @@ public sealed class RepositoryScannerTests : IDisposable
                 && signal.GetProperty("Path").GetString() == "native/MainFrame.h"
                 && signal.GetProperty("Line").GetInt32() == 2
                 && signal.GetProperty("EvidenceKind").GetString() == "Candidate");
+    }
+
+    [Fact]
+    public void Scan_ReportsPythonFactoryAndDependencyCandidatesAndFiltersNoise()
+    {
+        Write("app/services.py", """
+            from fastapi import Depends
+            class ReportFactory:
+                def create_report(self): ...
+                def build_index(self): ...
+                report_factory = ReportFactory()
+                current = report_factory.create_report()
+                user_provider = providers.Factory(UserService)
+                db_provider = providers.Singleton(Database)
+            def endpoint(user = Depends(get_user)): ...
+            @inject
+            def handler(service = Provide[Container.service]): ...
+            # class CommentFactory: def create_fake(): ...
+            example = "providers.Factory(Fake); fake_factory()"
+            description = r'''class StringFactory:
+            def build_string(self): ...
+            providers.Singleton(Fake)
+            Depends(fake)
+            '''
+            ordinary_call = create_user()
+            joined_text = "continued \
+            class JoinedFactory: def make_fake(): ..."
+            """);
+
+        var inventory = RepositoryScanner.Scan(_root, sampleLimit: 50);
+        var signals = inventory.ArchitecturePatterns.Signals
+            .Where(signal => signal.Path == "app/services.py")
+            .ToArray();
+
+        Assert.Equal(10, signals.Length);
+        Assert.Equal(new[] { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 }, signals.Select(signal => signal.Line).ToArray());
+        Assert.Contains(signals, signal => signal.Category == "Factory type");
+        Assert.Contains(signals, signal => signal.Category == "Factory method");
+        Assert.Contains(signals, signal => signal.Category == "Factory invocation");
+        Assert.Equal(2, signals.Count(signal => signal.Category == "DI registration"));
+        Assert.Contains(signals, signal => signal.Category == "Dependency injection");
+        Assert.All(signals, signal =>
+        {
+            Assert.Equal("Candidate", signal.EvidenceKind);
+            Assert.Equal("Python", signal.Language);
+        });
+        Assert.DoesNotContain(signals, signal => signal.Evidence.Contains("Fake", StringComparison.Ordinal));
+        Assert.Contains(inventory.LanguageCoverage, language => language.Language == "Python"
+            && language.AnalysisLevel == "Lexical candidate patterns");
+
+        var repeatedInventory = RepositoryScanner.Scan(_root, sampleLimit: 50);
+        var markdown = MarkdownReport.Render(inventory);
+        Assert.Equal(markdown, MarkdownReport.Render(repeatedInventory));
+        Assert.All(signals, signal => Assert.Contains(
+            $"{signal.Category} [Candidate] (Python): `app/services.py:{signal.Line}`", markdown));
+        using var output = new StringWriter();
+        using var repeatedOutput = new StringWriter();
+        using var error = new StringWriter();
+        var args = new[] { "inspect", _root, "--format", "json", "--limit", "50" };
+        Assert.Equal(0, Program.Run(args, output, error));
+        Assert.Equal(0, Program.Run(args, repeatedOutput, error));
+        Assert.Equal(output.ToString(), repeatedOutput.ToString());
+        using var json = System.Text.Json.JsonDocument.Parse(output.ToString());
+        var jsonSignals = json.RootElement.GetProperty("ArchitecturePatterns").GetProperty("Signals")
+            .EnumerateArray().Where(signal => signal.GetProperty("Path").GetString() == "app/services.py")
+            .Select(signal => (
+                Category: signal.GetProperty("Category").GetString()!,
+                EvidenceKind: signal.GetProperty("EvidenceKind").GetString()!,
+                Language: signal.GetProperty("Language").GetString()!,
+                Line: signal.GetProperty("Line").GetInt32(),
+                Evidence: signal.GetProperty("Evidence").GetString()!))
+            .ToArray();
+        Assert.Equal(signals.Select(signal => (signal.Category, signal.EvidenceKind, signal.Language,
+            signal.Line, signal.Evidence)), jsonSignals);
     }
 
     [Fact]

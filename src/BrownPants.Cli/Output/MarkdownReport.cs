@@ -291,7 +291,7 @@ public static class MarkdownReport
         report.AppendLine("## Architecture pattern signals");
         report.AppendLine();
         report.AppendLine($"- Candidate source signals: {analysis.SignalCount}");
-        report.AppendLine("- These are source-local candidate signals for factory, DI, COM, C++/CLI, and MFC constructs; verify context and relationships in source.");
+        report.AppendLine("- These are source-local candidate signals, not resolved relationships; verify context in the cited source.");
         foreach (var signal in analysis.Signals)
             report.AppendLine($"- {signal.Category} [{signal.EvidenceKind}] ({signal.Language}): `{Escape(signal.Path)}:{signal.Line}` — `{Escape(signal.Evidence)}`");
         if (analysis.SignalCount == 0)

@@ -38,6 +38,18 @@ public static class ArchitecturePatternAnalyzer
     private static readonly Regex MfcInheritanceDeclaration = new(
         @"\b(?:class|struct)\b[^;{]*:\s*(?:[^,;{]*,\s*)*(?:(?:public|protected|private)\s+)?(?:virtual\s+)?(?:CObject|CCmdTarget|CWinThread|CWinAppEx?|CWnd|CFrameWndEx?|CMDIFrameWndEx?|CMDIChildWnd|CMiniFrameWnd|CView|CScrollView|CFormView|CListView|CTreeView|CDocument|CDialogEx?|CPropertyPage|CPropertySheet|CControlBar|CToolBar|CStatusBar|CRecordView|CRecordset)\b",
         Options | RegexOptions.Singleline);
+    private static readonly Regex PythonFactoryType = new(@"^\s*class\s+[A-Za-z_]\w*Factory\b", RegexOptions.CultureInvariant);
+    private static readonly Regex PythonFactoryMethod = new(
+        @"^\s*(?:async\s+)?def\s+(?:create|build|make|resolve)(?:_[A-Za-z_]\w*|[A-Z]\w*)?\s*\(",
+        RegexOptions.CultureInvariant);
+    private static readonly Regex PythonFactoryInvocation = new(
+        @"\b(?:[A-Za-z_]\w*(?:Factory|_factory)|factory)\s*\.\s*(?:create|build|make|resolve)(?:_[A-Za-z_]\w*|[A-Z]\w*)?\s*\(|\b[A-Za-z_]\w*Factory\s*\(",
+        RegexOptions.CultureInvariant);
+    private static readonly Regex PythonProviderRegistration = new(
+        @"\bproviders\.(?:Factory|Singleton|ThreadSafeSingleton|Resource|Callable|Coroutine|AbstractFactory)\s*\(",
+        RegexOptions.CultureInvariant);
+    private static readonly Regex PythonDependencyInjection = new(
+        @"\bDepends\s*\(|\bProvide\s*\[|^\s*@inject(?:\s*\(|\s*$)", RegexOptions.CultureInvariant);
 
     private const RegexOptions Options = RegexOptions.IgnoreCase | RegexOptions.CultureInvariant;
     private const int MaximumMfcDeclarationLines = 32;
@@ -57,6 +69,8 @@ public static class ArchitecturePatternAnalyzer
                     AnalyzeCSharp(source, relativePath, signals, sampleLimit, ref signalCount);
                 else if (Path.GetExtension(relativePath).Equals(".vb", StringComparison.OrdinalIgnoreCase))
                     AnalyzeVisualBasic(source, relativePath, signals, sampleLimit, ref signalCount);
+                else if (IsPythonSource(relativePath))
+                    AnalyzePython(source, relativePath, signals, sampleLimit, ref signalCount);
                 else if (IsNativeSource(relativePath))
                     AnalyzeNative(source, relativePath, signals, sampleLimit, ref signalCount);
             }
@@ -292,6 +306,136 @@ public static class ArchitecturePatternAnalyzer
         }
     }
 
+    private static void AnalyzePython(string source, string path, List<ArchitecturePatternSignal> signals,
+        int sampleLimit, ref int signalCount)
+    {
+        string? tripleQuoteDelimiter = null;
+        var continuedQuote = '\0';
+        var lines = source.Split('\n');
+        for (var index = 0; index < lines.Length; index++)
+        {
+            var code = RemovePythonCommentsAndStrings(lines[index], ref tripleQuoteDelimiter, ref continuedQuote);
+            AddPythonPattern(PythonFactoryType, "Factory type", code, path, index + 1, signals, sampleLimit,
+                ref signalCount);
+            AddPythonPattern(PythonFactoryMethod, "Factory method", code, path, index + 1, signals, sampleLimit,
+                ref signalCount);
+            AddPythonPattern(PythonFactoryInvocation, "Factory invocation", code, path, index + 1, signals,
+                sampleLimit, ref signalCount);
+            AddPythonPattern(PythonProviderRegistration, "DI registration", code, path, index + 1, signals,
+                sampleLimit, ref signalCount);
+            AddPythonPattern(PythonDependencyInjection, "Dependency injection", code, path, index + 1, signals,
+                sampleLimit, ref signalCount);
+        }
+    }
+
+    private static void AddPythonPattern(Regex pattern, string category, string code, string path, int line,
+        List<ArchitecturePatternSignal> signals, int sampleLimit, ref int signalCount)
+    {
+        if (pattern.IsMatch(code))
+            AddLineSignal(category, "Python", path, line, code, signals, sampleLimit, ref signalCount);
+    }
+
+    private static string RemovePythonCommentsAndStrings(string line, ref string? tripleQuoteDelimiter,
+        ref char continuedQuote)
+    {
+        var result = new StringBuilder(line.Length);
+        for (var index = 0; index < line.Length;)
+        {
+            if (continuedQuote != '\0')
+            {
+                var closingIndex = FindPythonStringTerminator(line, continuedQuote.ToString(), index);
+                if (closingIndex < 0)
+                {
+                    result.Append(' ', line.Length - index);
+                    break;
+                }
+
+                var continuedLiteralLength = closingIndex + 1 - index;
+                result.Append(' ', continuedLiteralLength);
+                index += continuedLiteralLength;
+                continuedQuote = '\0';
+                continue;
+            }
+
+            if (tripleQuoteDelimiter is not null)
+            {
+                var closingIndex = FindPythonStringTerminator(line, tripleQuoteDelimiter, index);
+                if (closingIndex < 0)
+                {
+                    result.Append(' ', line.Length - index);
+                    break;
+                }
+
+                var stringLength = closingIndex + tripleQuoteDelimiter.Length - index;
+                result.Append(' ', stringLength);
+                index += stringLength;
+                tripleQuoteDelimiter = null;
+                continue;
+            }
+
+            var current = line[index];
+            if (current == '#')
+                break;
+            if (current is not ('\'' or '"'))
+            {
+                result.Append(current);
+                index++;
+                continue;
+            }
+
+            var delimiter = current.ToString();
+            var isTripleQuoted = index + 2 < line.Length
+                && line[index + 1] == current && line[index + 2] == current;
+            if (isTripleQuoted)
+                delimiter += delimiter + delimiter;
+            var contentStart = index + delimiter.Length;
+            var closingQuote = FindPythonStringTerminator(line, delimiter, contentStart);
+            if (closingQuote < 0)
+            {
+                result.Append(' ', line.Length - index);
+                if (isTripleQuoted)
+                    tripleQuoteDelimiter = delimiter;
+                else if (HasLineContinuation(line, index))
+                    continuedQuote = current;
+                break;
+            }
+
+            var literalLength = closingQuote + delimiter.Length - index;
+            result.Append(' ', literalLength);
+            index += literalLength;
+        }
+
+        return result.ToString();
+    }
+
+    private static bool HasLineContinuation(string line, int startIndex)
+    {
+        var trailingBackslashes = 0;
+        for (var index = line.Length - 1; index >= startIndex && line[index] == '\\'; index--)
+            trailingBackslashes++;
+        return trailingBackslashes % 2 == 1;
+    }
+
+    private static int FindPythonStringTerminator(string line, string delimiter, int startIndex)
+    {
+        var searchIndex = startIndex;
+        while (searchIndex <= line.Length - delimiter.Length)
+        {
+            var matchIndex = line.IndexOf(delimiter, searchIndex, StringComparison.Ordinal);
+            if (matchIndex < 0)
+                return -1;
+
+            var precedingBackslashes = 0;
+            for (var index = matchIndex - 1; index >= 0 && line[index] == '\\'; index--)
+                precedingBackslashes++;
+            if (precedingBackslashes % 2 == 0)
+                return matchIndex;
+            searchIndex = matchIndex + delimiter.Length;
+        }
+
+        return -1;
+    }
+
     private static string RemoveCommentsAndStrings(string line, ref bool inBlockComment, ref char quote,
         ref bool escaped, ref string? rawStringTerminator)
     {
@@ -402,6 +546,9 @@ public static class ArchitecturePatternAnalyzer
 
     private static bool IsNativeSource(string path) => Path.GetExtension(path).ToLowerInvariant() is
         ".cpp" or ".cc" or ".cxx" or ".c" or ".h" or ".hpp" or ".hh" or ".hxx";
+
+    private static bool IsPythonSource(string path) => Path.GetExtension(path).ToLowerInvariant() is
+        ".py" or ".pyw" or ".pyi";
 
     private static void AddSignal(string category, string language, string path, SyntaxNode node, string source,
         List<ArchitecturePatternSignal> signals, int sampleLimit, ref int signalCount)
