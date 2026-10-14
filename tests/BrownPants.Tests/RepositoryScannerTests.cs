@@ -270,8 +270,8 @@ public sealed class RepositoryScannerTests : IDisposable
         Assert.Equal("Lexical candidate patterns", languages["Python"].AnalysisLevel);
         Assert.Equal(1, languages["TypeScript"].SourceFileCount);
         Assert.Equal("Lexical candidate patterns", languages["TypeScript"].AnalysisLevel);
-        Assert.Equal(1, languages["Kotlin"].SourceFileCount);
-        Assert.Equal("Inventory only", languages["Kotlin"].AnalysisLevel);
+        Assert.Equal(2, languages["Kotlin"].SourceFileCount);
+        Assert.Equal("Lexical candidate patterns", languages["Kotlin"].AnalysisLevel);
         Assert.Equal(1, languages["JavaScript"].SourceFileCount);
         Assert.Equal("Lexical candidate patterns", languages["JavaScript"].AnalysisLevel);
         Assert.Equal(1, languages["Go"].SourceFileCount);
@@ -1122,6 +1122,109 @@ public sealed class RepositoryScannerTests : IDisposable
             .ToArray();
         Assert.Equal(signals.Select(signal => (signal.Category, signal.EvidenceKind, signal.Language,
             signal.Path, signal.Line, signal.Evidence)), jsonSignals);
+    }
+
+    [Fact]
+    public void Scan_ReportsJvmFactoryAndDependencyCandidatesAndFiltersCommentsAndLiterals()
+    {
+        var tripleQuote = new string('"', 3);
+        var javaSource = """
+            package sample;
+            @Configuration
+            class ServiceFactory {
+                @Bean Service createService() { return new Service(); }
+                @Provides Service provideService() { return new Service(); }
+            }
+            @Service
+            class Service {}
+            class Consumer { @Inject Consumer(Service service) {} }
+            class AutowiredConsumer { @Autowired Service service; }
+            class FactoryUse { void run(ServiceFactory factory) { factory.createService(); } }
+            class GuiceModule extends AbstractModule { void configure() { bind(Service.class).to(ServiceImpl.class); } }
+            class Bootstrap { void run() { var injector = Guice.createInjector(new GuiceModule()); injector.getInstance(Service.class); } }
+            // @Inject class CommentFactory { @Bean Object createFake() {} }
+            /* @Autowired class BlockCommentFactory {} */
+            String ignored = __TRIPLE__
+                "@Inject class TextBlockFactory { @Provides Object makeFake(); }"
+                __TRIPLE__;
+            String quoted = "@Inject @Bean fakeFactory.createFake()";
+            """.Replace("__TRIPLE__", tripleQuote, StringComparison.Ordinal);
+        Write("jvm/Services.java", string.Join("\r\n", javaSource.Split('\n')));
+
+        var kotlinSource = """
+            package sample
+            @Module
+            class KotlinFactory {
+                @Provides fun createService(): Service = Service()
+            }
+            class KotlinConsumer @Inject constructor(service: Service)
+            class KotlinFactoryUse { fun run(factory: KotlinFactory) { factory.createService() } }
+            // @Inject class CommentFactory { @Bean fun buildFake() = Any() }
+            /* outer /* @Provides class NestedCommentFactory */ @Inject */
+            val ignored = __TRIPLE__
+                @Inject @Bean class RawStringFactory { @Provides fun makeFake() = Any() }
+            __TRIPLE__
+        """.Replace("__TRIPLE__", tripleQuote, StringComparison.Ordinal);
+        Write("jvm/Services.kt", kotlinSource);
+        Write("jvm/scripts.kts", """
+            @Configuration
+            class ScriptFactory {
+                @Bean
+                fun buildClient(): Client = Client()
+            }
+            """);
+
+        var inventory = RepositoryScanner.Scan(_root, sampleLimit: 50);
+        var signals = inventory.ArchitecturePatterns.Signals
+            .Where(signal => signal.Path.StartsWith("jvm/", StringComparison.Ordinal))
+            .ToArray();
+        Assert.Contains(signals, signal => signal.Language == "Java" && signal.Category == "Factory type");
+        Assert.Contains(signals, signal => signal.Language == "Java" && signal.Category == "Factory method");
+        Assert.Contains(signals, signal => signal.Language == "Java" && signal.Category == "Factory invocation");
+        Assert.Contains(signals, signal => signal.Language == "Java" && signal.Category == "DI registration");
+        Assert.Contains(signals, signal => signal.Language == "Java" && signal.Category == "DI resolution");
+        Assert.Contains(signals, signal => signal.Language == "Java" && signal.Category == "Dependency injection");
+        Assert.Contains(signals, signal => signal.Language == "Kotlin" && signal.Category == "Factory type");
+        Assert.Contains(signals, signal => signal.Language == "Kotlin" && signal.Category == "Factory method");
+        Assert.Contains(signals, signal => signal.Language == "Kotlin" && signal.Category == "Factory invocation");
+        Assert.DoesNotContain(signals, signal => signal.Evidence.Contains("Fake", StringComparison.Ordinal)
+            || signal.Evidence.Contains("Comment", StringComparison.Ordinal)
+            || signal.Evidence.Contains("NestedComment", StringComparison.Ordinal)
+            || signal.Evidence.Contains("RawString", StringComparison.Ordinal)
+            || signal.Evidence.Contains("TextBlock", StringComparison.Ordinal));
+        Assert.Contains(inventory.LanguageCoverage, language => language.Language == "Java"
+            && language.AnalysisLevel == "Lexical candidate patterns");
+        Assert.Contains(inventory.LanguageCoverage, language => language.Language == "Kotlin"
+            && language.SourceFileCount == 2 && language.AnalysisLevel == "Lexical candidate patterns");
+        Assert.All(signals, signal => Assert.Equal("Candidate", signal.EvidenceKind));
+        Assert.All(signals, signal => Assert.True(signal.Line > 0));
+        Assert.Contains(signals, signal => signal.Path == "jvm/Services.java" && signal.Category == "Factory type"
+            && signal.Line == 3);
+        Assert.Contains(signals, signal => signal.Path == "jvm/Services.java" && signal.Category == "Factory invocation"
+            && signal.Line == 11);
+
+        var markdown = MarkdownReport.Render(inventory);
+        Assert.All(signals, signal => Assert.Contains(
+            $"{signal.Category} [Candidate] ({signal.Language}): `{signal.Path}:{signal.Line}`", markdown));
+        using var jsonOutput = new StringWriter();
+        using var repeatedJsonOutput = new StringWriter();
+        using var error = new StringWriter();
+        Assert.Equal(0, Program.Run(new[] { "inspect", _root, "--format", "json", "--limit", "50" }, jsonOutput, error));
+        Assert.Equal(0, Program.Run(new[] { "inspect", _root, "--format", "json", "--limit", "50" }, repeatedJsonOutput, error));
+        Assert.Equal(jsonOutput.ToString(), repeatedJsonOutput.ToString());
+        using var json = System.Text.Json.JsonDocument.Parse(jsonOutput.ToString());
+        var jsonSignals = json.RootElement.GetProperty("ArchitecturePatterns").GetProperty("Signals")
+            .EnumerateArray().Where(signal => signal.GetProperty("Path").GetString()!.StartsWith("jvm/", StringComparison.Ordinal))
+            .ToArray();
+        Assert.Equal(signals.Select(signal => (signal.Category, signal.EvidenceKind, signal.Language, signal.Path,
+            signal.Line, signal.Evidence)), jsonSignals.Select(signal => (
+            signal.GetProperty("Category").GetString()!,
+            signal.GetProperty("EvidenceKind").GetString()!,
+            signal.GetProperty("Language").GetString()!,
+            signal.GetProperty("Path").GetString()!,
+            signal.GetProperty("Line").GetInt32(),
+            signal.GetProperty("Evidence").GetString()!)));
+        Assert.Equal(markdown, MarkdownReport.Render(RepositoryScanner.Scan(_root, sampleLimit: 50)));
     }
 
     [Fact]

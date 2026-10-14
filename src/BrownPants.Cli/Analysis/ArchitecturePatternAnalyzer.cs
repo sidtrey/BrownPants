@@ -68,6 +68,24 @@ public static class ArchitecturePatternAnalyzer
         RegexOptions.CultureInvariant);
     private static readonly Regex JavaScriptDependencyInjection = new(
         @"@\s*(?:Injectable|Inject|injectable|inject)\b|(?<![.$\w])inject\s*\(", RegexOptions.CultureInvariant);
+    private static readonly Regex JvmFactoryType = new(
+        @"\b(?:class|interface|object|record|enum)\s+[A-Za-z_$][\w$]*Factory\b", RegexOptions.CultureInvariant);
+    private static readonly Regex JvmFactoryMethod = new(
+        @"^\s*(?:@[A-Za-z_$][\w$.]*(?:\s*\([^()\r\n]*\))?\s+)*(?:(?:public|protected|private|static|final|abstract|synchronized|override|open|internal|suspend|inline|tailrec|operator|fun)\s+)*(?:[A-Za-z_$][\w$<>?,.\[\] ]*\s+)?(?:fun\s+)?(?:create|build|make|resolve|provide)(?:_[A-Za-z_$][\w$]*|[A-Z_$][\w$]*)?\s*\(",
+        RegexOptions.CultureInvariant);
+    private static readonly Regex JvmFactoryInvocation = new(
+        @"\b(?:[A-Za-z_$][\w$]*(?:Factory|_factory)|factory)\s*\.\s*(?:create|build|make|resolve|provide)[A-Za-z_$][\w$]*\s*\(|\b[A-Za-z_$][\w$]*Factory\s*\(",
+        RegexOptions.CultureInvariant);
+    private static readonly Regex JvmProviderRegistration = new(
+        @"@\s*(?:Bean|Provides|Binds|BindsInstance|Produces|Module|Component|Configuration|Singleton|Service|Repository|Controller|RestController|Scope)\b",
+        RegexOptions.CultureInvariant);
+    private static readonly Regex JvmDependencyInjection = new(
+        @"@\s*(?:Inject|Autowired|Resource|Injectable)\b", RegexOptions.CultureInvariant);
+    private static readonly Regex JvmContainerBinding = new(
+        @"\b(?:binder\s*\.\s*)?bind\s*(?:<[^;\r\n]*>)?\s*\(", RegexOptions.CultureInvariant);
+    private static readonly Regex JvmContainerResolution = new(
+        @"\bGuice\s*\.\s*createInjector\s*\(|\b(?:[A-Za-z_$][\w$]*Injector|injector)\s*\.\s*getInstance\s*(?:<[^;\r\n]*>)?\s*\(|\bDagger[A-Za-z_$][\w$]*\s*\.\s*(?:create|builder)\s*\(",
+        RegexOptions.CultureInvariant);
 
     private const RegexOptions Options = RegexOptions.IgnoreCase | RegexOptions.CultureInvariant;
     private const int MaximumMfcDeclarationLines = 32;
@@ -89,6 +107,8 @@ public static class ArchitecturePatternAnalyzer
                     AnalyzeVisualBasic(source, relativePath, signals, sampleLimit, ref signalCount);
                 else if (IsJavaScriptOrTypeScriptSource(relativePath))
                     AnalyzeJavaScript(source, relativePath, signals, sampleLimit, ref signalCount);
+                else if (IsJvmSource(relativePath))
+                    AnalyzeJvm(source, relativePath, signals, sampleLimit, ref signalCount);
                 else if (IsPythonSource(relativePath))
                     AnalyzePython(source, relativePath, signals, sampleLimit, ref signalCount);
                 else if (IsNativeSource(relativePath))
@@ -377,6 +397,127 @@ public static class ArchitecturePatternAnalyzer
             AddJavaScriptPattern(JavaScriptDependencyInjection, "Dependency injection", code, language, path,
                 index + 1, signals, sampleLimit, ref signalCount);
         }
+    }
+
+    private static void AnalyzeJvm(string source, string path, List<ArchitecturePatternSignal> signals,
+        int sampleLimit, ref int signalCount)
+    {
+        var extension = Path.GetExtension(path).ToLowerInvariant();
+        var language = extension == ".java" ? "Java" : "Kotlin";
+        var code = MaskJvmCommentsAndStrings(source.Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n'), language == "Kotlin");
+        var lines = code.Split('\n');
+        for (var index = 0; index < lines.Length; index++)
+        {
+            AddJvmPattern(JvmFactoryType, "Factory type", lines[index], language, path, index + 1, signals,
+                sampleLimit, ref signalCount);
+            AddJvmPattern(JvmFactoryMethod, "Factory method", lines[index], language, path, index + 1, signals,
+                sampleLimit, ref signalCount);
+            AddJvmPattern(JvmFactoryInvocation, "Factory invocation", lines[index], language, path, index + 1,
+                signals, sampleLimit, ref signalCount);
+            AddJvmPattern(JvmProviderRegistration, "DI registration", lines[index], language, path, index + 1,
+                signals, sampleLimit, ref signalCount);
+            AddJvmPattern(JvmDependencyInjection, "Dependency injection", lines[index], language, path, index + 1,
+                signals, sampleLimit, ref signalCount);
+            AddJvmPattern(JvmContainerBinding, "DI registration", lines[index], language, path, index + 1, signals,
+                sampleLimit, ref signalCount);
+            AddJvmPattern(JvmContainerResolution, "DI resolution", lines[index], language, path, index + 1, signals,
+                sampleLimit, ref signalCount);
+        }
+    }
+
+    private static void AddJvmPattern(Regex pattern, string category, string code, string language, string path,
+        int line, List<ArchitecturePatternSignal> signals, int sampleLimit, ref int signalCount)
+    {
+        if (pattern.IsMatch(code))
+            AddLineSignal(category, language, path, line, code, signals, sampleLimit, ref signalCount);
+    }
+
+    private static string MaskJvmCommentsAndStrings(string source, bool kotlin)
+    {
+        var result = source.ToCharArray();
+        var blockCommentDepth = 0;
+        var quote = '\0';
+        var escaped = false;
+        var inTripleQuotedString = false;
+        for (var index = 0; index < source.Length; index++)
+        {
+            var current = source[index];
+            var next = index + 1 < source.Length ? source[index + 1] : '\0';
+            var startsTripleQuote = index + 2 < source.Length
+                && source[index] == '"' && source[index + 1] == '"' && source[index + 2] == '"';
+            if (inTripleQuotedString)
+            {
+                if (startsTripleQuote)
+                {
+                    result[index] = result[index + 1] = result[index + 2] = ' ';
+                    index += 2;
+                    inTripleQuotedString = false;
+                }
+                else if (current != '\n') result[index] = ' ';
+                continue;
+            }
+
+            if (blockCommentDepth > 0)
+            {
+                if (current == '/' && next == '*')
+                {
+                    if (kotlin) blockCommentDepth++;
+                    result[index] = result[index + 1] = ' ';
+                    index++;
+                }
+                else if (current == '*' && next == '/')
+                {
+                    blockCommentDepth--;
+                    result[index] = result[index + 1] = ' ';
+                    index++;
+                }
+                else if (current != '\n') result[index] = ' ';
+                continue;
+            }
+
+            if (quote != '\0')
+            {
+                if (current == '\n')
+                {
+                    quote = '\0';
+                    escaped = false;
+                }
+                else
+                {
+                    result[index] = ' ';
+                    if (escaped) escaped = false;
+                    else if (current == '\\') escaped = true;
+                    else if (current == quote) quote = '\0';
+                }
+                continue;
+            }
+
+            if (current == '/' && next == '/')
+            {
+                while (index < source.Length && source[index] != '\n') result[index++] = ' ';
+                if (index < source.Length) index--;
+            }
+            else if (current == '/' && next == '*')
+            {
+                blockCommentDepth = 1;
+                result[index] = result[index + 1] = ' ';
+                index++;
+            }
+            else if (startsTripleQuote)
+            {
+                inTripleQuotedString = true;
+                result[index] = result[index + 1] = result[index + 2] = ' ';
+                index += 2;
+            }
+            else if (current is '\'' or '"')
+            {
+                quote = current;
+                result[index] = ' ';
+            }
+        }
+
+        return new string(result);
     }
 
     private static void AddJavaScriptPattern(Regex pattern, string category, string code, string language,
@@ -673,6 +814,9 @@ public static class ArchitecturePatternAnalyzer
 
     private static bool IsJavaScriptOrTypeScriptSource(string path) => Path.GetExtension(path).ToLowerInvariant() is
         ".js" or ".jsx" or ".mjs" or ".cjs" or ".ts" or ".tsx" or ".mts" or ".cts";
+
+    private static bool IsJvmSource(string path) => Path.GetExtension(path).ToLowerInvariant() is
+        ".java" or ".kt" or ".kts";
 
     private static void AddSignal(string category, string language, string path, SyntaxNode node, string source,
         List<ArchitecturePatternSignal> signals, int sampleLimit, ref int signalCount)
