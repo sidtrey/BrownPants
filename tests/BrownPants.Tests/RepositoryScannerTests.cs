@@ -1724,6 +1724,98 @@ public sealed class RepositoryScannerTests : IDisposable
     }
 
     [Fact]
+    public void Scan_ExcludesStringHelpersAndKeepsObjectFactoryMethodsInCSharpAndVisualBasic()
+    {
+        Write("client/FactoryReturnTypes.cs", """
+            public class Product { }
+            public static class FactoryMethods
+            {
+                public static string? ResolveCustomActiveWorkItemPath() => null;
+                public static global::System.String? ResolveVersionPath() => null;
+                public static string CreateLabel() => "label";
+                public static string BuildLabel() => "label";
+                public static Product BuildProduct() => new Product();
+            }
+            """);
+        Write("client/FactoryReturnTypes.vb", """
+            Public Class Product
+            End Class
+
+            Public Class FactoryMethods
+                Public Function ResolveOutputPath() As String
+                    Return "output"
+                End Function
+
+                Public Function CreateDisplayName() As Global.System.String
+                    Return "display"
+                End Function
+
+                Public Function CreateLabel() As String
+                    Return "label"
+                End Function
+
+                Public Function BuildLabel() As String
+                    Return "label"
+                End Function
+
+                Public Function BuildProduct() As Product
+                    Return New Product()
+                End Function
+            End Class
+            """);
+
+        using var jsonOutput = new StringWriter();
+        using var error = new StringWriter();
+        Assert.Equal(0, Program.Run(new[] { "inspect", _root, "--format", "json" }, jsonOutput, error));
+        using var report = System.Text.Json.JsonDocument.Parse(jsonOutput.ToString());
+        var signals = report.RootElement.GetProperty("ArchitecturePatterns").GetProperty("Signals")
+            .EnumerateArray()
+            .Where(signal => signal.GetProperty("Category").GetString() == "Factory method")
+            .ToArray();
+
+        Assert.DoesNotContain(signals, signal => signal.GetProperty("Evidence").GetString()!
+            .Contains("ResolveCustomActiveWorkItemPath", StringComparison.Ordinal));
+        Assert.DoesNotContain(signals, signal => signal.GetProperty("Evidence").GetString()!
+            .Contains("ResolveOutputPath", StringComparison.Ordinal));
+        Assert.DoesNotContain(signals, signal => signal.GetProperty("Evidence").GetString()!
+            .Contains("ResolveVersionPath", StringComparison.Ordinal));
+        Assert.DoesNotContain(signals, signal => signal.GetProperty("Evidence").GetString()!
+            .Contains("CreateDisplayName", StringComparison.Ordinal));
+        Assert.DoesNotContain(signals, signal => signal.GetProperty("Evidence").GetString()!
+            .Contains("CreateLabel", StringComparison.Ordinal));
+        Assert.DoesNotContain(signals, signal => signal.GetProperty("Evidence").GetString()!
+            .Contains("BuildLabel", StringComparison.Ordinal));
+        var csharpFactory = Assert.Single(signals, signal => signal.GetProperty("Language").GetString() == "C#");
+        Assert.Equal("client/FactoryReturnTypes.cs", csharpFactory.GetProperty("Path").GetString());
+        Assert.True(csharpFactory.GetProperty("Line").GetInt32() > 0);
+        Assert.Equal("Candidate", csharpFactory.GetProperty("EvidenceKind").GetString());
+        Assert.Contains("BuildProduct", csharpFactory.GetProperty("Evidence").GetString());
+        var visualBasicFactory = Assert.Single(signals, signal => signal.GetProperty("Language").GetString() == "VB.NET");
+        Assert.Equal("client/FactoryReturnTypes.vb", visualBasicFactory.GetProperty("Path").GetString());
+        Assert.True(visualBasicFactory.GetProperty("Line").GetInt32() > 0);
+        Assert.Equal("Candidate", visualBasicFactory.GetProperty("EvidenceKind").GetString());
+        Assert.Contains("BuildProduct", visualBasicFactory.GetProperty("Evidence").GetString());
+
+        using var markdownOutput = new StringWriter();
+        Assert.Equal(0, Program.Run(new[] { "inspect", _root }, markdownOutput, error));
+        var factoryLines = markdownOutput.ToString().Split('\n')
+            .Where(line => line.Contains("Factory method [Candidate]", StringComparison.Ordinal))
+            .ToArray();
+        Assert.DoesNotContain(factoryLines, line => line.Contains("ResolveCustomActiveWorkItemPath", StringComparison.Ordinal));
+        Assert.DoesNotContain(factoryLines, line => line.Contains("ResolveOutputPath", StringComparison.Ordinal));
+        Assert.DoesNotContain(factoryLines, line => line.Contains("ResolveVersionPath", StringComparison.Ordinal));
+        Assert.DoesNotContain(factoryLines, line => line.Contains("CreateDisplayName", StringComparison.Ordinal));
+        Assert.DoesNotContain(factoryLines, line => line.Contains("CreateLabel", StringComparison.Ordinal));
+        Assert.DoesNotContain(factoryLines, line => line.Contains("BuildLabel", StringComparison.Ordinal));
+        Assert.Contains(factoryLines, line => line.Contains("(C#)", StringComparison.Ordinal)
+            && line.Contains("FactoryReturnTypes.cs", StringComparison.Ordinal)
+            && line.Contains("BuildProduct", StringComparison.Ordinal));
+        Assert.Contains(factoryLines, line => line.Contains("(VB.NET)", StringComparison.Ordinal)
+            && line.Contains("FactoryReturnTypes.vb", StringComparison.Ordinal)
+            && line.Contains("BuildProduct", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void SemanticAnalyzer_ResolvesInvocationTargetsFromCompilationSymbols()
     {
         var tree = CSharpSyntaxTree.ParseText("""

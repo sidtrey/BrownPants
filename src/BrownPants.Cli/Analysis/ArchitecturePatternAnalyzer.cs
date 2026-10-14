@@ -933,13 +933,25 @@ public static class ArchitecturePatternAnalyzer
         || HasFactoryPrefix(name, "Resolve", comparison);
 
     private static bool IsFactoryMethod(MethodDeclarationSyntax method) =>
-        (method.ReturnType is not PredefinedTypeSyntax predefinedType
-            || !predefinedType.Keyword.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.VoidKeyword))
+        !method.ReturnType.ToString().Equals("void", StringComparison.Ordinal)
+        && !IsStringReturnType(method.ReturnType.ToString())
         && IsFactoryMethod(method.Identifier.ValueText);
 
     private static bool IsFactoryMethod(VisualBasicMethodStatement method) =>
         string.Equals(method.SubOrFunctionKeyword.ValueText, "Function", StringComparison.OrdinalIgnoreCase)
+        && !IsStringReturnType(method.AsClause?.Type().ToString() ?? string.Empty)
         && IsFactoryMethod(method.Identifier.ValueText, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsStringReturnType(string typeName)
+    {
+        var normalized = typeName
+            .Replace("global::", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace("Global.", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace("?", string.Empty, StringComparison.Ordinal)
+            .Replace(" ", string.Empty, StringComparison.Ordinal);
+        return normalized.Equals("string", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("System.String", StringComparison.OrdinalIgnoreCase);
+    }
 
     private static bool HasFactoryPrefix(string name, string prefix, StringComparison comparison) =>
         name.StartsWith(prefix, comparison)

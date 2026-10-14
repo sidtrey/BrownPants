@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    {
+      "taskId": "T001",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "SC-001",
+        "SC-002"
+      ],
+      "verificationCommand": "dotnet test BrownPants.sln --configuration Release --filter FullyQualifiedName~Factory",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/RepositoryScannerTests.cs",
+        "specs/022-filter-value-factory-candidates/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T002",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "SC-001",
+        "SC-002",
+        "SC-003"
+      ],
+      "verificationCommand": "dotnet test BrownPants.sln --configuration Release --filter FullyQualifiedName~Factory",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/ArchitecturePatternAnalyzer.cs",
+        "specs/022-filter-value-factory-candidates/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T003",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "SC-003"
+      ],
+      "verificationCommand": "dotnet test BrownPants.sln --configuration Release",
+      "evidencePaths": [
+        "README.md",
+        "specs/022-filter-value-factory-candidates/quickstart.md",
+        "specs/022-filter-value-factory-candidates/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T004",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "SC-001",
+        "SC-002",
+        "SC-003"
+      ],
+      "verificationCommand": "dotnet test BrownPants.sln --configuration Release",
+      "evidencePaths": [
+        "specs/022-filter-value-factory-candidates/verification.md"
+      ],
+      "result": "passed"
+    }
+  ]
+}
