@@ -10,7 +10,12 @@ permissions:
 
 jobs:
   validate:
-    runs-on: windows-latest
+    name: Validate (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -46,9 +51,11 @@ jobs:
           $toolPath = Join-Path $env:RUNNER_TEMP 'brownpants-tools'
           New-Item -ItemType Directory -Path $toolPath -Force | Out-Null
           dotnet tool install --tool-path $toolPath --add-source ./artifacts BrownPants.Cli --version 0.1.0
-          $tool = Join-Path $toolPath 'brownpants.exe'
+          $toolName = if ($IsWindows) { 'brownpants.exe' } else { 'brownpants' }
+          $tool = Join-Path $toolPath $toolName
           & $tool --help
           if ($LASTEXITCODE -ne 0) { throw "Packed tool help failed with exit code $LASTEXITCODE." }
           $report = & $tool inspect . --format json --limit 10 | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0) { throw "Packed tool inspection failed with exit code $LASTEXITCODE." }
+          if ($report.SchemaVersion -ne 1) { throw "Expected schema version 1, got '$($report.SchemaVersion)' instead." }
           if ($report.FileCount -lt 1) { throw 'Packed tool returned an empty repository inventory.' }
