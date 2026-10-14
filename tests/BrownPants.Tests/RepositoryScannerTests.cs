@@ -1320,7 +1320,7 @@ public sealed class RepositoryScannerTests : IDisposable
                 __TRIPLE__;
             String quoted = "@Inject @Bean fakeFactory.createFake()";
             """.Replace("__TRIPLE__", tripleQuote, StringComparison.Ordinal);
-        Write("jvm/Services.java", string.Join("\r\n", javaSource.Split('\n')));
+        Write("jvm/Services.java", ToCrLf(javaSource));
 
         var kotlinSource = """
             package sample
@@ -1432,7 +1432,7 @@ public sealed class RepositoryScannerTests : IDisposable
             func NewWidget() *Widget { return &Widget{} }
             func UseWidget() { _ = NewWidget() }
             """;
-        Write("go/crlf.go", string.Join("\r\n", crlfSource.Split('\n')));
+        Write("go/crlf.go", ToCrLf(crlfSource));
 
         var inventory = RepositoryScanner.Scan(_root, sampleLimit: 50);
         var signals = inventory.ArchitecturePatterns.Signals
@@ -1834,5 +1834,11 @@ public sealed class RepositoryScannerTests : IDisposable
         var path = Path.Combine(_root, relativePath.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, content);
+    }
+
+    private static string ToCrLf(string source)
+    {
+        var normalized = source.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        return string.Join("\r\n", normalized.Split('\n'));
     }
 }
