@@ -269,10 +269,11 @@ public sealed class RepositoryScannerTests : IDisposable
         Assert.Equal("Roslyn syntax and candidate patterns", languages["C#"].AnalysisLevel);
         Assert.Equal("Lexical candidate patterns", languages["Python"].AnalysisLevel);
         Assert.Equal(1, languages["TypeScript"].SourceFileCount);
-        Assert.Equal("Inventory only", languages["TypeScript"].AnalysisLevel);
+        Assert.Equal("Lexical candidate patterns", languages["TypeScript"].AnalysisLevel);
         Assert.Equal(1, languages["Kotlin"].SourceFileCount);
         Assert.Equal("Inventory only", languages["Kotlin"].AnalysisLevel);
         Assert.Equal(1, languages["JavaScript"].SourceFileCount);
+        Assert.Equal("Lexical candidate patterns", languages["JavaScript"].AnalysisLevel);
         Assert.Equal(1, languages["Go"].SourceFileCount);
         Assert.Equal(1, languages["Swift"].SourceFileCount);
         Assert.Equal(1, languages["Dart"].SourceFileCount);
@@ -1031,6 +1032,96 @@ public sealed class RepositoryScannerTests : IDisposable
             .ToArray();
         Assert.Equal(signals.Select(signal => (signal.Category, signal.EvidenceKind, signal.Language,
             signal.Line, signal.Evidence)), jsonSignals);
+    }
+
+    [Fact]
+    public void Scan_ReportsJavaScriptAndTypeScriptFactoryAndDependencyCandidates()
+    {
+        Write("web/legacy.js", """
+            export class LegacyFactory {
+                buildClient() { return {}; }
+            }
+            const legacyFactory = new LegacyFactory();
+            legacyFactory.buildClient();
+            const provider = { useFactory: legacyFactory };
+            container.bind(Client).toSelf();
+            container.get(Client);
+            // class CommentFactory { createFake() {} } container.bind(Fake);
+            const text = "container.bind(Fake); useFactory: fakeFactory";
+            const template = `class TemplateFactory { buildFake() {} } container.get(Fake);`;
+            /*
+            @Injectable()
+            container.bind(Fake);
+            */
+            """);
+        Write("web/report.ts", """
+            import { Inject, Injectable, inject } from '@angular/core';
+            @Injectable({ providedIn: 'root' })
+            export class ReportFactory {
+                createReport(): Report { return new Report(); }
+            }
+            const reportFactory = new ReportFactory();
+            reportFactory.createReport();
+            const provider = { provide: Report, useFactory: reportFactory };
+            const resolved = inject(ReportService);
+            class Consumer { constructor(@Inject(ReportService) service: ReportService) {} }
+            container.bind(ReportService).toSelf();
+            container.get(ReportService);
+            // class CommentFactory { createFake() {} } @Injectable()
+            const text = "container.get(Fake); useFactory: fakeFactory";
+            const template = `class TemplateFactory { makeFake() {} } inject(Fake);`;
+            /* @Inject(Fake) container.bind(Fake); */
+            """);
+
+        var inventory = RepositoryScanner.Scan(_root, sampleLimit: 50);
+        var signals = inventory.ArchitecturePatterns.Signals
+            .Where(signal => signal.Path is "web/legacy.js" or "web/report.ts")
+            .ToArray();
+        var javascriptSignals = signals.Where(signal => signal.Path == "web/legacy.js").ToArray();
+        var typeScriptSignals = signals.Where(signal => signal.Path == "web/report.ts").ToArray();
+
+        Assert.Equal(7, javascriptSignals.Length);
+        Assert.Equal(10, typeScriptSignals.Length);
+        Assert.All(javascriptSignals, signal => Assert.Equal("JavaScript", signal.Language));
+        Assert.All(typeScriptSignals, signal => Assert.Equal("TypeScript", signal.Language));
+        Assert.All(signals, signal => Assert.Equal("Candidate", signal.EvidenceKind));
+        Assert.Contains(signals, signal => signal.Category == "Factory type");
+        Assert.Contains(signals, signal => signal.Category == "Factory method");
+        Assert.Contains(signals, signal => signal.Category == "Factory invocation");
+        Assert.Contains(signals, signal => signal.Category == "DI registration");
+        Assert.Contains(signals, signal => signal.Category == "DI resolution");
+        Assert.Contains(signals, signal => signal.Category == "Dependency injection");
+        Assert.DoesNotContain(signals, signal => signal.Evidence.Contains("Fake", StringComparison.Ordinal));
+        Assert.Contains(inventory.LanguageCoverage, language => language.Language == "JavaScript"
+            && language.AnalysisLevel == "Lexical candidate patterns");
+        Assert.Contains(inventory.LanguageCoverage, language => language.Language == "TypeScript"
+            && language.AnalysisLevel == "Lexical candidate patterns");
+
+        var repeatedInventory = RepositoryScanner.Scan(_root, sampleLimit: 50);
+        var markdown = MarkdownReport.Render(inventory);
+        Assert.Equal(markdown, MarkdownReport.Render(repeatedInventory));
+        Assert.All(signals, signal => Assert.Contains(
+            $"{signal.Category} [Candidate] ({signal.Language}): `{signal.Path}:{signal.Line}`", markdown));
+        using var output = new StringWriter();
+        using var repeatedOutput = new StringWriter();
+        using var error = new StringWriter();
+        var args = new[] { "inspect", _root, "--format", "json", "--limit", "50" };
+        Assert.Equal(0, Program.Run(args, output, error));
+        Assert.Equal(0, Program.Run(args, repeatedOutput, error));
+        Assert.Equal(output.ToString(), repeatedOutput.ToString());
+        using var json = System.Text.Json.JsonDocument.Parse(output.ToString());
+        var jsonSignals = json.RootElement.GetProperty("ArchitecturePatterns").GetProperty("Signals")
+            .EnumerateArray().Where(signal => signal.GetProperty("Path").GetString() is "web/legacy.js" or "web/report.ts")
+            .Select(signal => (
+                Category: signal.GetProperty("Category").GetString()!,
+                EvidenceKind: signal.GetProperty("EvidenceKind").GetString()!,
+                Language: signal.GetProperty("Language").GetString()!,
+                Path: signal.GetProperty("Path").GetString()!,
+                Line: signal.GetProperty("Line").GetInt32(),
+                Evidence: signal.GetProperty("Evidence").GetString()!))
+            .ToArray();
+        Assert.Equal(signals.Select(signal => (signal.Category, signal.EvidenceKind, signal.Language,
+            signal.Path, signal.Line, signal.Evidence)), jsonSignals);
     }
 
     [Fact]

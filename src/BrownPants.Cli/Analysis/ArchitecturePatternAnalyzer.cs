@@ -50,6 +50,24 @@ public static class ArchitecturePatternAnalyzer
         RegexOptions.CultureInvariant);
     private static readonly Regex PythonDependencyInjection = new(
         @"\bDepends\s*\(|\bProvide\s*\[|^\s*@inject(?:\s*\(|\s*$)", RegexOptions.CultureInvariant);
+    private static readonly Regex JavaScriptFactoryType = new(
+        @"\bclass\s+[A-Za-z_$][\w$]*Factory\b", RegexOptions.CultureInvariant);
+    private static readonly Regex JavaScriptFactoryMethod = new(
+        @"^\s*(?:(?:export|default|async|public|private|protected|static|readonly|override)\s+)*(?:function\s+)?(?:create|build|make|resolve)(?:_[A-Za-z_$][\w$]*|[A-Z_$][\w$]*)?\s*(?:<[^;\r\n]*>)?\s*\([^;\r\n]*\)\s*(?::[^\{;\r\n]+)?\s*(?:\{|;|=>)",
+        RegexOptions.CultureInvariant);
+    private static readonly Regex JavaScriptFactoryInvocation = new(
+        @"\b(?:[A-Za-z_$][\w$]*(?:Factory|_factory)|factory)\s*(?:\.\s*(?:create|build|make|resolve)[A-Za-z_$][\w$]*)?\s*\(",
+        RegexOptions.CultureInvariant);
+    private static readonly Regex JavaScriptProviderRegistration = new(
+        @"\buseFactory\s*:", RegexOptions.CultureInvariant);
+    private static readonly Regex JavaScriptContainerBinding = new(
+        @"\b[A-Za-z_$]*[Cc]ontainer\w*\s*\.\s*bind\s*(?:<[^;\r\n]*>)?\s*\(",
+        RegexOptions.CultureInvariant);
+    private static readonly Regex JavaScriptContainerResolution = new(
+        @"\b[A-Za-z_$]*[Cc]ontainer\w*\s*\.\s*(?:get|resolve)\s*(?:<[^;\r\n]*>)?\s*\(",
+        RegexOptions.CultureInvariant);
+    private static readonly Regex JavaScriptDependencyInjection = new(
+        @"@\s*(?:Injectable|Inject|injectable|inject)\b|(?<![.$\w])inject\s*\(", RegexOptions.CultureInvariant);
 
     private const RegexOptions Options = RegexOptions.IgnoreCase | RegexOptions.CultureInvariant;
     private const int MaximumMfcDeclarationLines = 32;
@@ -69,6 +87,8 @@ public static class ArchitecturePatternAnalyzer
                     AnalyzeCSharp(source, relativePath, signals, sampleLimit, ref signalCount);
                 else if (Path.GetExtension(relativePath).Equals(".vb", StringComparison.OrdinalIgnoreCase))
                     AnalyzeVisualBasic(source, relativePath, signals, sampleLimit, ref signalCount);
+                else if (IsJavaScriptOrTypeScriptSource(relativePath))
+                    AnalyzeJavaScript(source, relativePath, signals, sampleLimit, ref signalCount);
                 else if (IsPythonSource(relativePath))
                     AnalyzePython(source, relativePath, signals, sampleLimit, ref signalCount);
                 else if (IsNativeSource(relativePath))
@@ -329,6 +349,105 @@ public static class ArchitecturePatternAnalyzer
         }
     }
 
+    private static void AnalyzeJavaScript(string source, string path, List<ArchitecturePatternSignal> signals,
+        int sampleLimit, ref int signalCount)
+    {
+        var language = Path.GetExtension(path).ToLowerInvariant() is ".ts" or ".tsx" or ".mts" or ".cts"
+            ? "TypeScript" : "JavaScript";
+        var inBlockComment = false;
+        var quote = '\0';
+        var escaped = false;
+        var normalizedSource = source.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        var lines = normalizedSource.Split('\n');
+        for (var index = 0; index < lines.Length; index++)
+        {
+            var code = RemoveJavaScriptCommentsAndStrings(lines[index], ref inBlockComment, ref quote, ref escaped);
+            AddJavaScriptPattern(JavaScriptFactoryType, "Factory type", code, language, path, index + 1, signals,
+                sampleLimit, ref signalCount);
+            AddJavaScriptPattern(JavaScriptFactoryMethod, "Factory method", code, language, path, index + 1,
+                signals, sampleLimit, ref signalCount);
+            AddJavaScriptPattern(JavaScriptFactoryInvocation, "Factory invocation", code, language, path,
+                index + 1, signals, sampleLimit, ref signalCount);
+            AddJavaScriptPattern(JavaScriptProviderRegistration, "DI registration", code, language, path,
+                index + 1, signals, sampleLimit, ref signalCount);
+            AddJavaScriptPattern(JavaScriptContainerBinding, "DI registration", code, language, path,
+                index + 1, signals, sampleLimit, ref signalCount);
+            AddJavaScriptPattern(JavaScriptContainerResolution, "DI resolution", code, language, path,
+                index + 1, signals, sampleLimit, ref signalCount);
+            AddJavaScriptPattern(JavaScriptDependencyInjection, "Dependency injection", code, language, path,
+                index + 1, signals, sampleLimit, ref signalCount);
+        }
+    }
+
+    private static void AddJavaScriptPattern(Regex pattern, string category, string code, string language,
+        string path, int line, List<ArchitecturePatternSignal> signals, int sampleLimit, ref int signalCount)
+    {
+        if (pattern.IsMatch(code))
+            AddLineSignal(category, language, path, line, code, signals, sampleLimit, ref signalCount);
+    }
+
+    private static string RemoveJavaScriptCommentsAndStrings(string line, ref bool inBlockComment, ref char quote,
+        ref bool escaped)
+    {
+        var result = new StringBuilder(line.Length);
+        for (var index = 0; index < line.Length; index++)
+        {
+            var current = line[index];
+            var next = index + 1 < line.Length ? line[index + 1] : '\0';
+            if (inBlockComment)
+            {
+                if (current == '*' && next == '/')
+                {
+                    inBlockComment = false;
+                    result.Append("  ");
+                    index++;
+                }
+                else result.Append(' ');
+                continue;
+            }
+
+            if (quote != '\0')
+            {
+                if (escaped)
+                {
+                    result.Append(' ');
+                    escaped = false;
+                }
+                else if (current == '\\')
+                {
+                    result.Append(' ');
+                    escaped = true;
+                }
+                else
+                {
+                    if (current == quote) quote = '\0';
+                    result.Append(' ');
+                }
+                continue;
+            }
+
+            if (current == '/' && next == '/')
+                break;
+            if (current == '/' && next == '*')
+            {
+                inBlockComment = true;
+                result.Append("  ");
+                index++;
+                continue;
+            }
+            if (current is '\'' or '"' or '`')
+            {
+                quote = current;
+                result.Append(' ');
+                continue;
+            }
+
+            result.Append(current);
+        }
+
+        return result.ToString();
+    }
+
     private static void AddPythonPattern(Regex pattern, string category, string code, string path, int line,
         List<ArchitecturePatternSignal> signals, int sampleLimit, ref int signalCount)
     {
@@ -551,6 +670,9 @@ public static class ArchitecturePatternAnalyzer
 
     private static bool IsPythonSource(string path) => Path.GetExtension(path).ToLowerInvariant() is
         ".py" or ".pyw" or ".pyi";
+
+    private static bool IsJavaScriptOrTypeScriptSource(string path) => Path.GetExtension(path).ToLowerInvariant() is
+        ".js" or ".jsx" or ".mjs" or ".cjs" or ".ts" or ".tsx" or ".mts" or ".cts";
 
     private static void AddSignal(string category, string language, string path, SyntaxNode node, string source,
         List<ArchitecturePatternSignal> signals, int sampleLimit, ref int signalCount)
