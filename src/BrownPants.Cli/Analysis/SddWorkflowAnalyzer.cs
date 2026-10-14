@@ -6,8 +6,10 @@ namespace BrownPants.Cli.Analysis;
 public static class SddWorkflowAnalyzer
 {
     private const string ConfigurationPath = ".brownpants/sdd-workflows.json";
+    private const string ActiveFeaturePath = ".specify/feature.json";
     private const int MaximumConfigurationBytes = 1_048_576;
     private const int MaximumWorkflowDefinitions = 100;
+    private const int MaximumActiveFeatureBytes = 65_536;
 
     private static readonly IComparer<string> StablePathComparer = Comparer<string>.Create((left, right) =>
     {
@@ -25,13 +27,16 @@ public static class SddWorkflowAnalyzer
             .ToArray();
         if (files.Any(path => path.StartsWith(".specify/", StringComparison.OrdinalIgnoreCase)))
         {
+            var activeFeature = ReadActiveFeatureDirectory(root, files, issues);
             workflows.Add(new SddWorkflowInventory(
                 "Spec Kit",
                 true,
                 FirstLevelDirectoryCount(files, "specs/"),
                 null,
                 specKitArtifacts.Length,
-                specKitArtifacts.Take(sampleLimit).ToArray()));
+                specKitArtifacts.Take(sampleLimit).ToArray(),
+                activeFeature,
+                activeFeature is null ? null : "SpecKitFeaturePointer"));
         }
 
         var openSpecArtifacts = files.Where(path => path.StartsWith("openspec/", StringComparison.OrdinalIgnoreCase))
@@ -39,15 +44,23 @@ public static class SddWorkflowAnalyzer
             .ToArray();
         if (openSpecArtifacts.Length > 0)
         {
-            var activeChanges = FirstLevelDirectories(files, "openspec/changes/")
-                .Count(name => !name.Equals("archive", StringComparison.OrdinalIgnoreCase));
+            var activeChangeDirectories = FirstLevelDirectories(files, "openspec/changes/")
+                .Where(name => !name.Equals("archive", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(name => name, StablePathComparer)
+                .ToArray();
+            var activeChanges = activeChangeDirectories.Length;
+            var activeChangePath = activeChanges == 1
+                ? $"openspec/changes/{activeChangeDirectories[0]}"
+                : null;
             workflows.Add(new SddWorkflowInventory(
                 "OpenSpec",
                 true,
                 FirstLevelDirectoryCount(files, "openspec/specs/"),
                 activeChanges,
                 openSpecArtifacts.Length,
-                openSpecArtifacts.Take(sampleLimit).ToArray()));
+                openSpecArtifacts.Take(sampleLimit).ToArray(),
+                activeChangePath,
+                activeChangePath is null ? null : "UniqueOpenSpecChange"));
         }
 
         var declarationPaths = files
@@ -81,6 +94,154 @@ public static class SddWorkflowAnalyzer
 
     private static int CountBuiltInWorkflows(IReadOnlyList<SddWorkflowInventory> workflows) =>
         workflows.Count(workflow => workflow.Name is "Spec Kit" or "OpenSpec");
+
+    private static string? ReadActiveFeatureDirectory(
+        string root,
+        IReadOnlyList<string> files,
+        List<SddWorkflowConfigurationIssue> issues)
+    {
+        var matchingPaths = files
+            .Where(path => path.Equals(ActiveFeaturePath, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(path => path, StablePathComparer)
+            .ToArray();
+        if (matchingPaths.Length == 0)
+            return null;
+        if (matchingPaths.Length > 1)
+        {
+            issues.Add(ActiveFeatureIssue("DuplicateActiveFeatureFile",
+                "More than one case-variant feature pointer was found; keep only .specify/feature.json."));
+            return null;
+        }
+
+        var fullPath = Path.Combine(root, matchingPaths[0].Replace('/', Path.DirectorySeparatorChar));
+        byte[] bytes;
+        try
+        {
+            if ((File.GetAttributes(fullPath) & FileAttributes.ReparsePoint) != 0)
+            {
+                issues.Add(ActiveFeatureIssue("ActiveFeatureIsReparsePoint",
+                    "The feature pointer must not be a symbolic link or reparse point."));
+                return null;
+            }
+
+            using var stream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            if (stream.Length > MaximumActiveFeatureBytes)
+            {
+                issues.Add(ActiveFeatureIssue("ActiveFeatureTooLarge",
+                    $"The feature pointer exceeds the {MaximumActiveFeatureBytes} byte size limit."));
+                return null;
+            }
+
+            var buffer = new byte[MaximumActiveFeatureBytes + 1];
+            var length = 0;
+            while (length < buffer.Length)
+            {
+                var read = stream.Read(buffer, length, buffer.Length - length);
+                if (read == 0)
+                    break;
+                length += read;
+            }
+            if (length > MaximumActiveFeatureBytes)
+            {
+                issues.Add(ActiveFeatureIssue("ActiveFeatureTooLarge",
+                    $"The feature pointer exceeds the {MaximumActiveFeatureBytes} byte size limit."));
+                return null;
+            }
+            bytes = buffer[..length];
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            issues.Add(ActiveFeatureIssue("UnableToReadActiveFeature",
+                "The feature pointer could not be read."));
+            return null;
+        }
+
+        string json;
+        try
+        {
+            json = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true).GetString(bytes);
+            if (json.StartsWith('\uFEFF'))
+                json = json[1..];
+        }
+        catch (DecoderFallbackException)
+        {
+            issues.Add(ActiveFeatureIssue("InvalidActiveFeatureEncoding",
+                "The feature pointer must use UTF-8 encoding."));
+            return null;
+        }
+
+        JsonDocument document;
+        try
+        {
+            document = JsonDocument.Parse(json, new JsonDocumentOptions { MaxDepth = 16 });
+        }
+        catch (JsonException exception)
+        {
+            var line = exception.LineNumber.GetValueOrDefault();
+            var bytePosition = exception.BytePositionInLine.GetValueOrDefault();
+            issues.Add(ActiveFeatureIssue("InvalidActiveFeatureJson",
+                $"The feature pointer contains invalid JSON at line {line + 1}, byte {bytePosition}."));
+            return null;
+        }
+
+        string? selectedPath;
+        using (document)
+        {
+            var documentRoot = document.RootElement;
+            var selectedProperties = documentRoot.ValueKind == JsonValueKind.Object
+                ? documentRoot.EnumerateObject()
+                    .Where(property => property.NameEquals("feature_directory"))
+                    .ToArray()
+                : Array.Empty<JsonProperty>();
+            if (selectedProperties.Length != 1
+                || selectedProperties[0].Value.ValueKind != JsonValueKind.String)
+            {
+                issues.Add(ActiveFeatureIssue("UnsafeActiveFeaturePath",
+                    "The feature pointer must contain one safe repository-relative feature_directory."));
+                return null;
+            }
+
+            if (!TryNormalizeActiveFeaturePath(selectedProperties[0].Value.GetString(), out var normalizedPath))
+            {
+                issues.Add(ActiveFeatureIssue("UnsafeActiveFeaturePath",
+                    "The feature pointer must contain one safe repository-relative feature_directory."));
+                return null;
+            }
+            selectedPath = normalizedPath;
+        }
+
+        var featurePrefix = selectedPath + "/";
+        if (!files.Any(path => path.StartsWith(featurePrefix, StringComparison.Ordinal)))
+        {
+            issues.Add(ActiveFeatureIssue("ActiveFeatureNotFound",
+                "The selected feature directory has no files in the scanned repository inventory."));
+            return null;
+        }
+
+        return selectedPath;
+    }
+
+    private static bool TryNormalizeActiveFeaturePath(string? value, out string normalizedPath)
+    {
+        normalizedPath = string.Empty;
+        if (string.IsNullOrWhiteSpace(value) || value != value.Trim())
+            return false;
+
+        var path = value.Replace('\\', '/');
+        if (path.StartsWith("/", StringComparison.Ordinal)
+            || path.Contains(':')
+            || path.Contains('*')
+            || path.Contains('?'))
+            return false;
+
+        var segments = path.Split('/');
+        if (segments.Any(segment => segment.Length == 0 || segment is "." or ".."
+            || segment.Any(char.IsControl)))
+            return false;
+
+        normalizedPath = string.Join('/', segments);
+        return true;
+    }
 
     private static IReadOnlyList<CustomSddWorkflowDefinition> ReadDefinitions(
         string root,
@@ -505,6 +666,9 @@ public static class SddWorkflowAnalyzer
 
     private static SddWorkflowConfigurationIssue Issue(string code, string message) =>
         new(ConfigurationPath, code, message);
+
+    private static SddWorkflowConfigurationIssue ActiveFeatureIssue(string code, string message) =>
+        new(ActiveFeaturePath, code, message);
 
     private static int FirstLevelDirectoryCount(IReadOnlyList<string> files, string prefix) =>
         FirstLevelDirectories(files, prefix).Count;

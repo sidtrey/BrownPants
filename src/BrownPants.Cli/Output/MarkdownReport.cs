@@ -90,6 +90,8 @@ public static class MarkdownReport
                 report.AppendLine($"- Specification or feature directories: {workflow.SpecificationDirectoryCount}");
                 if (workflow.ActiveChangeDirectoryCount.HasValue)
                     report.AppendLine($"- Active change directories: {workflow.ActiveChangeDirectoryCount.Value}");
+                if (workflow.ActiveWorkItemPath is not null)
+                    report.AppendLine($"- Active work item: `{Escape(workflow.ActiveWorkItemPath)}` ({Escape(workflow.ActiveWorkItemEvidence!)})");
                 report.AppendLine($"- Artifact files: {workflow.ArtifactFileCount}");
                 if (workflow.ArtifactPaths.Count > 0)
                 {

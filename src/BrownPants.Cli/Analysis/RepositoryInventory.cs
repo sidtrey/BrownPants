@@ -35,7 +35,9 @@ public sealed record SddWorkflowInventory(
     int SpecificationDirectoryCount,
     int? ActiveChangeDirectoryCount,
     int ArtifactFileCount,
-    IReadOnlyList<string> ArtifactPaths);
+    IReadOnlyList<string> ArtifactPaths,
+    string? ActiveWorkItemPath = null,
+    string? ActiveWorkItemEvidence = null);
 
 public sealed record SddWorkflowConfigurationIssue(string Path, string Code, string Message);
 

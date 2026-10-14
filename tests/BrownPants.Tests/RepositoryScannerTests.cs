@@ -86,6 +86,131 @@ public sealed class RepositoryScannerTests : IDisposable
     }
 
     [Fact]
+    public void Scan_ReportsValidatedSpecKitFeaturePointerInMarkdownAndJson()
+    {
+        Write(".specify/feature.json", System.Text.Json.JsonSerializer.Serialize(
+            new { feature_directory = @"specs\001-active-feature" }));
+        Write("specs/001-active-feature/spec.md", "active specification");
+        Write("specs/001-active-feature/plan.md", "active plan");
+        Write("specs/002-other-feature/spec.md", "another specification");
+
+        var inventory = RepositoryScanner.Scan(_root, sampleLimit: 1);
+        var workflow = Assert.Single(inventory.SddWorkflows, item => item.Name == "Spec Kit");
+        var markdown = MarkdownReport.Render(inventory);
+
+        Assert.Contains("- Active work item: `specs/001-active-feature` (SpecKitFeaturePointer)", markdown);
+        Assert.Contains("3 additional artifacts omitted by the sample limit", markdown);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        Assert.Equal(0, Program.Run(new[] { "inspect", _root, "--format", "json" }, output, error));
+        using var json = System.Text.Json.JsonDocument.Parse(output.ToString());
+        Assert.Equal(1, json.RootElement.GetProperty("SchemaVersion").GetInt32());
+        var jsonWorkflow = Assert.Single(json.RootElement.GetProperty("SddWorkflows").EnumerateArray(),
+            item => item.GetProperty("Name").GetString() == "Spec Kit");
+        Assert.Equal("specs/001-active-feature", jsonWorkflow.GetProperty("ActiveWorkItemPath").GetString());
+        Assert.Equal("SpecKitFeaturePointer", jsonWorkflow.GetProperty("ActiveWorkItemEvidence").GetString());
+        Assert.Null(workflow.ActiveChangeDirectoryCount);
+    }
+
+    [Fact]
+    public void Scan_ReportsOnlyUniqueOpenSpecChangeAsActive()
+    {
+        Write("openspec/config.yaml", "schema: spec-driven");
+        Write("openspec/changes/add-search/proposal.md", "change proposal");
+        Write("openspec/changes/archive/old-change/proposal.md", "archived proposal");
+        Write(".brownpants/sdd-workflows.json", """
+            { "schemaVersion": 1, "workflows": [
+              { "name": "CustomSDD", "artifactRoots": ["custom-plans"], "changeRoots": ["custom-plans/changes"] }
+            ] }
+            """);
+        Write("custom-plans/changes/custom-change/proposal.md", "custom proposal");
+
+        var unique = RepositoryScanner.Scan(_root);
+        var openSpec = Assert.Single(unique.SddWorkflows, item => item.Name == "OpenSpec");
+        Assert.Equal("openspec/changes/add-search", openSpec.ActiveWorkItemPath);
+        Assert.Equal("UniqueOpenSpecChange", openSpec.ActiveWorkItemEvidence);
+        var custom = Assert.Single(unique.SddWorkflows, item => item.Name == "CustomSDD");
+        Assert.Null(custom.ActiveWorkItemPath);
+        Assert.Null(custom.ActiveWorkItemEvidence);
+
+        Write("openspec/changes/update-search/proposal.md", "another proposal");
+        var ambiguous = RepositoryScanner.Scan(_root);
+        var ambiguousOpenSpec = Assert.Single(ambiguous.SddWorkflows, item => item.Name == "OpenSpec");
+        Assert.Equal(2, ambiguousOpenSpec.ActiveChangeDirectoryCount);
+        Assert.Null(ambiguousOpenSpec.ActiveWorkItemPath);
+        Assert.Null(ambiguousOpenSpec.ActiveWorkItemEvidence);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        Assert.Equal(0, Program.Run(new[] { "inspect", _root, "--format", "json" }, output, error));
+        using var json = System.Text.Json.JsonDocument.Parse(output.ToString());
+        var jsonWorkflow = Assert.Single(json.RootElement.GetProperty("SddWorkflows").EnumerateArray(),
+            item => item.GetProperty("Name").GetString() == "OpenSpec");
+        Assert.Null(jsonWorkflow.GetProperty("ActiveWorkItemPath").GetString());
+        Assert.Null(jsonWorkflow.GetProperty("ActiveWorkItemEvidence").GetString());
+        Assert.Contains("- Active work item: `openspec/changes/add-search` (UniqueOpenSpecChange)",
+            MarkdownReport.Render(unique));
+        Assert.DoesNotContain("Active work item:", MarkdownReport.Render(ambiguous));
+    }
+
+    [Fact]
+    public void Scan_RejectsUnsafeAndStaleSpecKitFeaturePointers()
+    {
+        Write(".specify/feature.json", """{ "feature_directory": "../outside" }""");
+
+        var unsafeInventory = RepositoryScanner.Scan(_root);
+        var unsafeSpecKit = Assert.Single(unsafeInventory.SddWorkflows, item => item.Name == "Spec Kit");
+        Assert.Null(unsafeSpecKit.ActiveWorkItemPath);
+        Assert.Contains(unsafeInventory.SddWorkflowIssues, issue => issue.Code == "UnsafeActiveFeaturePath");
+
+        Write(".specify/feature.json", """{ "feature_directory": "specs/missing-feature" }""");
+        var staleInventory = RepositoryScanner.Scan(_root);
+        var staleSpecKit = Assert.Single(staleInventory.SddWorkflows, item => item.Name == "Spec Kit");
+        Assert.Null(staleSpecKit.ActiveWorkItemPath);
+        Assert.Contains(staleInventory.SddWorkflowIssues, issue => issue.Code == "ActiveFeatureNotFound");
+    }
+
+    [Fact]
+    public void Scan_ReportsMalformedSpecKitFeaturePointerAndKeepsStableDiagnostics()
+    {
+        Write(".specify/feature.json", "{ not valid JSON }");
+
+        var first = RepositoryScanner.Scan(_root);
+        var second = RepositoryScanner.Scan(_root);
+        var workflow = Assert.Single(first.SddWorkflows, item => item.Name == "Spec Kit");
+        var issue = Assert.Single(first.SddWorkflowIssues);
+
+        Assert.Null(workflow.ActiveWorkItemPath);
+        Assert.Equal(".specify/feature.json", issue.Path);
+        Assert.Equal("InvalidActiveFeatureJson", issue.Code);
+        Assert.Equal(first.SddWorkflowIssues, second.SddWorkflowIssues);
+        Assert.Equal(MarkdownReport.Render(first), MarkdownReport.Render(second));
+    }
+
+    [Fact]
+    public void Scan_RejectsCaseVariantDuplicateSpecKitFeaturePointers()
+    {
+        Write(".specify/feature.json", """{ "feature_directory": "specs/001-feature" }""");
+        Write("specs/001-feature/spec.md", "feature");
+
+        var analysis = SddWorkflowAnalyzer.Analyze(_root,
+            new[] { ".specify/feature.json", ".SPECIFY/FEATURE.JSON", "specs/001-feature/spec.md" }, 10);
+
+        Assert.Null(Assert.Single(analysis.Workflows, item => item.Name == "Spec Kit").ActiveWorkItemPath);
+        Assert.Contains(analysis.Issues, issue => issue.Code == "DuplicateActiveFeatureFile");
+    }
+
+    [Fact]
+    public void Scan_RejectsOversizedSpecKitFeaturePointer()
+    {
+        Write(".specify/feature.json", new string(' ', 65_537));
+
+        var inventory = RepositoryScanner.Scan(_root);
+
+        Assert.Null(Assert.Single(inventory.SddWorkflows, item => item.Name == "Spec Kit").ActiveWorkItemPath);
+        Assert.Contains(inventory.SddWorkflowIssues, issue => issue.Code == "ActiveFeatureTooLarge");
+    }
+
+    [Fact]
     public void Scan_ReportsCrossEcosystemMarkersAndHonestLanguageCoverage()
     {
         Write("dotnet/App.csproj", "<Project />");
