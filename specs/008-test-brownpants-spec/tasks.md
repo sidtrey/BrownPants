@@ -18,7 +18,7 @@
 ## Phase 2: Polish and Cross-Cutting Concerns
 
 - [X] T005 [P] Document the live installer test and its local CLI requirement in `integrations/speckit/README.md`.
-- [ ] T006 Run the integration script with Spec Kit 1.2.0 locally, run Release build/tests and both adapters, push changes, and verify all three CI jobs run the non-skipped live installer check successfully.
+- [X] T006 Run the integration script with Spec Kit 1.2.0 locally, run Release build/tests and both adapters, push changes, and verify all three CI jobs run the non-skipped live installer check successfully.
 
 ## Dependencies & Execution Order
 
