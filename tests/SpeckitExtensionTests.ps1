@@ -81,12 +81,22 @@ if ($specify) {
     $tempPrefix = $tempBase + [System.IO.Path]::DirectorySeparatorChar
     Assert-True ($liveProject.StartsWith($tempPrefix, $pathComparison)) 'Refusing to create a Spec Kit fixture outside the temporary directory.'
 
-    $projectSpecDirectory = Join-Path $liveProject '.specify'
-    New-Item -ItemType Directory -Path $projectSpecDirectory -Force | Out-Null
+    New-Item -ItemType Directory -Path $liveProject -Force | Out-Null
     $originalLocation = Get-Location
     try {
         Set-Location -LiteralPath $liveProject
         $extensionPath = Join-Path $repositoryRoot 'integrations/speckit'
+
+        $initOutput = & $specify.Source init --here --integration codex --integration-options='--skills' --non-interactive --ignore-agent-tools 2>&1 | Out-String
+        $initExitCode = $LASTEXITCODE
+        Assert-True ($initExitCode -eq 0) "Spec Kit Codex initialization failed (exit $initExitCode): $initOutput"
+
+        $codexSkillsPath = Join-Path $liveProject '.agents/skills'
+        Assert-True (Test-Path -LiteralPath $codexSkillsPath -PathType Container) 'Spec Kit did not create the Codex skills directory.'
+        foreach ($skill in @('speckit-specify', 'speckit-plan', 'speckit-implement')) {
+            Assert-True (Test-Path -LiteralPath (Join-Path $codexSkillsPath $skill) -PathType Container) "Spec Kit did not install the '$skill' Codex skill."
+        }
+
         $installOutput = & $specify.Source extension add $extensionPath --dev 2>&1 | Out-String
         $installExitCode = $LASTEXITCODE
         Assert-True ($installExitCode -eq 0) "Spec Kit extension installation failed (exit $installExitCode): $installOutput"
@@ -96,6 +106,7 @@ if ($specify) {
         Assert-True ($listExitCode -eq 0) "Spec Kit extension listing failed (exit $listExitCode): $listOutput"
         Assert-True ($listOutput -match '(?is)BrownPants.*Hooks:\s*10.*Status:\s*Enabled') 'Spec Kit did not report BrownPants as enabled with ten hooks.'
 
+        $projectSpecDirectory = Join-Path $liveProject '.specify'
         $installedRoot = Join-Path $projectSpecDirectory 'extensions/brownpants'
         $installedManifestPath = Join-Path $installedRoot 'extension.yml'
         Assert-True (Test-Path -LiteralPath $installedManifestPath -PathType Leaf) 'Spec Kit did not install the BrownPants extension manifest.'
@@ -124,4 +135,4 @@ if ($specify) {
     }
 }
 
-Write-Output "Spec Kit extension tests passed: nine pre-hooks, one post-hook, synchronized guidance; live installer check $liveIntegrationResult."
+Write-Output "Spec Kit extension tests passed: nine pre-hooks, one post-hook, synchronized guidance; live Codex setup and extension check $liveIntegrationResult."
