@@ -77,7 +77,7 @@ public static class SddWorkflowAnalyzer
         else if (declarationPaths.Length == 1)
         {
             var definitions = ReadDefinitions(root, declarationPaths[0], issues);
-            AddCustomWorkflows(files, definitions, sampleLimit, workflows);
+            AddCustomWorkflows(files, definitions, sampleLimit, workflows, issues);
         }
 
         var customWorkflows = workflows.Skip(CountBuiltInWorkflows(workflows))
@@ -201,7 +201,7 @@ public static class SddWorkflowAnalyzer
                 return null;
             }
 
-            if (!TryNormalizeActiveFeaturePath(selectedProperties[0].Value.GetString(), out var normalizedPath))
+            if (!TryNormalizeRepositoryRelativePath(selectedProperties[0].Value.GetString(), out var normalizedPath))
             {
                 issues.Add(ActiveFeatureIssue("UnsafeActiveFeaturePath",
                     "The feature pointer must contain one safe repository-relative feature_directory."));
@@ -221,7 +221,7 @@ public static class SddWorkflowAnalyzer
         return selectedPath;
     }
 
-    private static bool TryNormalizeActiveFeaturePath(string? value, out string normalizedPath)
+    private static bool TryNormalizeRepositoryRelativePath(string? value, out string normalizedPath)
     {
         normalizedPath = string.Empty;
         if (string.IsNullOrWhiteSpace(value) || value != value.Trim())
@@ -382,7 +382,7 @@ public static class SddWorkflowAnalyzer
         }
 
         if (!HasOnlyProperties(element,
-                new[] { "name", "artifactRoots", "specificationRoots", "changeRoots", "archivedChangeDirectoryNames" },
+                new[] { "name", "artifactRoots", "specificationRoots", "changeRoots", "archivedChangeDirectoryNames", "activeWorkItemPath" },
                 context,
                 issues))
             return;
@@ -409,6 +409,20 @@ public static class SddWorkflowAnalyzer
         var specificationRoots = ReadStringArray(element, "specificationRoots", required: false, context, issues, ref valid);
         var changeRoots = ReadStringArray(element, "changeRoots", required: false, context, issues, ref valid);
         var archivedNames = ReadStringArray(element, "archivedChangeDirectoryNames", required: false, context, issues, ref valid);
+        string? activeWorkItemPath = null;
+        if (element.TryGetProperty("activeWorkItemPath", out var activeWorkItemElement))
+        {
+            if (activeWorkItemElement.ValueKind != JsonValueKind.String)
+            {
+                issues.Add(Issue("InvalidActiveWorkItemPath",
+                    $"{context} property activeWorkItemPath must be a safe repository-relative directory path."));
+            }
+            else if (TryNormalizeRepositoryRelativePath(activeWorkItemElement.GetString(), out var normalizedActivePath))
+                activeWorkItemPath = normalizedActivePath;
+            else
+                issues.Add(Issue("InvalidActiveWorkItemPath",
+                    $"{context} property activeWorkItemPath must be a safe repository-relative directory path."));
+        }
 
         ValidateRoots(artifactRoots, "artifactRoots", context, required: true, issues, ref valid);
         ValidateRoots(specificationRoots, "specificationRoots", context, required: false, issues, ref valid);
@@ -422,7 +436,8 @@ public static class SddWorkflowAnalyzer
                 artifactRoots.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
                 specificationRoots.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
                 changeRoots.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
-                archivedNames.ToHashSet(StringComparer.OrdinalIgnoreCase)));
+                archivedNames.ToHashSet(StringComparer.OrdinalIgnoreCase),
+                activeWorkItemPath));
         }
     }
 
@@ -557,7 +572,8 @@ public static class SddWorkflowAnalyzer
         IReadOnlyList<string> files,
         IReadOnlyList<CustomSddWorkflowDefinition> definitions,
         int sampleLimit,
-        List<SddWorkflowInventory> workflows)
+        List<SddWorkflowInventory> workflows,
+        List<SddWorkflowConfigurationIssue> issues)
     {
         if (definitions.Count == 0)
             return;
@@ -568,7 +584,8 @@ public static class SddWorkflowAnalyzer
         var changesByRoot = new Dictionary<string, List<CustomWorkflowAccumulator>>(StringComparer.OrdinalIgnoreCase);
         foreach (var definition in definitions)
         {
-            var workflow = new CustomWorkflowAccumulator(definition);
+            var activeWorkItemPath = ResolveCustomActiveWorkItemPath(definition, files, issues);
+            var workflow = new CustomWorkflowAccumulator(definition, activeWorkItemPath);
             custom.Add(workflow);
             RegisterRoots(artifactsByRoot, definition.ArtifactRoots, workflow);
             RegisterRoots(specificationsByRoot, definition.SpecificationRoots, workflow);
@@ -611,6 +628,32 @@ public static class SddWorkflowAnalyzer
             .Select(workflow => workflow.ToInventory()));
     }
 
+    private static string? ResolveCustomActiveWorkItemPath(
+        CustomSddWorkflowDefinition definition,
+        IReadOnlyList<string> files,
+        List<SddWorkflowConfigurationIssue> issues)
+    {
+        var activePath = definition.ActiveWorkItemPath;
+        if (activePath is null)
+            return null;
+
+        if (!definition.ArtifactRoots.Any(root => activePath.StartsWith(root + "/", StringComparison.Ordinal)))
+        {
+            issues.Add(Issue("ActiveWorkItemOutsideArtifactRoots",
+                $"Workflow '{definition.Name}' activeWorkItemPath must be beneath one of its artifactRoots."));
+            return null;
+        }
+
+        if (!files.Any(path => path.StartsWith(activePath + "/", StringComparison.Ordinal)))
+        {
+            issues.Add(Issue("ActiveWorkItemNotFound",
+                $"Workflow '{definition.Name}' activeWorkItemPath has no files in the scanned repository inventory."));
+            return null;
+        }
+
+        return activePath;
+    }
+
     private static void RegisterRoots(
         Dictionary<string, List<CustomWorkflowAccumulator>> workflowsByRoot,
         IReadOnlyList<string> roots,
@@ -627,7 +670,9 @@ public static class SddWorkflowAnalyzer
         }
     }
 
-    private sealed class CustomWorkflowAccumulator(CustomSddWorkflowDefinition definition)
+    private sealed class CustomWorkflowAccumulator(
+        CustomSddWorkflowDefinition definition,
+        string? activeWorkItemPath)
     {
         private readonly List<string> _artifactPaths = new();
         private readonly HashSet<string> _specificationDirectories = new(StringComparer.Ordinal);
@@ -658,7 +703,9 @@ public static class SddWorkflowAnalyzer
                 _specificationDirectories.Count,
                 activeChanges,
                 ArtifactFileCount,
-                _artifactPaths);
+                _artifactPaths,
+                activeWorkItemPath,
+                activeWorkItemPath is null ? null : "CustomWorkflowDeclaration");
         }
     }
 
@@ -690,4 +737,5 @@ internal sealed record CustomSddWorkflowDefinition(
     IReadOnlyList<string> ArtifactRoots,
     IReadOnlyList<string> SpecificationRoots,
     IReadOnlyList<string> ChangeRoots,
-    IReadOnlySet<string> ArchivedChangeDirectoryNames);
+    IReadOnlySet<string> ArchivedChangeDirectoryNames,
+    string? ActiveWorkItemPath);

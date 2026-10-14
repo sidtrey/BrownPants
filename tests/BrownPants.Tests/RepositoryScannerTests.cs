@@ -345,6 +345,8 @@ public sealed class RepositoryScannerTests : IDisposable
         Assert.Equal(1, workflow.ActiveChangeDirectoryCount);
         Assert.Equal(4, workflow.ArtifactFileCount);
         Assert.Equal(2, workflow.ArtifactPaths.Count);
+        Assert.Null(workflow.ActiveWorkItemPath);
+        Assert.Null(workflow.ActiveWorkItemEvidence);
         Assert.Empty(inventory.SddWorkflowIssues);
         var markdown = MarkdownReport.Render(inventory);
         Assert.Contains("### CustomSDD", markdown);
@@ -363,6 +365,103 @@ public sealed class RepositoryScannerTests : IDisposable
     }
 
     [Fact]
+    public void Scan_ReportsDeclaredCustomActiveWorkItemInMarkdownAndJson()
+    {
+        Write(".brownpants/sdd-workflows.json", System.Text.Json.JsonSerializer.Serialize(new
+        {
+            schemaVersion = 1,
+            workflows = new[]
+            {
+                new
+                {
+                    name = "CustomSDD",
+                    artifactRoots = new[] { "planning" },
+                    specificationRoots = new[] { "planning/specs" },
+                    activeWorkItemPath = @"planning\changes\add search"
+                }
+            }
+        }));
+        Write("planning/changes/add search/proposal.md", "active proposal");
+        Write("planning/changes/add search/tasks.md", "active tasks");
+        Write("planning/specs/catalog/spec.md", "current behavior");
+
+        var inventory = RepositoryScanner.Scan(_root, sampleLimit: 1);
+        var workflow = Assert.Single(inventory.SddWorkflows, item => item.Name == "CustomSDD");
+        Assert.Equal("planning/changes/add search", workflow.ActiveWorkItemPath);
+        Assert.Equal("CustomWorkflowDeclaration", workflow.ActiveWorkItemEvidence);
+        Assert.Empty(inventory.SddWorkflowIssues);
+        Assert.Contains("- Active work item: `planning/changes/add search` (CustomWorkflowDeclaration)",
+            MarkdownReport.Render(inventory));
+
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        Assert.Equal(0, Program.Run(new[] { "inspect", _root, "--format", "json", "--limit", "1" }, output, error));
+        using var json = System.Text.Json.JsonDocument.Parse(output.ToString());
+        Assert.Equal(1, json.RootElement.GetProperty("SchemaVersion").GetInt32());
+        var jsonWorkflow = Assert.Single(json.RootElement.GetProperty("SddWorkflows").EnumerateArray(),
+            item => item.GetProperty("Name").GetString() == "CustomSDD");
+        Assert.Equal("planning/changes/add search", jsonWorkflow.GetProperty("ActiveWorkItemPath").GetString());
+        Assert.Equal("CustomWorkflowDeclaration", jsonWorkflow.GetProperty("ActiveWorkItemEvidence").GetString());
+    }
+
+    [Fact]
+    public void Scan_RejectsInvalidCustomActiveWorkItemsAndPreservesWorkflowInventory()
+    {
+        Write(".brownpants/sdd-workflows.json", """
+            {
+              "schemaVersion": 1,
+              "workflows": [
+                { "name": "UnsafeSDD", "artifactRoots": ["unsafe"], "activeWorkItemPath": "../outside" },
+                { "name": "AbsoluteSDD", "artifactRoots": ["absolute"], "activeWorkItemPath": "/outside" },
+                { "name": "WildcardSDD", "artifactRoots": ["wildcard"], "activeWorkItemPath": "wildcard/*" },
+                { "name": "OutsideSDD", "artifactRoots": ["inside"], "activeWorkItemPath": "outside/active" },
+                { "name": "StaleSDD", "artifactRoots": ["stale"], "activeWorkItemPath": "stale/missing" },
+                { "name": "TypedSDD", "artifactRoots": ["typed"], "activeWorkItemPath": 42 }
+              ]
+            }
+            """);
+        Write("unsafe/readme.md", "unsafe workflow artifacts");
+        Write("absolute/readme.md", "absolute workflow artifacts");
+        Write("wildcard/readme.md", "wildcard workflow artifacts");
+        Write("inside/readme.md", "inside workflow artifacts");
+        Write("outside/active/spec.md", "outside active path");
+        Write("stale/readme.md", "stale workflow artifacts");
+        Write("typed/readme.md", "typed workflow artifacts");
+
+        var first = RepositoryScanner.Scan(_root);
+        var second = RepositoryScanner.Scan(_root);
+        foreach (var name in new[] { "UnsafeSDD", "AbsoluteSDD", "WildcardSDD", "OutsideSDD", "StaleSDD", "TypedSDD" })
+        {
+            var workflow = Assert.Single(first.SddWorkflows, item => item.Name == name);
+            Assert.True(workflow.IsInitialized);
+            Assert.True(workflow.ArtifactFileCount > 0);
+            Assert.Null(workflow.ActiveWorkItemPath);
+            Assert.Null(workflow.ActiveWorkItemEvidence);
+        }
+        Assert.Equal(4, first.SddWorkflowIssues.Count(issue => issue.Code == "InvalidActiveWorkItemPath"));
+        Assert.Contains(first.SddWorkflowIssues, issue => issue.Code == "ActiveWorkItemOutsideArtifactRoots");
+        Assert.Contains(first.SddWorkflowIssues, issue => issue.Code == "ActiveWorkItemNotFound");
+        Assert.All(first.SddWorkflowIssues, issue => Assert.Equal(".brownpants/sdd-workflows.json", issue.Path));
+        Assert.DoesNotContain("../outside", string.Join(' ', first.SddWorkflowIssues.Select(issue => issue.Message)),
+            StringComparison.Ordinal);
+        Assert.Equal(first.SddWorkflowIssues, second.SddWorkflowIssues);
+        var markdown = MarkdownReport.Render(first);
+        Assert.Equal(markdown, MarkdownReport.Render(second));
+        Assert.Contains("InvalidActiveWorkItemPath", markdown);
+
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        Assert.Equal(0, Program.Run(new[] { "inspect", _root, "--format", "json" }, output, error));
+        using var json = System.Text.Json.JsonDocument.Parse(output.ToString());
+        Assert.Contains(json.RootElement.GetProperty("SddWorkflowIssues").EnumerateArray(),
+            issue => issue.GetProperty("Code").GetString() == "InvalidActiveWorkItemPath");
+        var jsonWorkflow = Assert.Single(json.RootElement.GetProperty("SddWorkflows").EnumerateArray(),
+            workflow => workflow.GetProperty("Name").GetString() == "OutsideSDD");
+        Assert.Null(jsonWorkflow.GetProperty("ActiveWorkItemPath").GetString());
+        Assert.Null(jsonWorkflow.GetProperty("ActiveWorkItemEvidence").GetString());
+    }
+
+    [Fact]
     public void Scan_ReportsCustomWorkflowWithoutChangeRootsAsNotInitialized()
     {
         Write(".brownpants/sdd-workflows.json", """
@@ -378,6 +477,8 @@ public sealed class RepositoryScannerTests : IDisposable
         Assert.Equal(0, workflow.SpecificationDirectoryCount);
         Assert.Null(workflow.ActiveChangeDirectoryCount);
         Assert.Equal(0, workflow.ArtifactFileCount);
+        Assert.Null(workflow.ActiveWorkItemPath);
+        Assert.Null(workflow.ActiveWorkItemEvidence);
     }
 
     [Fact]
