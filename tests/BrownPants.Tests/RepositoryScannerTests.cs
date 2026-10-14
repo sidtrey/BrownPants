@@ -979,7 +979,10 @@ public sealed class RepositoryScannerTests : IDisposable
             ordinary_call = create_user()
             joined_text = "continued \
             class JoinedFactory: def make_fake(): ..."
-            """.Replace("\n", "\r\n", StringComparison.Ordinal);
+            """;
+        pythonSource = pythonSource.Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Replace("\n", "\r\n", StringComparison.Ordinal);
         Write("app/services.py", pythonSource);
 
         var inventory = RepositoryScanner.Scan(_root, sampleLimit: 50);
