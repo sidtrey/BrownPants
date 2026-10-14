@@ -44,6 +44,8 @@ jobs:
 
       - name: Check Spec Kit extension
         shell: pwsh
+        env:
+          BROWNPANTS_REQUIRE_SPECKIT: 'true'
         run: ./tests/SpeckitExtensionTests.ps1
 
       - name: Check OpenSpec installer

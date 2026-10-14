@@ -8,4 +8,4 @@ When `specify` is available, `tests/SpeckitExtensionTests.ps1` MUST:
 4. Verify one enabled mandatory `speckit.brownpants.context` registration for each of the ten lifecycle events declared by the extension.
 5. Restore the original working directory and remove only its generated project root, including on failure.
 
-If `specify` is absent during local use, report the live check as skipped. CI installs `specify-cli` 1.2.0 before running the test, making absence a CI failure.
+If `specify` is absent during local use, report the live check as skipped. CI installs `specify-cli` 1.2.0 and sets `BROWNPANTS_REQUIRE_SPECKIT=true` before running the test; absence MUST fail the CI check rather than skip.

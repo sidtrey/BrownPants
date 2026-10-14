@@ -67,6 +67,9 @@ foreach ($relativePath in $contextPaths) {
 
 $specify = Get-Command specify -ErrorAction SilentlyContinue
 $liveIntegrationResult = 'skipped (specify CLI not installed)'
+if (-not $specify -and $env:BROWNPANTS_REQUIRE_SPECKIT -eq 'true') {
+    throw 'The Spec Kit CLI is required for this integration run but is not available on PATH.'
+}
 if ($specify) {
     $tempBase = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
     $liveProject = [System.IO.Path]::GetFullPath((Join-Path $tempBase ('brownpants-speckit-integration-' + [guid]::NewGuid().ToString('N'))))
