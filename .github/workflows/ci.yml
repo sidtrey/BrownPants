@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore BrownPants.sln
+
+      - name: Build
+        run: dotnet build BrownPants.sln --configuration Release --no-restore
+
+      - name: Run xUnit tests
+        run: dotnet test BrownPants.sln --configuration Release --no-build
+
+      - name: Check Spec Kit extension
+        shell: pwsh
+        run: ./tests/SpeckitExtensionTests.ps1
+
+      - name: Check OpenSpec installer
+        shell: pwsh
+        run: ./tests/OpenSpecInstallerTests.ps1
+
+      - name: Pack .NET tool
+        run: dotnet pack src/BrownPants.Cli --configuration Release --no-build --output ./artifacts
+
+      - name: Smoke-test packed .NET tool
+        shell: pwsh
+        run: |
+          $toolPath = Join-Path $env:RUNNER_TEMP 'brownpants-tools'
+          New-Item -ItemType Directory -Path $toolPath -Force | Out-Null
+          dotnet tool install --tool-path $toolPath --add-source ./artifacts BrownPants.Cli --version 0.1.0
+          $tool = Join-Path $toolPath 'brownpants.exe'
+          & $tool --help
+          if ($LASTEXITCODE -ne 0) { throw "Packed tool help failed with exit code $LASTEXITCODE." }
+          $report = & $tool inspect . --format json --limit 10 | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "Packed tool inspection failed with exit code $LASTEXITCODE." }
+          if ($report.FileCount -lt 1) { throw 'Packed tool returned an empty repository inventory.' }

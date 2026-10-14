@@ -1,0 +1,95 @@
+installed:
+- brownpants
+settings:
+  auto_execute_hooks: true
+hooks:
+  before_specify:
+  - extension: brownpants
+    command: speckit.brownpants.context
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.brownpants.context?
+    description: Inspect the brownfield repository before writing a feature specification.
+    condition: null
+  before_plan:
+  - extension: brownpants
+    command: speckit.brownpants.context
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.brownpants.context?
+    description: Refresh brownfield evidence before proposing implementation changes.
+    condition: null
+  before_tasks:
+  - extension: brownpants
+    command: speckit.brownpants.context
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.brownpants.context?
+    description: Refresh repository evidence before deriving implementation tasks.
+    condition: null
+  before_implement:
+  - extension: brownpants
+    command: speckit.brownpants.context
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.brownpants.context?
+    description: Refresh repository evidence immediately before source changes.
+    condition: null
+  before_clarify:
+  - extension: brownpants
+    command: speckit.brownpants.context
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.brownpants.context?
+    description: Refresh repository evidence before clarifying feature requirements.
+    condition: null
+  before_checklist:
+  - extension: brownpants
+    command: speckit.brownpants.context
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.brownpants.context?
+    description: Refresh repository evidence before generating a feature checklist.
+    condition: null
+  before_analyze:
+  - extension: brownpants
+    command: speckit.brownpants.context
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.brownpants.context?
+    description: Refresh repository evidence before analyzing feature artifacts.
+    condition: null
+  before_constitution:
+  - extension: brownpants
+    command: speckit.brownpants.context
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.brownpants.context?
+    description: Inspect repository conventions before updating the project constitution.
+    condition: null
+  before_taskstoissues:
+  - extension: brownpants
+    command: speckit.brownpants.context
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.brownpants.context?
+    description: Refresh task and repository evidence before issue synchronization.
+    condition: null
+  after_implement:
+  - extension: brownpants
+    command: speckit.brownpants.context
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.brownpants.context?
+    description: Refresh repository evidence after implementation for drift and completion review.
+    condition: null

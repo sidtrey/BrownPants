@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "extensions": {
+    "brownpants": {
+      "version": "0.1.0",
+      "source": "local",
+      "manifest_hash": "sha256:668421896ab75144b36e62bdfe748aa81c99ef5707e89f6c89d900fa71d90834",
+      "enabled": true,
+      "priority": 10,
+      "registered_commands": {
+        "codex": [
+          "speckit.brownpants.context"
+        ]
+      },
+      "registered_skills": [
+        "speckit-brownpants-context"
+      ],
+      "installed_at": "2026-10-14T16:42:08.200297+00:00"
+    }
+  }
+}

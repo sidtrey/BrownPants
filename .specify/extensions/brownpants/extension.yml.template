@@ -1,0 +1,76 @@
+schema_version: "1.0"
+
+extension:
+  id: brownpants
+  name: BrownPants
+  version: 0.1.0
+  description: Ground the Spec Kit lifecycle in deterministic repository evidence.
+  author: BrownPants contributors
+  repository: "__BROWNPANTS_REPOSITORY_URL__"
+  license: "__BROWNPANTS_LICENSE__"
+
+requires:
+  speckit_version: ">=1.0.0"
+
+provides:
+  commands:
+    - name: speckit.brownpants.context
+      file: commands/context.md
+      description: Inspect the existing repository and ground Spec Kit lifecycle steps in evidence.
+
+hooks:
+  before_specify:
+    command: speckit.brownpants.context
+    priority: 10
+    optional: false
+    description: Inspect the brownfield repository before writing a feature specification.
+  before_plan:
+    command: speckit.brownpants.context
+    priority: 10
+    optional: false
+    description: Refresh brownfield evidence before proposing implementation changes.
+  before_clarify:
+    command: speckit.brownpants.context
+    priority: 10
+    optional: false
+    description: Refresh repository evidence before clarifying feature requirements.
+  before_checklist:
+    command: speckit.brownpants.context
+    priority: 10
+    optional: false
+    description: Refresh repository evidence before generating a feature checklist.
+  before_tasks:
+    command: speckit.brownpants.context
+    priority: 10
+    optional: false
+    description: Refresh repository evidence before deriving implementation tasks.
+  before_analyze:
+    command: speckit.brownpants.context
+    priority: 10
+    optional: false
+    description: Refresh repository evidence before analyzing feature artifacts.
+  before_implement:
+    command: speckit.brownpants.context
+    priority: 10
+    optional: false
+    description: Refresh repository evidence immediately before source changes.
+  before_constitution:
+    command: speckit.brownpants.context
+    priority: 10
+    optional: false
+    description: Inspect repository conventions before updating the project constitution.
+  before_taskstoissues:
+    command: speckit.brownpants.context
+    priority: 10
+    optional: false
+    description: Refresh task and repository evidence before issue synchronization.
+  after_implement:
+    command: speckit.brownpants.context
+    priority: 10
+    optional: false
+    description: Refresh repository evidence after implementation for drift and completion review.
+
+tags:
+  - brownfield
+  - code-analysis
+  - planning
