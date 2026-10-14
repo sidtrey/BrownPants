@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://brownpants.dev/schemas/instruction-context-frame.v1.json",
+  "title": "BrownPants Instruction Context Frame Draft",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["budget", "points"],
+  "properties": {
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit", "requested"],
+      "properties": {
+        "unit": { "enum": ["words", "tokens"] },
+        "requested": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "points": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["text", "sources"],
+        "properties": {
+          "text": { "type": "string", "minLength": 1 },
+          "sources": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path"],
+              "properties": {
+                "path": { "type": "string", "minLength": 1 },
+                "anchor": { "type": "string" },
+                "digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "reviewItems": { "type": "array", "items": { "type": "string" } }
+  }
+}

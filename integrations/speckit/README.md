@@ -2,6 +2,8 @@
 
 This extension adds `speckit.brownpants.context` and runs it automatically before Spec Kit's constitution, specify, clarify, plan, checklist, tasks, analyze, implement, and task-to-issues commands, and after implementation. It also provides the optional `speckit.brownpants.bug-evidence` hook for Spec Kit's bundled `bug` extension. When accepted, that hook searches safe clues already pasted into the report and saves bounded navigation leads beside the assessment. It never fetches URLs, includes source snippets, or asserts root cause; the official assess/fix/test commands remain unchanged. The post-hook refresh supports completion review against the active task list and current repository; it does not replace build or test validation. The context uses BrownPants' deterministic, cross-ecosystem inventory as a starting map, distinguishes inventory-only languages from Roslyn and lexical analysis, then instructs the agent to verify claims against source files.
 
+When requested, the context command can map instruction files with `brownpants instructions` and guide creation of a cited response frame with `brownpants frame create`; `brownpants frame validate` checks source freshness. The frame preserves links to canonical details and carries host-loading caveats. It does not replace Spec Kit's constitution/spec workflow or automatically change agent host configuration.
+
 ## Build the manifest
 
 Spec Kit requires the extension repository URL and license identifier in `extension.yml`. Generate that file from the checked-in template:

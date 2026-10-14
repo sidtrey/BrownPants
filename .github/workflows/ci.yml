@@ -34,6 +34,14 @@ jobs:
       - name: Run xUnit tests
         run: dotnet test BrownPants.sln --configuration Release --no-build
 
+      - name: Check acceptance-criteria hash workflow
+        shell: pwsh
+        run: ./tests/AcceptanceCriteriaHashTests.ps1
+
+      - name: Verify active feature acceptance baseline
+        shell: pwsh
+        run: ./scripts/acceptance-criteria-hash.ps1 -SpecPath specs/019-instruction-context-framing/spec.md
+
       - name: Set up Python for Spec Kit integration
         uses: actions/setup-python@v5
         with:

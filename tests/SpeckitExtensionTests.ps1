@@ -87,6 +87,11 @@ foreach ($relativePath in $contextPaths) {
         Assert-True ($context -match "(?i)For ``$phase``") "$relativePath lacks phase-specific '$phase' guidance."
     }
     Assert-True ($context.Contains('After `implement`')) "$relativePath lacks post-implementation review guidance."
+    Assert-True ($context.Contains('brownpants instructions')) "$relativePath lacks instruction-source mapping guidance."
+    Assert-True ($context.Contains('brownpants frame create') -and $context.Contains('brownpants frame validate')) "$relativePath lacks response-frame creation and freshness guidance."
+    Assert-True ($context.Contains('host is configured')) "$relativePath must explain host-dependent context savings."
+    Assert-True ($context.Contains('acceptance-criteria.sha256') -and $context.Contains('scripts/acceptance-criteria-hash.ps1')) "$relativePath must verify frozen acceptance criteria before implementation."
+    Assert-True ($context.Contains('At implementation completion, verify')) "$relativePath must recheck acceptance criteria before declaring completion."
 }
 
 $specify = Get-Command specify -ErrorAction SilentlyContinue
