@@ -16,10 +16,12 @@ function Get-HookBlock {
 }
 
 $events = @('before_constitution', 'before_specify', 'before_clarify', 'before_plan', 'before_checklist', 'before_tasks', 'before_analyze', 'before_implement', 'before_taskstoissues', 'after_implement')
+$bugEvent = 'before_bug_assess'
 $beforeEvents = @($events | Where-Object { $_ -like 'before_*' })
-Assert-True ($beforeEvents.Count -eq 9 -and @($events | Where-Object { $_ -like 'after_*' }).Count -eq 1) 'Expected nine pre-phase hooks and one post-implementation hook.'
+Assert-True ($beforeEvents.Count -eq 9 -and @($events | Where-Object { $_ -like 'after_*' }).Count -eq 1) 'Expected nine required lifecycle pre-hooks and one post-implementation hook, plus the optional bug-assessment pre-hook.'
 $integrationIndex = Get-Content -LiteralPath (Join-Path $repositoryRoot 'integrations/README.md') -Raw
 Assert-True ($integrationIndex.Contains('before constitution, specification, clarification, planning, checklist, task, analysis, implementation, and issue-sync phases, and after implementation')) 'integrations/README.md must document pre- and post-implementation coverage.'
+Assert-True ($integrationIndex.Contains('optional bug-assessment evidence hook')) 'integrations/README.md must document the optional bug-assessment evidence hook.'
 
 $manifestPaths = @(
     'integrations/speckit/extension.yml',
@@ -31,22 +33,44 @@ foreach ($relativePath in $manifestPaths) {
     $manifest = Get-Content -LiteralPath (Join-Path $repositoryRoot $relativePath) -Raw
     Assert-True ($manifest -match '(?m)^  speckit_version:\s*">=1\.0\.0"\s*$') "$relativePath must require a Spec Kit version that supports all lifecycle events."
     $manifestHookCount = [regex]::Matches($manifest, '(?m)^  (?:before|after)_[a-z_]+:').Count
-    Assert-True ($manifestHookCount -eq $events.Count) "$relativePath should register all ten lifecycle hooks."
+    Assert-True ($manifestHookCount -eq ($events.Count + 1)) "$relativePath should register eleven hooks, including the optional bug-assessment hook."
     foreach ($event in $events) {
         $block = Get-HookBlock -Yaml $manifest -Event $event
         Assert-True ($block -match '(?m)^\s+command:\s*speckit\.brownpants\.context\s*$') "$relativePath/$event targets the wrong command."
         Assert-True ($block -match '(?m)^\s+optional:\s*false\s*$') "$relativePath/$event must be mandatory."
     }
+    $bugBlock = Get-HookBlock -Yaml $manifest -Event $bugEvent
+    Assert-True ($bugBlock -match '(?m)^\s+command:\s*speckit\.brownpants\.bug-evidence\s*$') "$relativePath/$bugEvent targets the wrong command."
+    Assert-True ($bugBlock -match '(?m)^\s+optional:\s*true\s*$') "$relativePath/$bugEvent must remain optional."
+    Assert-True ($manifest -match '(?m)^\s+- name:\s*speckit\.brownpants\.bug-evidence\s*$') "$relativePath must provide the bug-evidence command."
+    $commandCount = [regex]::Matches($manifest, '(?m)^\s+- name:\s*speckit\.brownpants\.').Count
+    Assert-True ($commandCount -eq 2) "$relativePath should provide only the context and bug-evidence commands."
+    Assert-True ($manifest -notmatch '(?m)^\s+- name:\s*speckit\.brownpants\.bug-(?:assess|fix|test)\s*$') "$relativePath must not introduce competing BrownPants bug workflow commands."
 }
 
 $projectHooks = Get-Content -LiteralPath (Join-Path $repositoryRoot '.specify/extensions.yml') -Raw
 $projectHookCount = [regex]::Matches($projectHooks, '(?m)^  (?:before|after)_[a-z_]+:').Count
-Assert-True ($projectHookCount -eq $events.Count) '.specify/extensions.yml should contain all ten BrownPants lifecycle hooks.'
+Assert-True ($projectHookCount -eq ($events.Count + 1)) '.specify/extensions.yml should contain all eleven BrownPants hooks.'
 foreach ($event in $events) {
     $block = Get-HookBlock -Yaml $projectHooks -Event $event
     Assert-True ($block -match '(?m)^\s+- extension:\s*brownpants\s*$') ".specify/extensions.yml/$event must belong to BrownPants."
     Assert-True ($block -match '(?m)^\s+command:\s*speckit\.brownpants\.context\s*$') ".specify/extensions.yml/$event targets the wrong command."
     Assert-True ($block -match '(?m)^\s+optional:\s*false\s*$') ".specify/extensions.yml/$event must be mandatory."
+}
+$projectBugBlock = Get-HookBlock -Yaml $projectHooks -Event $bugEvent
+Assert-True ($projectBugBlock -match '(?m)^\s+- extension:\s*brownpants\s*$') ".specify/extensions.yml/$bugEvent must belong to BrownPants."
+Assert-True ($projectBugBlock -match '(?m)^\s+command:\s*speckit\.brownpants\.bug-evidence\s*$') ".specify/extensions.yml/$bugEvent targets the wrong command."
+Assert-True ($projectBugBlock -match '(?m)^\s+optional:\s*true\s*$') ".specify/extensions.yml/$bugEvent must remain optional."
+
+$bugCommandPaths = @(
+    'integrations/speckit/commands/bug-evidence.md',
+    '.specify/extensions/brownpants/commands/bug-evidence.md'
+)
+foreach ($relativePath in $bugCommandPaths) {
+    $bugCommand = Get-Content -LiteralPath (Join-Path $repositoryRoot $relativePath) -Raw
+    foreach ($requiredText in @('BUG_DIR', 'If either value is missing', 'brownpants investigate', 'brownpants-evidence.md', 'Do not fetch', 'up to 20', '1000 characters', 'secrets', 'credentials', 'Do not interpolate report text into a shell string', 'If the command fails', 'Do not silently overwrite', 'skip', 'navigation leads', 'no causal')) {
+        Assert-True ($bugCommand -match [regex]::Escape($requiredText)) "$relativePath must include '$requiredText' guidance."
+    }
 }
 
 $contextPaths = @(
@@ -104,7 +128,20 @@ if ($specify) {
         $listOutput = & $specify.Source extension list 2>&1 | Out-String
         $listExitCode = $LASTEXITCODE
         Assert-True ($listExitCode -eq 0) "Spec Kit extension listing failed (exit $listExitCode): $listOutput"
-        Assert-True ($listOutput -match '(?is)BrownPants.*Hooks:\s*10.*Status:\s*Enabled') 'Spec Kit did not report BrownPants as enabled with ten hooks.'
+        Assert-True ($listOutput -match '(?is)BrownPants.*Hooks:\s*11.*Status:\s*Enabled') 'Spec Kit did not report BrownPants as enabled with eleven hooks.'
+        $bugAssessSkillPath = Join-Path $codexSkillsPath 'speckit-bug-assess/SKILL.md'
+        Assert-True (-not (Test-Path -LiteralPath $bugAssessSkillPath -PathType Leaf)) 'The optional Spec Kit bug workflow unexpectedly exists before its extension is installed.'
+
+        $bugInstallOutput = & $specify.Source extension add bug 2>&1 | Out-String
+        $bugInstallExitCode = $LASTEXITCODE
+        Assert-True ($bugInstallExitCode -eq 0) "Spec Kit bug extension installation failed (exit $bugInstallExitCode): $bugInstallOutput"
+        Assert-True (Test-Path -LiteralPath $bugAssessSkillPath -PathType Leaf) 'Spec Kit did not install its bug assessment skill.'
+        $bugAssessSkill = Get-Content -LiteralPath $bugAssessSkillPath -Raw
+        Assert-True ($bugAssessSkill.Contains('before_bug_assess')) 'Installed Spec Kit bug assessment skill does not dispatch the pre-assessment hook.'
+        Assert-True ($bugAssessSkill.Contains('By this point `BUG_SLUG` and `BUG_DIR` have been resolved')) 'Spec Kit bug assessment does not resolve its output directory before the pre-hook.'
+        $preHookIndex = $bugAssessSkill.IndexOf('before_bug_assess', [System.StringComparison]::Ordinal)
+        $ingestIndex = $bugAssessSkill.IndexOf('Ingest the bug report', $preHookIndex, [System.StringComparison]::Ordinal)
+        Assert-True ($preHookIndex -ge 0 -and $ingestIndex -gt $preHookIndex) 'Spec Kit bug assessment must dispatch BrownPants before ingesting the report.'
 
         $projectSpecDirectory = Join-Path $liveProject '.specify'
         $installedRoot = Join-Path $projectSpecDirectory 'extensions/brownpants'
@@ -116,6 +153,15 @@ if ($specify) {
         $commandPath = Join-Path $installedRoot ($commandMatch.Groups['path'].Value.Replace('/', [System.IO.Path]::DirectorySeparatorChar))
         Assert-True (Test-Path -LiteralPath $commandPath -PathType Leaf) 'Installed context command file is missing.'
 
+        $bugCommandMatch = [regex]::Match($installedManifest, '(?m)^\s+file:\s*(?<path>commands/bug-evidence\.md)\s*$')
+        Assert-True ($bugCommandMatch.Success) 'Installed manifest does not declare the expected bug-evidence command file.'
+        $bugCommandPath = Join-Path $installedRoot ($bugCommandMatch.Groups['path'].Value.Replace('/', [System.IO.Path]::DirectorySeparatorChar))
+        Assert-True (Test-Path -LiteralPath $bugCommandPath -PathType Leaf) 'Installed bug-evidence command file is missing.'
+        $bugSkillPath = Join-Path $codexSkillsPath 'speckit-brownpants-bug-evidence/SKILL.md'
+        Assert-True (Test-Path -LiteralPath $bugSkillPath -PathType Leaf) 'Spec Kit did not install the runnable Codex bug-evidence skill.'
+        $bugSkill = Get-Content -LiteralPath $bugSkillPath -Raw
+        Assert-True ($bugSkill.Contains('brownpants investigate')) 'Generated bug-evidence skill does not contain the investigation command instructions.'
+
         $projectHooks = Get-Content -LiteralPath (Join-Path $projectSpecDirectory 'extensions.yml') -Raw
         foreach ($event in $events) {
             $block = Get-HookBlock -Yaml $projectHooks -Event $event
@@ -124,8 +170,13 @@ if ($specify) {
             Assert-True ($block -match '(?m)^\s+enabled:\s*true\s*$') "Installed project registration/$event is disabled."
             Assert-True ($block -match '(?m)^\s+optional:\s*false\s*$') "Installed project registration/$event is not mandatory."
         }
+        $installedBugBlock = Get-HookBlock -Yaml $projectHooks -Event $bugEvent
+        Assert-True ($installedBugBlock -match '(?m)^\s+- extension:\s*brownpants\s*$') 'Installed bug hook has the wrong extension id.'
+        Assert-True ($installedBugBlock -match '(?m)^\s+command:\s*speckit\.brownpants\.bug-evidence\s*$') 'Installed bug hook targets the wrong command.'
+        Assert-True ($installedBugBlock -match '(?m)^\s+enabled:\s*true\s*$') 'Installed bug hook is disabled.'
+        Assert-True ($installedBugBlock -match '(?m)^\s+optional:\s*true\s*$') 'Installed bug hook is not optional.'
         $registeredHookCount = [regex]::Matches($projectHooks, '(?m)^  (?:before|after)_[a-z_]+:').Count
-        Assert-True ($registeredHookCount -eq $events.Count) "Spec Kit installed $registeredHookCount hooks; expected $($events.Count)."
+        Assert-True ($registeredHookCount -eq ($events.Count + 1)) "Spec Kit installed $registeredHookCount hooks; expected $($events.Count + 1)."
         $liveIntegrationResult = 'passed with Spec Kit CLI'
     } finally {
         Set-Location -LiteralPath $originalLocation
@@ -135,4 +186,4 @@ if ($specify) {
     }
 }
 
-Write-Output "Spec Kit extension tests passed: nine pre-hooks, one post-hook, synchronized guidance; live Codex setup and extension check $liveIntegrationResult."
+Write-Output "Spec Kit extension tests passed: nine required lifecycle pre-hooks, one post-hook, one optional bug-assessment hook, synchronized guidance; live Codex setup and extension check $liveIntegrationResult."

@@ -3,6 +3,15 @@ installed:
 settings:
   auto_execute_hooks: true
 hooks:
+  before_bug_assess:
+  - extension: brownpants
+    command: speckit.brownpants.bug-evidence
+    enabled: true
+    optional: true
+    priority: 20
+    prompt: Gather BrownPants repository evidence from the pasted bug report?
+    description: Search distinctive pasted bug-report clues and save source/test navigation leads.
+    condition: null
   before_specify:
   - extension: brownpants
     command: speckit.brownpants.context

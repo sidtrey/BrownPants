@@ -17,8 +17,17 @@ provides:
     - name: speckit.brownpants.context
       file: commands/context.md
       description: Inspect the existing repository and ground Spec Kit lifecycle steps in evidence.
+    - name: speckit.brownpants.bug-evidence
+      file: commands/bug-evidence.md
+      description: Find safe BrownPants repository leads during Spec Kit bug assessment.
 
 hooks:
+  before_bug_assess:
+    command: speckit.brownpants.bug-evidence
+    priority: 20
+    optional: true
+    description: Search distinctive pasted bug-report clues and save source/test navigation leads.
+    prompt: Gather BrownPants repository evidence from the pasted bug report?
   before_specify:
     command: speckit.brownpants.context
     priority: 10
