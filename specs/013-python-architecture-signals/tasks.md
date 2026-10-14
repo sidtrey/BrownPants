@@ -8,8 +8,8 @@
 
 **Independent Test**: Temporary Python modules containing supported patterns produce source-located candidates; comments, strings, and ordinary calls do not.
 
-- [x] T001 [US1] Add positive/noise fixtures and Markdown/JSON determinism assertions in `tests/BrownPants.Tests/RepositoryScannerTests.cs`.
-- [x] T002 [US1] Add bounded Python comment/string filtering and factory/DI candidate matching in `src/BrownPants.Cli/Analysis/ArchitecturePatternAnalyzer.cs`.
+- [x] T001 [US1] Add positive/noise and explicit CRLF fixtures plus Markdown/JSON determinism assertions in `tests/BrownPants.Tests/RepositoryScannerTests.cs`.
+- [x] T002 [US1] Add Python comment/string filtering, CRLF-aware escaped continuation handling, and factory/DI candidate matching in `src/BrownPants.Cli/Analysis/ArchitecturePatternAnalyzer.cs`.
 - [x] T003 [US1] Report Python lexical candidate coverage in `src/BrownPants.Cli/Analysis/SourceLanguageCoverageAnalyzer.cs`, clarify generic candidate wording in `src/BrownPants.Cli/Output/MarkdownReport.cs`, and document pattern limits in `README.md`.
 - [x] T004 [US1] Run the Release build/test suite and Spec Kit/OpenSpec adapter checks.
 

@@ -30,7 +30,7 @@ Extend architecture candidate reporting to Python using a bounded, dependency-fr
 
 ## Design
 
-Route `.py`, `.pyw`, and `.pyi` files through a Python-specific lexical pattern pass. Mask string literals and `#` comments while preserving line positions, including multiline triple quotes and prefixed strings. Emit architecture candidates for factory class/method/call conventions, `providers.Factory`/`Singleton` declarations, and dependency markers such as `Depends`, `Provide[...]`, and `@inject`. Change Python's coverage row from inventory-only to lexical candidate patterns. Do not add parser or report-schema dependencies.
+Route `.py`, `.pyw`, and `.pyi` files through a Python-specific lexical pattern pass. Mask string literals and `#` comments while preserving line positions, including multiline triple quotes, prefixed strings, escaped continuations, and CRLF input. Emit architecture candidates for factory class/method/call conventions, `providers.Factory`/`Singleton` declarations, and dependency markers such as `Depends`, `Provide[...]`, and `@inject`. Change Python's coverage row from inventory-only to lexical candidate patterns. Do not add parser or report-schema dependencies.
 
 ## Validation
 

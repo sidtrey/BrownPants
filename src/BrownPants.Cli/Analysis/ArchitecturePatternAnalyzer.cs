@@ -410,8 +410,9 @@ public static class ArchitecturePatternAnalyzer
 
     private static bool HasLineContinuation(string line, int startIndex)
     {
+        var lastIndex = line.EndsWith('\r') ? line.Length - 2 : line.Length - 1;
         var trailingBackslashes = 0;
-        for (var index = line.Length - 1; index >= startIndex && line[index] == '\\'; index--)
+        for (var index = lastIndex; index >= startIndex && line[index] == '\\'; index--)
             trailingBackslashes++;
         return trailingBackslashes % 2 == 1;
     }

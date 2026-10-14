@@ -957,7 +957,7 @@ public sealed class RepositoryScannerTests : IDisposable
     [Fact]
     public void Scan_ReportsPythonFactoryAndDependencyCandidatesAndFiltersNoise()
     {
-        Write("app/services.py", """
+        var pythonSource = """
             from fastapi import Depends
             class ReportFactory:
                 def create_report(self): ...
@@ -979,7 +979,8 @@ public sealed class RepositoryScannerTests : IDisposable
             ordinary_call = create_user()
             joined_text = "continued \
             class JoinedFactory: def make_fake(): ..."
-            """);
+            """.Replace("\n", "\r\n", StringComparison.Ordinal);
+        Write("app/services.py", pythonSource);
 
         var inventory = RepositoryScanner.Scan(_root, sampleLimit: 50);
         var signals = inventory.ArchitecturePatterns.Signals

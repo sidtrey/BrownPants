@@ -27,6 +27,7 @@ A developer inspecting a Python repository wants source-located leads to factory
 - Comments follow code on the same line.
 - Triple-quoted strings span lines and can use either quote character.
 - Raw, bytes, and formatted string prefixes do not change string filtering.
+- CRLF line endings preserve escaped continuations in quoted strings.
 - Python files that contain no recognized pattern remain inventoried without architecture signals.
 
 ## Requirements
