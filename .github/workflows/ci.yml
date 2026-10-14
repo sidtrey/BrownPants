@@ -3,6 +3,12 @@ name: CI
 on:
   push:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+      - unlabeled
   workflow_dispatch:
 
 permissions:
@@ -19,6 +25,9 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
 
       - name: Set up .NET 10
         uses: actions/setup-dotnet@v4
@@ -37,6 +46,43 @@ jobs:
       - name: Check acceptance-criteria hash workflow
         shell: pwsh
         run: ./tests/AcceptanceCriteriaHashTests.ps1
+
+      - name: Check acceptance criteria amendment policy
+        if: github.event_name == 'pull_request'
+        shell: pwsh
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+        run: |
+          $labels = @($env:PR_LABELS | ConvertFrom-Json)
+          $reviewed = $labels -contains 'acceptance-criteria-reviewed'
+          ./scripts/check-acceptance-criteria-review.ps1 -BaseRef $env:PR_BASE -HeadRef $env:PR_HEAD -Reviewed:$reviewed
+
+      - name: Check changed acceptance evidence ledgers
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_HEAD: ${{ github.sha }}
+        run: |
+          if ($env:EVENT_NAME -eq 'pull_request') {
+            $changed = git diff --name-only "$($env:PR_BASE)...$($env:PR_HEAD)" -- specs
+          } elseif ($env:EVENT_NAME -eq 'push') {
+            if ($env:PUSH_BEFORE -match '^0+$') { $changed = git ls-tree -r --name-only $env:PUSH_HEAD -- specs }
+            else { $changed = git diff --name-only $env:PUSH_BEFORE $env:PUSH_HEAD -- specs }
+          } else { $changed = @() }
+          if ($LASTEXITCODE -ne 0) { throw 'Could not determine changed feature artifacts from Git history.' }
+          $featureDirs = @($changed | Where-Object { $_ -match '^specs/[^/]+/(tasks\.md|acceptance-evidence\.json)$' } | ForEach-Object { $_ -replace '/(tasks\.md|acceptance-evidence\.json)$', '' } | Sort-Object -Unique)
+          foreach ($featureDir in $featureDirs) {
+            $spec = Join-Path $featureDir 'spec.md'
+            $tasks = Join-Path $featureDir 'tasks.md'
+            $ledger = Join-Path $featureDir 'acceptance-evidence.json'
+            if (-not (Test-Path -LiteralPath $ledger -PathType Leaf)) { throw "Changed feature tasks require an acceptance evidence ledger: $featureDir" }
+            ./scripts/check-acceptance-evidence.ps1 -RepositoryRoot . -SpecPath $spec -TasksPath $tasks -EvidencePath $ledger
+          }
 
       - name: Verify recorded acceptance baselines
         shell: pwsh

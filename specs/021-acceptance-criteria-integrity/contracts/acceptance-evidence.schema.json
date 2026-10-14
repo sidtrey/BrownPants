@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://brownpants.dev/schemas/acceptance-evidence.v1.json",
+  "title": "BrownPants Acceptance Evidence Ledger",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "tasks"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "tasks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/task" }
+    }
+  },
+  "$defs": {
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["taskId", "criterionIds", "verificationCommand", "evidencePaths", "result"],
+      "properties": {
+        "taskId": { "type": "string", "pattern": "^T[0-9]{3}$" },
+        "criterionIds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^(AC|SC)-[0-9]{3}$" }
+        },
+        "verificationCommand": { "type": "string", "minLength": 1 },
+        "evidencePaths": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "result": { "enum": ["planned", "passed"] }
+      }
+    }
+  }
+}

@@ -92,6 +92,9 @@ foreach ($relativePath in $contextPaths) {
     Assert-True ($context.Contains('host is configured')) "$relativePath must explain host-dependent context savings."
     Assert-True ($context.Contains('acceptance-criteria.sha256') -and $context.Contains('scripts/acceptance-criteria-hash.ps1')) "$relativePath must verify frozen acceptance criteria before implementation."
     Assert-True ($context.Contains('At implementation completion, verify')) "$relativePath must recheck acceptance criteria before declaring completion."
+    foreach ($requiredText in @('acceptance-evidence.json', 'AC-###', 'SC-###', 'scripts/check-acceptance-evidence.ps1', 'acceptance-criteria-review.md', 'acceptance-criteria-reviewed', 'never claim it ran unless the output was observed', 'does not execute commands')) {
+        Assert-True ($context.Contains($requiredText)) "$relativePath must include acceptance evidence integrity guidance '$requiredText'."
+    }
     Assert-True ($context.Contains('brownpants placement')) "$relativePath must route placement questions through the engine-neutral decision command."
     Assert-True ($context.Contains('distinct process argument')) "$relativePath must not interpolate untrusted candidate text into shell syntax."
 }

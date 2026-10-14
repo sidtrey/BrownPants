@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    {
+      "taskId": "T001",
+      "criterionIds": ["AC-001", "AC-004", "SC-001", "SC-007"],
+      "verificationCommand": "pwsh -NoProfile -File tests/AcceptanceEvidenceTests.ps1",
+      "evidencePaths": ["tests/AcceptanceEvidenceTests.ps1"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T002",
+      "criterionIds": ["AC-001", "AC-002", "AC-003", "AC-004", "SC-001", "SC-002", "SC-007"],
+      "verificationCommand": "pwsh -NoProfile -File tests/AcceptanceEvidenceTests.ps1",
+      "evidencePaths": ["scripts/check-acceptance-evidence.ps1", "tests/AcceptanceEvidenceTests.ps1"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T003",
+      "criterionIds": ["AC-005", "AC-006", "AC-007", "AC-008", "SC-003", "SC-004"],
+      "verificationCommand": "pwsh -NoProfile -File tests/AcceptanceCriteriaReviewTests.ps1",
+      "evidencePaths": ["tests/AcceptanceCriteriaReviewTests.ps1"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T004",
+      "criterionIds": ["AC-005", "AC-006", "AC-007", "AC-008", "SC-003", "SC-004"],
+      "verificationCommand": "pwsh -NoProfile -File tests/AcceptanceCriteriaReviewTests.ps1",
+      "evidencePaths": ["scripts/check-acceptance-criteria-review.ps1", "tests/AcceptanceCriteriaReviewTests.ps1"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T005",
+      "criterionIds": ["AC-005", "AC-006", "SC-003", "SC-005"],
+      "verificationCommand": "pwsh -NoProfile -File tests/AcceptanceCriteriaIntegrityWorkflowTests.ps1",
+      "evidencePaths": [".github/workflows/ci.yml", "tests/AcceptanceCriteriaIntegrityWorkflowTests.ps1"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T006",
+      "criterionIds": ["AC-001", "AC-010", "SC-001", "SC-006"],
+      "verificationCommand": "pwsh -NoProfile -File scripts/check-acceptance-evidence.ps1 -RepositoryRoot . -SpecPath specs/021-acceptance-criteria-integrity/spec.md -TasksPath specs/021-acceptance-criteria-integrity/tasks.md -EvidencePath specs/021-acceptance-criteria-integrity/acceptance-evidence.json",
+      "evidencePaths": ["specs/021-acceptance-criteria-integrity/acceptance-evidence.json", "scripts/check-acceptance-evidence.ps1"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T007",
+      "criterionIds": ["AC-009", "AC-010", "AC-011", "SC-006"],
+      "verificationCommand": "pwsh -NoProfile -File tests/SpeckitExtensionTests.ps1",
+      "evidencePaths": ["integrations/speckit/commands/context.md", ".specify/extensions/brownpants/commands/context.md", ".agents/skills/speckit-brownpants-context/SKILL.md", "tests/SpeckitExtensionTests.ps1"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T008",
+      "criterionIds": ["AC-011", "SC-003", "SC-006"],
+      "verificationCommand": "pwsh -NoProfile -File tests/SpeckitExtensionTests.ps1",
+      "evidencePaths": ["README.md", "specs/021-acceptance-criteria-integrity/quickstart.md"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T009",
+      "criterionIds": ["AC-001", "AC-002", "AC-003", "AC-004", "AC-005", "AC-006", "AC-007", "AC-008", "AC-009", "AC-010", "AC-011", "SC-001", "SC-002", "SC-003", "SC-004", "SC-005", "SC-006", "SC-007"],
+      "verificationCommand": "dotnet test BrownPants.sln --configuration Release",
+      "evidencePaths": ["specs/021-acceptance-criteria-integrity/verification.md"],
+      "result": "passed"
+    }
+  ]
+}
