@@ -899,6 +899,62 @@ public sealed class RepositoryScannerTests : IDisposable
     }
 
     [Fact]
+    public void Scan_ReportsMfcClassInheritanceCandidatesAndFiltersNoise()
+    {
+        Write("native/MainFrame.h", """
+            class CMainFrame : public CFrameWndEx {};
+            class CAccountDocument
+                : public CDocument
+            {};
+            struct CToolbar : public CWnd {};
+            class CSettingsDialog : CDialogEx {};
+            class CWorkspace : public IWorkspace, public CWnd {};
+            class UnrelatedWindow : public BaseWindow {};
+            """);
+        Write("native/Noise.h", """
+            // class CommentFrame : public CFrameWnd {};
+            const char* sample = "class StringDialog : public CDialogEx {};";
+            const char* raw = R"fixture(
+            class RawDocument : public CDocument {};
+            )fixture";
+            class OrdinaryWindow : public BaseWindow {};
+            """);
+
+        var inventory = RepositoryScanner.Scan(_root, sampleLimit: 50);
+        var repeatedInventory = RepositoryScanner.Scan(_root, sampleLimit: 50);
+        var signals = inventory.ArchitecturePatterns.Signals
+            .Where(signal => signal.Category == "MFC class inheritance")
+            .ToArray();
+
+        Assert.Equal(5, signals.Length);
+        Assert.Equal(new[] { 1, 2, 5, 6, 7 }, signals.Select(signal => signal.Line).ToArray());
+        Assert.All(signals, signal =>
+        {
+            Assert.Equal("Candidate", signal.EvidenceKind);
+            Assert.Equal("C++", signal.Language);
+            Assert.Equal("native/MainFrame.h", signal.Path);
+        });
+        Assert.Contains(signals, signal => signal.Evidence.Contains("CDocument", StringComparison.Ordinal));
+        Assert.DoesNotContain(inventory.ArchitecturePatterns.Signals,
+            signal => signal.Path == "native/Noise.h" && signal.Category == "MFC class inheritance");
+        Assert.Contains("MFC class inheritance", MarkdownReport.Render(inventory));
+        Assert.Equal(MarkdownReport.Render(inventory), MarkdownReport.Render(repeatedInventory));
+
+        using var output = new StringWriter();
+        using var repeatedOutput = new StringWriter();
+        using var error = new StringWriter();
+        Assert.Equal(0, Program.Run(new[] { "inspect", _root, "--format", "json", "--limit", "50" }, output, error));
+        Assert.Equal(0, Program.Run(new[] { "inspect", _root, "--format", "json", "--limit", "50" }, repeatedOutput, error));
+        Assert.Equal(output.ToString(), repeatedOutput.ToString());
+        using var json = System.Text.Json.JsonDocument.Parse(output.ToString());
+        Assert.Contains(json.RootElement.GetProperty("ArchitecturePatterns").GetProperty("Signals").EnumerateArray(),
+            signal => signal.GetProperty("Category").GetString() == "MFC class inheritance"
+                && signal.GetProperty("Path").GetString() == "native/MainFrame.h"
+                && signal.GetProperty("Line").GetInt32() == 2
+                && signal.GetProperty("EvidenceKind").GetString() == "Candidate");
+    }
+
+    [Fact]
     public void Scan_RecognizesLegacyContainerResolutionAndFiltersGenericGetCalls()
     {
         Write("client/LegacyComposition.cs", """

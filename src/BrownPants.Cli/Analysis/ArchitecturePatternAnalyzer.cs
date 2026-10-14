@@ -34,8 +34,14 @@ public static class ArchitecturePatternAnalyzer
 
     private static readonly Regex NativeRawStringStart = new("R\\\"(?<delimiter>[^ ()\\\\\\t\\r\\n]{0,16})\\(",
         RegexOptions.CultureInvariant);
+    private static readonly Regex NativeClassDeclarationStart = new(@"\b(?:class|struct)\b", Options);
+    private static readonly Regex MfcInheritanceDeclaration = new(
+        @"\b(?:class|struct)\b[^;{]*:\s*(?:[^,;{]*,\s*)*(?:(?:public|protected|private)\s+)?(?:virtual\s+)?(?:CObject|CCmdTarget|CWinThread|CWinAppEx?|CWnd|CFrameWndEx?|CMDIFrameWndEx?|CMDIChildWnd|CMiniFrameWnd|CView|CScrollView|CFormView|CListView|CTreeView|CDocument|CDialogEx?|CPropertyPage|CPropertySheet|CControlBar|CToolBar|CStatusBar|CRecordView|CRecordset)\b",
+        Options | RegexOptions.Singleline);
 
     private const RegexOptions Options = RegexOptions.IgnoreCase | RegexOptions.CultureInvariant;
+    private const int MaximumMfcDeclarationLines = 32;
+    private const int MaximumMfcDeclarationCharacters = 4096;
 
     public static ArchitecturePatternAnalysis Analyze(string root, IEnumerable<string> sourcePaths, int sampleLimit)
     {
@@ -250,6 +256,8 @@ public static class ArchitecturePatternAnalyzer
         var escaped = false;
         string? rawStringTerminator = null;
         var lines = source.Split('\n');
+        var declaration = new StringBuilder();
+        var declarationStartLine = 0;
         for (var index = 0; index < lines.Length; index++)
         {
             var code = RemoveCommentsAndStrings(lines[index], ref inBlockComment, ref quote, ref escaped,
@@ -259,6 +267,27 @@ public static class ArchitecturePatternAnalyzer
                 if (NativePatterns[patternIndex].IsMatch(code))
                     AddLineSignal(NativeCategories[patternIndex], language, path, index + 1, lines[index], signals,
                         sampleLimit, ref signalCount);
+            }
+
+            if (declaration.Length == 0 && NativeClassDeclarationStart.IsMatch(code))
+                declarationStartLine = index + 1;
+            if (declarationStartLine == 0)
+                continue;
+
+            declaration.AppendLine(code);
+            if (MfcInheritanceDeclaration.IsMatch(declaration.ToString()))
+            {
+                AddLineSignal("MFC class inheritance", language, path, declarationStartLine, declaration.ToString(),
+                    signals, sampleLimit, ref signalCount);
+                declaration.Clear();
+                declarationStartLine = 0;
+            }
+            else if (code.Contains('{') || code.Contains(';')
+                || index + 1 - declarationStartLine + 1 > MaximumMfcDeclarationLines
+                || declaration.Length > MaximumMfcDeclarationCharacters)
+            {
+                declaration.Clear();
+                declarationStartLine = 0;
             }
         }
     }
