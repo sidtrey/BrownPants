@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://brownpants.dev/schemas/placement-guidance.v1.json",
+  "title": "BrownPants Requirement Placement Guidance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["SchemaVersion", "Rule", "Inputs", "Recommendation", "Destinations", "Rationale", "Questions", "EvidenceLimits"],
+  "properties": {
+    "SchemaVersion": { "const": 1 },
+    "Rule": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "Inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Scope", "Durability", "Purpose"],
+      "properties": {
+        "Scope": { "enum": ["repository", "feature", "unknown"] },
+        "Durability": { "enum": ["enduring", "feature", "unknown"] },
+        "Purpose": { "enum": ["principle", "outcome", "agent_workflow", "mixed", "unknown"] }
+      }
+    },
+    "Recommendation": { "enum": ["constitution", "feature_spec", "agent_guidance", "split", "clarify"] },
+    "Destinations": { "type": "array", "items": { "type": "string" } },
+    "Rationale": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "Questions": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "EvidenceLimits": { "type": "string", "minLength": 1 }
+  }
+}

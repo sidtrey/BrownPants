@@ -92,6 +92,8 @@ foreach ($relativePath in $contextPaths) {
     Assert-True ($context.Contains('host is configured')) "$relativePath must explain host-dependent context savings."
     Assert-True ($context.Contains('acceptance-criteria.sha256') -and $context.Contains('scripts/acceptance-criteria-hash.ps1')) "$relativePath must verify frozen acceptance criteria before implementation."
     Assert-True ($context.Contains('At implementation completion, verify')) "$relativePath must recheck acceptance criteria before declaring completion."
+    Assert-True ($context.Contains('brownpants placement')) "$relativePath must route placement questions through the engine-neutral decision command."
+    Assert-True ($context.Contains('distinct process argument')) "$relativePath must not interpolate untrusted candidate text into shell syntax."
 }
 
 $specify = Get-Command specify -ErrorAction SilentlyContinue

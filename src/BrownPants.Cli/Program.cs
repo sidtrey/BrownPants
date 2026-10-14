@@ -21,6 +21,7 @@ public static class Program
             output.WriteLine("       brownpants instructions [path] [--source <relative-path>] [--format markdown|json]");
             output.WriteLine("       brownpants frame create <repository> <draft.json> <output.md> [--overwrite]");
             output.WriteLine("       brownpants frame validate <repository> <frame.md>");
+            output.WriteLine("       brownpants placement --rule <text> [--scope repository|feature|unknown] [--durability enduring|feature|unknown] [--purpose principle|outcome|agent-workflow|mixed|unknown] [--format markdown|json]");
             return args.Length == 0 ? 2 : 0;
         }
 
@@ -29,6 +30,9 @@ public static class Program
 
         if (string.Equals(args[0], "frame", StringComparison.OrdinalIgnoreCase))
             return RunFrame(args.Skip(1).ToArray(), output, error);
+
+        if (string.Equals(args[0], "placement", StringComparison.OrdinalIgnoreCase))
+            return RunPlacement(args.Skip(1).ToArray(), output, error);
 
         if (string.Equals(args[0], "investigate", StringComparison.OrdinalIgnoreCase))
             return RunInvestigation(args.Skip(1).ToArray(), output, error);
@@ -102,6 +106,64 @@ public static class Program
         {
             error.WriteLine($"Unable to inspect repository: {exception.Message}");
             return 1;
+        }
+    }
+
+    private static int RunPlacement(string[] args, TextWriter output, TextWriter error)
+    {
+        string? rule = null;
+        var scope = "unknown";
+        var durability = "unknown";
+        var purpose = "unknown";
+        var format = "markdown";
+
+        for (var index = 0; index < args.Length; index++)
+        {
+            var option = args[index];
+            if (option is not ("--rule" or "--scope" or "--durability" or "--purpose" or "--format"))
+            {
+                error.WriteLine($"Unknown placement option '{option}'. Use --help for usage.");
+                return 2;
+            }
+            if (++index >= args.Length || args[index].StartsWith("--", StringComparison.Ordinal))
+            {
+                error.WriteLine($"Missing value for {option}.");
+                return 2;
+            }
+            var value = args[index];
+            switch (option)
+            {
+                case "--rule": rule = value; break;
+                case "--scope": scope = value; break;
+                case "--durability": durability = value; break;
+                case "--purpose": purpose = value; break;
+                case "--format": format = value.ToLowerInvariant(); break;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(rule))
+        {
+            error.WriteLine("A non-empty --rule value is required.");
+            return 2;
+        }
+        if (format is not ("markdown" or "json"))
+        {
+            error.WriteLine($"Unsupported format '{format}'. Expected markdown or json.");
+            return 2;
+        }
+
+        try
+        {
+            var report = PlacementGuidanceAnalyzer.Analyze(rule, scope, durability, purpose);
+            output.WriteLine(format == "json"
+                ? JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true })
+                : PlacementGuidanceRenderer.Render(report));
+            return 0;
+        }
+        catch (ArgumentException exception)
+        {
+            error.WriteLine($"Invalid placement input: {exception.Message}");
+            return 2;
         }
     }
 

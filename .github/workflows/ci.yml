@@ -38,9 +38,15 @@ jobs:
         shell: pwsh
         run: ./tests/AcceptanceCriteriaHashTests.ps1
 
-      - name: Verify active feature acceptance baseline
+      - name: Verify recorded acceptance baselines
         shell: pwsh
-        run: ./scripts/acceptance-criteria-hash.ps1 -SpecPath specs/019-instruction-context-framing/spec.md
+        run: |
+          $baselines = Get-ChildItem -Path specs -Filter acceptance-criteria.sha256 -File -Recurse
+          foreach ($baseline in $baselines) {
+            $spec = Join-Path $baseline.DirectoryName 'spec.md'
+            if (-not (Test-Path -LiteralPath $spec)) { throw "Acceptance baseline has no spec: $($baseline.FullName)" }
+            & ./scripts/acceptance-criteria-hash.ps1 -SpecPath $spec -BaselinePath $baseline.FullName
+          }
 
       - name: Set up Python for Spec Kit integration
         uses: actions/setup-python@v5
@@ -77,3 +83,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Packed tool inspection failed with exit code $LASTEXITCODE." }
           if ($report.SchemaVersion -ne 1) { throw "Expected schema version 1, got '$($report.SchemaVersion)' instead." }
           if ($report.FileCount -lt 1) { throw 'Packed tool returned an empty repository inventory.' }
+          $placement = & $tool placement --rule 'A durable repository principle' --scope repository --durability enduring --purpose principle --format json | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "Packed tool placement failed with exit code $LASTEXITCODE." }
+          if ($placement.Recommendation -ne 'constitution') { throw "Expected constitution recommendation, got '$($placement.Recommendation)'." }
+          $clarification = & $tool placement --rule 'An unspecified rule' --format json | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "Packed tool clarification failed with exit code $LASTEXITCODE." }
+          if ($clarification.Recommendation -ne 'clarify' -or $clarification.Questions.Count -lt 1) { throw 'Packed tool did not ask for missing placement inputs.' }
