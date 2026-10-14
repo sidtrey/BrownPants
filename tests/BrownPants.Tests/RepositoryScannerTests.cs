@@ -18,8 +18,178 @@ public sealed class RepositoryScannerTests : IDisposable
 
         Assert.Equal(0, Program.Run(new[] { "--help" }, output, error));
         Assert.Contains("spec-driven development", output.ToString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("investigate [path] --clue", output.ToString(), StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("for Spec Kit", output.ToString(), StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void DiscoverFiles_ReturnsStablePathsAndSkipsIgnoredDirectories()
+    {
+        Write("src/z.cs", "class Z {}");
+        Write("src/A.cs", "class A {}");
+        Write("obj/Generated.cs", "class Generated {}");
+        Write(".git/config", "internal");
+
+        var files = RepositoryScanner.DiscoverFiles(_root);
+
+        Assert.Equal(new[] { "src/A.cs", "src/z.cs" }, files);
+    }
+
+    [Fact]
+    public void DiscoverFiles_DoesNotFollowDirectorySymlinksWhenSupported()
+    {
+        var scanRoot = Path.Combine(_root, "repository");
+        var target = Path.Combine(_root, "external");
+        Directory.CreateDirectory(scanRoot);
+        Directory.CreateDirectory(target);
+        File.WriteAllText(Path.Combine(target, "outside.txt"), "external");
+
+        try
+        {
+            Directory.CreateSymbolicLink(Path.Combine(scanRoot, "linked"), target);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+            or PlatformNotSupportedException or ArgumentException)
+        {
+            return;
+        }
+
+        var files = RepositoryScanner.DiscoverFiles(scanRoot);
+
+        Assert.DoesNotContain(files, path => path.StartsWith("linked/", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Investigate_ReportsLiteralPathAndContentMatchesAndTestCandidates()
+    {
+        Write("src/OrderService.cs", "class OrderService { void Run() { throw new TimeoutException(); } }\n// ERR-42");
+        Write("tests/OrderServiceTests.cs", "// TimeoutException regression check");
+        Write("obj/Generated.cs", "TimeoutException");
+
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var exitCode = Program.Run(new[]
+        {
+            "investigate", _root, "--clue", "timeoutexception", "--clue", "orderservice", "--clue", "not-present", "--clue", "timeoutexception", "--format", "json"
+        }, output, error);
+
+        Assert.Equal(0, exitCode);
+        Assert.Empty(error.ToString());
+        using var json = System.Text.Json.JsonDocument.Parse(output.ToString());
+        var report = json.RootElement;
+        Assert.Equal(1, report.GetProperty("SchemaVersion").GetInt32());
+        var clues = report.GetProperty("Clues").EnumerateArray().ToArray();
+        Assert.Equal(4, clues.Length);
+        var timeoutMatches = clues[0].GetProperty("Matches").EnumerateArray().ToArray();
+        Assert.Contains(timeoutMatches, match => match.GetProperty("Path").GetString() == "src/OrderService.cs"
+            && match.GetProperty("Kind").GetString() == "Content"
+            && match.GetProperty("Line").GetInt32() == 1
+            && !match.GetProperty("IsTestCandidate").GetBoolean());
+        Assert.Contains(timeoutMatches, match => match.GetProperty("Path").GetString() == "tests/OrderServiceTests.cs"
+            && match.GetProperty("IsTestCandidate").GetBoolean());
+        Assert.Contains(clues[1].GetProperty("Matches").EnumerateArray(), match =>
+            match.GetProperty("Path").GetString() == "src/OrderService.cs"
+            && match.GetProperty("Kind").GetString() == "Path"
+            && match.GetProperty("Line").ValueKind == System.Text.Json.JsonValueKind.Null);
+        Assert.Equal(0, clues[2].GetProperty("MatchCount").GetInt32());
+        Assert.Equal("timeoutexception", clues[3].GetProperty("Clue").GetString());
+        Assert.Equal(clues[0].GetProperty("MatchCount").GetInt32(), clues[3].GetProperty("MatchCount").GetInt32());
+        Assert.DoesNotContain("throw new TimeoutException", output.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("ERR-42", output.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Investigate_ProducesStableMarkdownAndJsonAndDoesNotExecuteSource()
+    {
+        var markerPath = Path.Combine(_root, "executed.marker");
+        Write("src/Feature.cs", $"System.IO.File.WriteAllText(@\"{markerPath}\", \"executed\");\nclass Feature {{ }}");
+        Write("tests/FeatureTests.cs", "// Feature regression test");
+
+        using var markdown = new StringWriter();
+        using var repeatedMarkdown = new StringWriter();
+        using var json = new StringWriter();
+        using var error = new StringWriter();
+        var args = new[] { "investigate", _root, "--clue", "Feature", "--limit", "3" };
+
+        Assert.Equal(0, Program.Run(args, markdown, error));
+        Assert.Equal(0, Program.Run(args, repeatedMarkdown, error));
+        Assert.Equal(markdown.ToString(), repeatedMarkdown.ToString());
+        Assert.DoesNotContain("File.WriteAllText", markdown.ToString(), StringComparison.Ordinal);
+        Assert.Contains("candidate", markdown.ToString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("additional matches omitted", markdown.ToString(), StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(markerPath));
+
+        Assert.Equal(0, Program.Run(new[] { "investigate", _root, "--clue", "Feature", "--limit", "3", "--format", "json" }, json, error));
+        using var jsonDocument = System.Text.Json.JsonDocument.Parse(json.ToString());
+        Assert.Equal(3, jsonDocument.RootElement.GetProperty("SampleLimit").GetInt32());
+        foreach (var match in jsonDocument.RootElement.GetProperty("Clues")[0].GetProperty("Matches").EnumerateArray())
+        {
+            var location = match.GetProperty("Path").GetString()!;
+            if (match.GetProperty("Line").ValueKind == System.Text.Json.JsonValueKind.Number)
+                location += $":{match.GetProperty("Line").GetInt32()}";
+            Assert.Contains(location, markdown.ToString(), StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void Investigate_SkipsBinaryAndOversizedFilesWithStableDiagnostics()
+    {
+        Write("assets/binary.dat", "prefix\0Needle");
+        var largeFile = Path.Combine(_root, "assets", "large.txt");
+        Directory.CreateDirectory(Path.GetDirectoryName(largeFile)!);
+        using (var stream = File.Create(largeFile))
+            stream.SetLength(10 * 1024 * 1024 + 1);
+
+        var first = RepositoryInvestigator.Investigate(_root, new[] { "Needle", "large.txt" }, sampleLimit: 5);
+        var second = RepositoryInvestigator.Investigate(_root, new[] { "Needle", "large.txt" }, sampleLimit: 5);
+
+        Assert.Equal(2, first.ReadIssueCount);
+        Assert.Equal(first.ReadIssues, second.ReadIssues);
+        Assert.Contains(first.ReadIssues, issue => issue.Path == "assets/binary.dat" && issue.Code == "BinaryFileSkipped");
+        Assert.Contains(first.ReadIssues, issue => issue.Path == "assets/large.txt" && issue.Code == "FileTooLarge");
+        Assert.DoesNotContain(first.Clues[0].Matches, match => match.Kind == "Content");
+        Assert.Contains(first.Clues[1].Matches, match => match.Kind == "Path" && match.Path == "assets/large.txt");
+    }
+
+    [Theory]
+    [MemberData(nameof(InvalidInvestigationArguments))]
+    public void Investigate_RejectsMissingOrInvalidArguments(string[] args)
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        Assert.Equal(2, Program.Run(args, output, error));
+        Assert.NotEmpty(error.ToString());
+    }
+
+    [Fact]
+    public void Investigate_RejectsExcessiveCluesAndClueLength()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var tooManyClues = new List<string> { "investigate", _root };
+        for (var index = 0; index < 21; index++)
+        {
+            tooManyClues.Add("--clue");
+            tooManyClues.Add("x");
+        }
+
+        Assert.Equal(2, Program.Run(tooManyClues.ToArray(), output, error));
+        Assert.Contains("no more than 20", error.ToString(), StringComparison.OrdinalIgnoreCase);
+
+        error.GetStringBuilder().Clear();
+        Assert.Equal(2, Program.Run(new[] { "investigate", _root, "--clue", new string('x', 1001) }, output, error));
+        Assert.Contains("1000 characters", error.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static IEnumerable<object[]> InvalidInvestigationArguments => new[]
+    {
+        new object[] { new[] { "investigate" } },
+        new object[] { new[] { "investigate", "." } },
+        new object[] { new[] { "investigate", ".", "--clue", "--format", "json" } },
+        new object[] { new[] { "investigate", ".", "--clue", "  " } },
+        new object[] { new[] { "investigate", ".", "--clue", "x", "--format", "xml" } }
+    };
 
     [Fact]
     public void Scan_CollectsProjectSignalsAndExcludesGeneratedDirectories()

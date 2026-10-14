@@ -23,6 +23,30 @@ public sealed record RepositoryInventory(
     public int SchemaVersion => 1;
 }
 
+public sealed record InvestigationReport(
+    string Root,
+    IReadOnlyList<InvestigationClueResult> Clues,
+    int ReadIssueCount,
+    IReadOnlyList<InvestigationReadIssue> ReadIssues,
+    int SampleLimit)
+{
+    [JsonPropertyOrder(-1)]
+    public int SchemaVersion => 1;
+}
+
+public sealed record InvestigationClueResult(
+    string Clue,
+    int MatchCount,
+    IReadOnlyList<InvestigationMatch> Matches);
+
+public sealed record InvestigationMatch(
+    string Kind,
+    string Path,
+    int? Line,
+    bool IsTestCandidate);
+
+public sealed record InvestigationReadIssue(string Path, string Code);
+
 public sealed record ExtensionCount(string Extension, int Count);
 
 public sealed record ProjectSystemInfo(string Name, IReadOnlyList<string> ManifestPaths);

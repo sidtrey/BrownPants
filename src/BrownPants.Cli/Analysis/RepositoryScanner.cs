@@ -30,32 +30,7 @@ public static class RepositoryScanner
         if (sampleLimit is < 1 or > 10_000)
             throw new ArgumentOutOfRangeException(nameof(sampleLimit), "Sample limit must be between 1 and 10000.");
         var root = Path.GetFullPath(path);
-        if (!Directory.Exists(root))
-            throw new DirectoryNotFoundException($"Directory '{root}' does not exist.");
-
-        var files = new List<string>();
-        var pending = new Stack<string>();
-        pending.Push(root);
-        while (pending.Count > 0)
-        {
-            var directory = pending.Pop();
-            foreach (var entry in Directory.EnumerateFileSystemEntries(directory).OrderBy(value => value, StablePathComparer))
-            {
-                var attributes = File.GetAttributes(entry);
-                if ((attributes & FileAttributes.Directory) != 0)
-                {
-                    var name = Path.GetFileName(entry);
-                    if (!IgnoredDirectories.Contains(name) && (attributes & FileAttributes.ReparsePoint) == 0)
-                        pending.Push(entry);
-                }
-                else if ((attributes & FileAttributes.ReparsePoint) == 0)
-                {
-                    files.Add(Path.GetRelativePath(root, entry).Replace('\\', '/'));
-                }
-            }
-        }
-
-        files.Sort(StablePathComparer);
+        var files = DiscoverFiles(root);
         var extensions = files
             .Select(file => Path.GetExtension(file).ToLowerInvariant() is { Length: > 0 } extension
                 ? extension : "[no extension]")
@@ -118,7 +93,39 @@ public static class RepositoryScanner
             dotNetProjects);
     }
 
-    private static bool IsTestPath(string file)
+    public static IReadOnlyList<string> DiscoverFiles(string path)
+    {
+        var root = Path.GetFullPath(path);
+        if (!Directory.Exists(root))
+            throw new DirectoryNotFoundException($"Directory '{root}' does not exist.");
+
+        var files = new List<string>();
+        var pending = new Stack<string>();
+        pending.Push(root);
+        while (pending.Count > 0)
+        {
+            var directory = pending.Pop();
+            foreach (var entry in Directory.EnumerateFileSystemEntries(directory).OrderBy(value => value, StablePathComparer))
+            {
+                var attributes = File.GetAttributes(entry);
+                if ((attributes & FileAttributes.Directory) != 0)
+                {
+                    var name = Path.GetFileName(entry);
+                    if (!IgnoredDirectories.Contains(name) && (attributes & FileAttributes.ReparsePoint) == 0)
+                        pending.Push(entry);
+                }
+                else if ((attributes & FileAttributes.ReparsePoint) == 0)
+                {
+                    files.Add(Path.GetRelativePath(root, entry).Replace('\\', '/'));
+                }
+            }
+        }
+
+        files.Sort(StablePathComparer);
+        return files;
+    }
+
+    internal static bool IsTestPath(string file)
     {
         var parts = file.Split('/');
         return parts.Any(part => part.Equals("test", StringComparison.OrdinalIgnoreCase)
