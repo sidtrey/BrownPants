@@ -34,6 +34,14 @@ jobs:
       - name: Run xUnit tests
         run: dotnet test BrownPants.sln --configuration Release --no-build
 
+      - name: Set up Python for Spec Kit integration
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install supported Spec Kit CLI
+        run: python -m pip install specify-cli==1.2.0
+
       - name: Check Spec Kit extension
         shell: pwsh
         run: ./tests/SpeckitExtensionTests.ps1

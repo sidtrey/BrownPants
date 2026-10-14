@@ -29,4 +29,4 @@ For Codex CLI, use `specify init --here --integration codex --integration-option
 
 The active agent must be restarted or refreshed if its command list does not update. The `--semantic` scan is not automatic because MSBuild project evaluation may execute imported targets.
 
-Run the static hook and guidance checks from the BrownPants repository with `pwsh -NoProfile -File tests/SpeckitExtensionTests.ps1`.
+Run the hook and guidance checks from the BrownPants repository with `pwsh -NoProfile -File tests/SpeckitExtensionTests.ps1`. When the Spec Kit `specify` CLI is installed, this also installs BrownPants into a unique temporary project and checks the generated extension files and hook registrations. Without `specify`, only the live installer check is skipped. CI installs Spec Kit CLI 1.2.0 and runs the live check on Windows, Linux, and macOS.

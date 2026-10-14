@@ -65,4 +65,60 @@ foreach ($relativePath in $contextPaths) {
     Assert-True ($context.Contains('After `implement`')) "$relativePath lacks post-implementation review guidance."
 }
 
-Write-Output 'Spec Kit extension tests passed: nine pre-hooks, one post-hook, and synchronized phase guidance.'
+$specify = Get-Command specify -ErrorAction SilentlyContinue
+$liveIntegrationResult = 'skipped (specify CLI not installed)'
+if ($specify) {
+    $tempBase = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+    $liveProject = [System.IO.Path]::GetFullPath((Join-Path $tempBase ('brownpants-speckit-integration-' + [guid]::NewGuid().ToString('N'))))
+    $pathComparison = if ([System.IO.Path]::DirectorySeparatorChar -eq '\') {
+        [System.StringComparison]::OrdinalIgnoreCase
+    } else {
+        [System.StringComparison]::Ordinal
+    }
+    $tempPrefix = $tempBase + [System.IO.Path]::DirectorySeparatorChar
+    Assert-True ($liveProject.StartsWith($tempPrefix, $pathComparison)) 'Refusing to create a Spec Kit fixture outside the temporary directory.'
+
+    $projectSpecDirectory = Join-Path $liveProject '.specify'
+    New-Item -ItemType Directory -Path $projectSpecDirectory -Force | Out-Null
+    $originalLocation = Get-Location
+    try {
+        Set-Location -LiteralPath $liveProject
+        $extensionPath = Join-Path $repositoryRoot 'integrations/speckit'
+        $installOutput = & $specify.Source extension add $extensionPath --dev 2>&1 | Out-String
+        $installExitCode = $LASTEXITCODE
+        Assert-True ($installExitCode -eq 0) "Spec Kit extension installation failed (exit $installExitCode): $installOutput"
+
+        $listOutput = & $specify.Source extension list 2>&1 | Out-String
+        $listExitCode = $LASTEXITCODE
+        Assert-True ($listExitCode -eq 0) "Spec Kit extension listing failed (exit $listExitCode): $listOutput"
+        Assert-True ($listOutput -match '(?is)BrownPants.*Hooks:\s*10.*Status:\s*Enabled') 'Spec Kit did not report BrownPants as enabled with ten hooks.'
+
+        $installedRoot = Join-Path $projectSpecDirectory 'extensions/brownpants'
+        $installedManifestPath = Join-Path $installedRoot 'extension.yml'
+        Assert-True (Test-Path -LiteralPath $installedManifestPath -PathType Leaf) 'Spec Kit did not install the BrownPants extension manifest.'
+        $installedManifest = Get-Content -LiteralPath $installedManifestPath -Raw
+        $commandMatch = [regex]::Match($installedManifest, '(?m)^\s+file:\s*(?<path>commands/context\.md)\s*$')
+        Assert-True ($commandMatch.Success) 'Installed manifest does not declare the expected context command file.'
+        $commandPath = Join-Path $installedRoot ($commandMatch.Groups['path'].Value.Replace('/', [System.IO.Path]::DirectorySeparatorChar))
+        Assert-True (Test-Path -LiteralPath $commandPath -PathType Leaf) 'Installed context command file is missing.'
+
+        $projectHooks = Get-Content -LiteralPath (Join-Path $projectSpecDirectory 'extensions.yml') -Raw
+        foreach ($event in $events) {
+            $block = Get-HookBlock -Yaml $projectHooks -Event $event
+            Assert-True ($block -match '(?m)^\s+- extension:\s*brownpants\s*$') "Installed project registration/$event has the wrong extension id."
+            Assert-True ($block -match '(?m)^\s+command:\s*speckit\.brownpants\.context\s*$') "Installed project registration/$event targets the wrong command."
+            Assert-True ($block -match '(?m)^\s+enabled:\s*true\s*$') "Installed project registration/$event is disabled."
+            Assert-True ($block -match '(?m)^\s+optional:\s*false\s*$') "Installed project registration/$event is not mandatory."
+        }
+        $registeredHookCount = [regex]::Matches($projectHooks, '(?m)^  (?:before|after)_[a-z_]+:').Count
+        Assert-True ($registeredHookCount -eq $events.Count) "Spec Kit installed $registeredHookCount hooks; expected $($events.Count)."
+        $liveIntegrationResult = 'passed with Spec Kit CLI'
+    } finally {
+        Set-Location -LiteralPath $originalLocation
+        if (Test-Path -LiteralPath $liveProject) {
+            Remove-Item -LiteralPath $liveProject -Recurse -Force
+        }
+    }
+}
+
+Write-Output "Spec Kit extension tests passed: nine pre-hooks, one post-hook, synchronized guidance; live installer check $liveIntegrationResult."
