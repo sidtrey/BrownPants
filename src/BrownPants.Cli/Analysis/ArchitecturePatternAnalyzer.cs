@@ -86,6 +86,19 @@ public static class ArchitecturePatternAnalyzer
     private static readonly Regex JvmContainerResolution = new(
         @"\bGuice\s*\.\s*createInjector\s*\(|\b(?:[A-Za-z_$][\w$]*Injector|injector)\s*\.\s*getInstance\s*(?:<[^;\r\n]*>)?\s*\(|\bDagger[A-Za-z_$][\w$]*\s*\.\s*(?:create|builder)\s*\(",
         RegexOptions.CultureInvariant);
+    private static readonly Regex GoFactoryType = new(
+        @"^\s*type\s+[A-Za-z_]\w*Factory\b", RegexOptions.CultureInvariant);
+    private static readonly Regex GoFactoryFunction = new(
+        @"^\s*func\s+(?:\([^)]*\)\s*)?(?:New(?:[A-Z][A-Za-z0-9_]*)?|(?:Create|Build|Make|Resolve)[A-Z][A-Za-z0-9_]*)\s*\(",
+        RegexOptions.CultureInvariant);
+    private static readonly Regex GoFactoryInvocation = new(
+        @"\b(?:New[A-Z][A-Za-z0-9_]*|(?:Create|Build|Make|Resolve)[A-Z][A-Za-z0-9_]*)\s*\(",
+        RegexOptions.CultureInvariant);
+    private static readonly Regex GoProviderRegistration = new(
+        @"\b[A-Za-z_]\w*\s*\.\s*Provide\s*\(", RegexOptions.CultureInvariant);
+    private static readonly Regex GoDependencyResolution = new(
+        @"\b(?:fx|dig)\s*\.\s*New\s*\(|\b[A-Za-z_]\w*\s*\.\s*Invoke\s*\(",
+        RegexOptions.CultureInvariant);
 
     private const RegexOptions Options = RegexOptions.IgnoreCase | RegexOptions.CultureInvariant;
     private const int MaximumMfcDeclarationLines = 32;
@@ -109,6 +122,8 @@ public static class ArchitecturePatternAnalyzer
                     AnalyzeJavaScript(source, relativePath, signals, sampleLimit, ref signalCount);
                 else if (IsJvmSource(relativePath))
                     AnalyzeJvm(source, relativePath, signals, sampleLimit, ref signalCount);
+                else if (IsGoSource(relativePath))
+                    AnalyzeGo(source, relativePath, signals, sampleLimit, ref signalCount);
                 else if (IsPythonSource(relativePath))
                     AnalyzePython(source, relativePath, signals, sampleLimit, ref signalCount);
                 else if (IsNativeSource(relativePath))
@@ -520,6 +535,130 @@ public static class ArchitecturePatternAnalyzer
         return new string(result);
     }
 
+    private static void AnalyzeGo(string source, string path, List<ArchitecturePatternSignal> signals,
+        int sampleLimit, ref int signalCount)
+    {
+        var code = MaskGoCommentsAndStrings(source.Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n'));
+        var lines = code.Split('\n');
+        for (var index = 0; index < lines.Length; index++)
+        {
+            var line = lines[index];
+            AddGoPattern(GoFactoryType, "Factory type", line, path, index + 1, signals, sampleLimit,
+                ref signalCount);
+            var functionDeclaration = GoFactoryFunction.IsMatch(line);
+            AddGoPattern(GoFactoryFunction, "Factory method", line, path, index + 1, signals, sampleLimit,
+                ref signalCount);
+            if (!functionDeclaration)
+            {
+                AddGoPattern(GoFactoryInvocation, "Factory invocation", line, path, index + 1, signals,
+                    sampleLimit, ref signalCount);
+            }
+            else
+            {
+                var bodyStart = line.IndexOf('{');
+                for (var invocation = GoFactoryInvocation.Match(line); invocation.Success;
+                     invocation = invocation.NextMatch())
+                {
+                    if (bodyStart < 0 || invocation.Index <= bodyStart)
+                        continue;
+                    AddLineSignal("Factory invocation", "Go", path, index + 1, line, signals, sampleLimit,
+                        ref signalCount);
+                    break;
+                }
+            }
+
+            AddGoPattern(GoProviderRegistration, "DI registration", line, path, index + 1, signals, sampleLimit,
+                ref signalCount);
+            AddGoPattern(GoDependencyResolution, "DI resolution", line, path, index + 1, signals, sampleLimit,
+                ref signalCount);
+        }
+    }
+
+    private static void AddGoPattern(Regex pattern, string category, string code, string path, int line,
+        List<ArchitecturePatternSignal> signals, int sampleLimit, ref int signalCount)
+    {
+        if (pattern.IsMatch(code))
+            AddLineSignal(category, "Go", path, line, code, signals, sampleLimit, ref signalCount);
+    }
+
+    private static string MaskGoCommentsAndStrings(string source)
+    {
+        var result = source.ToCharArray();
+        var inBlockComment = false;
+        var quote = '\0';
+        var escaped = false;
+        var inRawString = false;
+        for (var index = 0; index < source.Length; index++)
+        {
+            var current = source[index];
+            var next = index + 1 < source.Length ? source[index + 1] : '\0';
+            if (inRawString)
+            {
+                if (current == '`')
+                {
+                    result[index] = ' ';
+                    inRawString = false;
+                }
+                else if (current != '\n') result[index] = ' ';
+                continue;
+            }
+
+            if (inBlockComment)
+            {
+                if (current == '*' && next == '/')
+                {
+                    inBlockComment = false;
+                    result[index] = result[index + 1] = ' ';
+                    index++;
+                }
+                else if (current != '\n') result[index] = ' ';
+                continue;
+            }
+
+            if (quote != '\0')
+            {
+                if (current == '\n')
+                {
+                    quote = '\0';
+                    escaped = false;
+                }
+                else
+                {
+                    result[index] = ' ';
+                    if (escaped) escaped = false;
+                    else if (current == '\\') escaped = true;
+                    else if (current == quote) quote = '\0';
+                }
+                continue;
+            }
+
+            if (current == '/' && next == '/')
+            {
+                while (index < source.Length && source[index] != '\n') result[index++] = ' ';
+                if (index < source.Length) index--;
+            }
+            else if (current == '/' && next == '*')
+            {
+                inBlockComment = true;
+                result[index] = result[index + 1] = ' ';
+                index++;
+            }
+            else if (current == '`')
+            {
+                inRawString = true;
+                result[index] = ' ';
+            }
+            else if (current is '\'' or '"')
+            {
+                quote = current;
+                result[index] = ' ';
+            }
+        }
+
+        return new string(result);
+    }
+
     private static void AddJavaScriptPattern(Regex pattern, string category, string code, string language,
         string path, int line, List<ArchitecturePatternSignal> signals, int sampleLimit, ref int signalCount)
     {
@@ -817,6 +956,8 @@ public static class ArchitecturePatternAnalyzer
 
     private static bool IsJvmSource(string path) => Path.GetExtension(path).ToLowerInvariant() is
         ".java" or ".kt" or ".kts";
+
+    private static bool IsGoSource(string path) => Path.GetExtension(path).Equals(".go", StringComparison.OrdinalIgnoreCase);
 
     private static void AddSignal(string category, string language, string path, SyntaxNode node, string source,
         List<ArchitecturePatternSignal> signals, int sampleLimit, ref int signalCount)

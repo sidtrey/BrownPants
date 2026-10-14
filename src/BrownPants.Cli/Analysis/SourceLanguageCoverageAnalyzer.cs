@@ -22,7 +22,7 @@ public static class SourceLanguageCoverageAnalyzer
             [".py"] = ("Python", LexicalCoverage), [".pyw"] = ("Python", LexicalCoverage), [".pyi"] = ("Python", LexicalCoverage),
             [".java"] = ("Java", LexicalCoverage), [".kt"] = ("Kotlin", LexicalCoverage),
             [".kts"] = ("Kotlin", LexicalCoverage),
-            [".go"] = ("Go", InventoryOnly), [".rs"] = ("Rust", InventoryOnly),
+            [".go"] = ("Go", LexicalCoverage), [".rs"] = ("Rust", InventoryOnly),
             [".rb"] = ("Ruby", InventoryOnly), [".php"] = ("PHP", InventoryOnly),
             [".swift"] = ("Swift", InventoryOnly), [".m"] = ("Objective-C", InventoryOnly), [".mm"] = ("Objective-C++", InventoryOnly),
             [".dart"] = ("Dart", InventoryOnly), [".ex"] = ("Elixir", InventoryOnly), [".exs"] = ("Elixir", InventoryOnly),

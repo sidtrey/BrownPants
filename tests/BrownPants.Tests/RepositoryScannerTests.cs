@@ -275,6 +275,7 @@ public sealed class RepositoryScannerTests : IDisposable
         Assert.Equal(1, languages["JavaScript"].SourceFileCount);
         Assert.Equal("Lexical candidate patterns", languages["JavaScript"].AnalysisLevel);
         Assert.Equal(1, languages["Go"].SourceFileCount);
+        Assert.Equal("Lexical candidate patterns", languages["Go"].AnalysisLevel);
         Assert.Equal(1, languages["Swift"].SourceFileCount);
         Assert.Equal(1, languages["Dart"].SourceFileCount);
         Assert.Equal(4, inventory.Extensions.Single(extension => extension.Extension == "[no extension]").Count);
@@ -1224,6 +1225,94 @@ public sealed class RepositoryScannerTests : IDisposable
             signal.GetProperty("Path").GetString()!,
             signal.GetProperty("Line").GetInt32(),
             signal.GetProperty("Evidence").GetString()!)));
+        Assert.Equal(markdown, MarkdownReport.Render(RepositoryScanner.Scan(_root, sampleLimit: 50)));
+    }
+
+    [Fact]
+    public void Scan_ReportsGoFactoryAndDependencyCandidatesAndFiltersCommentsAndLiterals()
+    {
+        Write("go/service.go", """
+            package service
+
+            type ServiceFactory interface { Create() *Service }
+            func NewServiceFactory() *ServiceFactoryImpl { return &ServiceFactoryImpl{} }
+            func NewService() *Service { return &Service{} }
+            func (f *ServiceFactoryImpl) BuildService() *Service { return NewService() }
+
+            func Configure() {
+                service := NewService()
+                app := fx.New(fx.Provide(NewService), fx.Invoke(func(*Service) {}))
+                _ = app
+                container := dig.New()
+                _ = container.Provide(NewService)
+                _ = container.Invoke(func(*Service) {})
+            }
+
+            // type CommentFactory struct{}; func NewFake() *Fake { return nil }
+            /* fx.Provide(NewFake); container.Invoke(func(*Fake) {}) */
+            text := "func NewFake() *Fake { return nil }; fx.Provide(NewFake)"
+            character := 'N'
+            raw := `type RawStringFactory struct{}
+            func NewFake() *Fake { return nil }
+            fx.Invoke(func(*Fake) {})`
+            """);
+        var crlfSource = """
+            package service
+
+            func NewWidget() *Widget { return &Widget{} }
+            func UseWidget() { _ = NewWidget() }
+            """;
+        Write("go/crlf.go", string.Join("\r\n", crlfSource.Split('\n')));
+
+        var inventory = RepositoryScanner.Scan(_root, sampleLimit: 50);
+        var signals = inventory.ArchitecturePatterns.Signals
+            .Where(signal => signal.Path.StartsWith("go/", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.Contains(signals, signal => signal.Language == "Go" && signal.Category == "Factory type");
+        Assert.Contains(signals, signal => signal.Language == "Go" && signal.Category == "Factory method"
+            && signal.Evidence.Contains("NewService", StringComparison.Ordinal));
+        Assert.Contains(signals, signal => signal.Language == "Go" && signal.Category == "Factory invocation"
+            && signal.Evidence.Contains("NewService()", StringComparison.Ordinal));
+        Assert.Contains(signals, signal => signal.Path == "go/service.go" && signal.Category == "Factory invocation"
+            && signal.Line == 6 && signal.Evidence.Contains("BuildService", StringComparison.Ordinal));
+        Assert.Contains(signals, signal => signal.Language == "Go" && signal.Category == "DI registration");
+        Assert.Contains(signals, signal => signal.Language == "Go" && signal.Category == "DI resolution");
+        Assert.DoesNotContain(signals, signal => signal.Evidence.Contains("Fake", StringComparison.Ordinal)
+            || signal.Evidence.Contains("Comment", StringComparison.Ordinal)
+            || signal.Evidence.Contains("RawString", StringComparison.Ordinal));
+        Assert.All(signals, signal => Assert.Equal("Candidate", signal.EvidenceKind));
+        Assert.All(signals, signal => Assert.True(signal.Line > 0));
+        Assert.Contains(inventory.LanguageCoverage, language => language.Language == "Go"
+            && language.SourceFileCount == 2 && language.AnalysisLevel == "Lexical candidate patterns");
+        Assert.Contains(inventory.ArchitecturePatterns.Signals, signal => signal.Path == "go/crlf.go"
+            && signal.Category == "Factory method" && signal.Line == 3);
+        Assert.Contains(inventory.ArchitecturePatterns.Signals, signal => signal.Path == "go/crlf.go"
+            && signal.Category == "Factory invocation" && signal.Line == 4);
+
+        var markdown = MarkdownReport.Render(inventory);
+        Assert.All(signals, signal => Assert.Contains(
+            $"{signal.Category} [Candidate] ({signal.Language}): `{signal.Path}:{signal.Line}`", markdown));
+        using var jsonOutput = new StringWriter();
+        using var repeatedJsonOutput = new StringWriter();
+        using var error = new StringWriter();
+        var args = new[] { "inspect", _root, "--format", "json", "--limit", "50" };
+        Assert.Equal(0, Program.Run(args, jsonOutput, error));
+        Assert.Equal(0, Program.Run(args, repeatedJsonOutput, error));
+        Assert.Equal(jsonOutput.ToString(), repeatedJsonOutput.ToString());
+        using var json = System.Text.Json.JsonDocument.Parse(jsonOutput.ToString());
+        var jsonSignals = json.RootElement.GetProperty("ArchitecturePatterns").GetProperty("Signals")
+            .EnumerateArray().Where(signal => signal.GetProperty("Path").GetString()!.StartsWith("go/", StringComparison.Ordinal))
+            .Select(signal => (
+                Category: signal.GetProperty("Category").GetString()!,
+                EvidenceKind: signal.GetProperty("EvidenceKind").GetString()!,
+                Language: signal.GetProperty("Language").GetString()!,
+                Path: signal.GetProperty("Path").GetString()!,
+                Line: signal.GetProperty("Line").GetInt32(),
+                Evidence: signal.GetProperty("Evidence").GetString()!))
+            .ToArray();
+        Assert.Equal(signals.Select(signal => (signal.Category, signal.EvidenceKind, signal.Language, signal.Path,
+            signal.Line, signal.Evidence)), jsonSignals);
         Assert.Equal(markdown, MarkdownReport.Render(RepositoryScanner.Scan(_root, sampleLimit: 50)));
     }
 
