@@ -83,10 +83,12 @@ public static class CSharpSemanticAnalyzer
     {
         var resolvedCalls = new List<CSharpResolvedCall>();
         var unresolvedCalls = new List<CSharpUnresolvedCall>();
+        var declarations = new List<CSharpSemanticDeclaration>();
         var issues = new List<string>();
         var projectsLoaded = 0;
         var resolvedInvocationCount = 0;
         var unresolvedInvocationCount = 0;
+        var declarationCount = 0;
 
         foreach (var (projectPath, compilation) in compilations)
         {
@@ -95,6 +97,20 @@ public static class CSharpSemanticAnalyzer
             {
                 var semanticModel = compilation.GetSemanticModel(syntaxTree);
                 var syntaxRoot = syntaxTree.GetRoot();
+                foreach (var declarationNode in syntaxRoot.DescendantNodes()
+                    .Where(node => node is Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax
+                        or Microsoft.CodeAnalysis.CSharp.Syntax.LocalFunctionStatementSyntax
+                        or Microsoft.CodeAnalysis.VisualBasic.Syntax.MethodStatementSyntax))
+                {
+                    if (semanticModel.GetDeclaredSymbol(declarationNode) is not IMethodSymbol method)
+                        continue;
+                    declarationCount++;
+                    AddSample(declarations, new CSharpSemanticDeclaration(
+                        RelativePath(root, projectPath),
+                        RelativePath(root, syntaxTree.FilePath),
+                        declarationNode.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
+                        ResolvedTarget(method)), sampleLimit);
+                }
                 foreach (var invocationNode in syntaxRoot.DescendantNodes()
                     .Where(node => node is CSharpInvocation or VisualBasicInvocation))
                 {
@@ -112,13 +128,21 @@ public static class CSharpSemanticAnalyzer
                     if (symbol is IMethodSymbol method)
                     {
                         resolvedInvocationCount++;
+                        var sourceLocation = method.Locations
+                            .Where(location => location.IsInSource && location.SourceTree is not null)
+                            .OrderBy(location => location.SourceTree!.FilePath, StringComparer.Ordinal)
+                            .FirstOrDefault();
                         AddSample(resolvedCalls, new CSharpResolvedCall(
                             RelativePath(root, projectPath),
                             RelativePath(root, syntaxTree.FilePath),
                             invocationNode.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
                             Normalize(expressionText),
                             EnclosingMethod(semanticModel.GetEnclosingSymbol(invocationNode.SpanStart)),
-                            ResolvedTarget(method)), sampleLimit);
+                            ResolvedTarget(method),
+                            sourceLocation?.SourceTree is { } targetTree
+                                ? RelativePath(root, targetTree.FilePath)
+                                : null,
+                            sourceLocation?.GetLineSpan().StartLinePosition.Line + 1), sampleLimit);
                     }
                     else
                     {
@@ -138,7 +162,7 @@ public static class CSharpSemanticAnalyzer
         }
 
         return new CSharpSemanticAnalysis(projectsDiscovered, projectsLoaded, resolvedInvocationCount,
-            unresolvedInvocationCount, resolvedCalls, unresolvedCalls, issues);
+            unresolvedInvocationCount, resolvedCalls, unresolvedCalls, issues, declarationCount, declarations);
     }
 
     private static void AddProject(Project project, List<(string Project, Compilation Compilation)> compilations,

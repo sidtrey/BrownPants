@@ -18,6 +18,7 @@ public static class Program
             output.WriteLine("BrownPants - deterministic brownfield evidence for spec-driven development");
             output.WriteLine("Usage: brownpants inspect [path] [--format markdown|json] [--limit 1..10000] [--semantic]");
             output.WriteLine("       brownpants investigate [path] --clue <text> [--clue <text> ...] [--format markdown|json] [--limit 1..10000]");
+            output.WriteLine("       brownpants impact <repository> --changed <relative-source-path> [--changed <relative-source-path> ...] [--format markdown|json] [--limit 1..10000]");
             output.WriteLine("       brownpants instructions [path] [--source <relative-path>] [--format markdown|json]");
             output.WriteLine("       brownpants frame create <repository> <draft.json> <output.md> [--overwrite]");
             output.WriteLine("       brownpants frame validate <repository> <frame.md>");
@@ -36,6 +37,9 @@ public static class Program
 
         if (string.Equals(args[0], "investigate", StringComparison.OrdinalIgnoreCase))
             return RunInvestigation(args.Skip(1).ToArray(), output, error);
+
+        if (string.Equals(args[0], "impact", StringComparison.OrdinalIgnoreCase))
+            return RunImpact(args.Skip(1).ToArray(), output, error);
 
         if (!string.Equals(args[0], "inspect", StringComparison.OrdinalIgnoreCase))
         {
@@ -396,6 +400,84 @@ public static class Program
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
         {
             error.WriteLine($"Unable to investigate repository: {exception.Message}");
+            return 1;
+        }
+    }
+
+    private static int RunImpact(string[] args, TextWriter output, TextWriter error)
+    {
+        var root = Directory.GetCurrentDirectory();
+        var pathProvided = false;
+        var format = "markdown";
+        var sampleLimit = 200;
+        var changedPaths = new List<string>();
+        for (var index = 0; index < args.Length; index++)
+        {
+            if (args[index] == "--changed")
+            {
+                if (++index >= args.Length || string.IsNullOrWhiteSpace(args[index]) || args[index].StartsWith("--", StringComparison.Ordinal))
+                {
+                    error.WriteLine("Missing value for --changed. Provide a repository-relative C# or Visual Basic source path.");
+                    return 2;
+                }
+                changedPaths.Add(args[index]);
+            }
+            else if (args[index] == "--format")
+            {
+                if (++index >= args.Length)
+                {
+                    error.WriteLine("Missing value for --format. Expected markdown or json.");
+                    return 2;
+                }
+                format = args[index].ToLowerInvariant();
+            }
+            else if (args[index] == "--limit")
+            {
+                if (++index >= args.Length || !int.TryParse(args[index], out sampleLimit) || sampleLimit is < 1 or > 10_000)
+                {
+                    error.WriteLine("Invalid --limit value. Expected an integer from 1 to 10000.");
+                    return 2;
+                }
+            }
+            else if (args[index].StartsWith("-", StringComparison.Ordinal))
+            {
+                error.WriteLine($"Unknown option '{args[index]}'.");
+                return 2;
+            }
+            else if (!pathProvided)
+            {
+                root = args[index];
+                pathProvided = true;
+            }
+            else
+            {
+                error.WriteLine("Only one repository path may be supplied.");
+                return 2;
+            }
+        }
+        if (changedPaths.Count == 0)
+        {
+            error.WriteLine("At least one --changed path is required.");
+            return 2;
+        }
+        if (format is not ("markdown" or "json"))
+        {
+            error.WriteLine($"Unsupported format '{format}'. Expected markdown or json.");
+            return 2;
+        }
+        try
+        {
+            var inventory = RepositoryScanner.Scan(root, sampleLimit, analyzeSemantics: true);
+            var report = CallImpactAnalyzer.Analyze(inventory.Root, changedPaths, RepositoryScanner.DiscoverFiles(inventory.Root),
+                inventory.CSharp.Semantic!, sampleLimit);
+            output.WriteLine(format == "json"
+                ? JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true })
+                : CallImpactReportRenderer.Render(report));
+            return 0;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            error.WriteLine($"Unable to analyze call impact: {exception.Message}");
             return 1;
         }
     }

@@ -124,9 +124,14 @@ public sealed record CSharpSemanticAnalysis(
     int UnresolvedInvocationCount,
     IReadOnlyList<CSharpResolvedCall> ResolvedCalls,
     IReadOnlyList<CSharpUnresolvedCall> UnresolvedCalls,
-    IReadOnlyList<string> Issues);
+    IReadOnlyList<string> Issues,
+    int DeclarationCount = 0,
+    IReadOnlyList<CSharpSemanticDeclaration>? Declarations = null);
 
-public sealed record CSharpResolvedCall(string Project, string Path, int Line, string Expression, string Caller, string Target);
+public sealed record CSharpSemanticDeclaration(string Project, string Path, int Line, string Symbol);
+
+public sealed record CSharpResolvedCall(string Project, string Path, int Line, string Expression, string Caller, string Target,
+    string? TargetPath = null, int? TargetLine = null);
 
 public sealed record CSharpUnresolvedCall(
     string Project,

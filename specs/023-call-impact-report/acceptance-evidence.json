@@ -1,0 +1,175 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    {
+      "taskId": "T001",
+      "criterionIds": [
+        "AC-003",
+        "SC-003"
+      ],
+      "verificationCommand": "pwsh -NoProfile -File scripts/acceptance-criteria-hash.ps1 -SpecPath specs/023-call-impact-report/spec.md",
+      "evidencePaths": [
+        "specs/023-call-impact-report/acceptance-criteria.sha256",
+        "specs/023-call-impact-report/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T002",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-004",
+        "AC-005",
+        "SC-001",
+        "SC-002",
+        "SC-003",
+        "SC-004",
+        "SC-005"
+      ],
+      "verificationCommand": "pwsh -NoProfile -File scripts/check-acceptance-evidence.ps1 -RepositoryRoot . -SpecPath specs/023-call-impact-report/spec.md -TasksPath specs/023-call-impact-report/tasks.md -EvidencePath specs/023-call-impact-report/acceptance-evidence.json",
+      "evidencePaths": [
+        "specs/023-call-impact-report/acceptance-evidence.json"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T003",
+      "criterionIds": [
+        "AC-001",
+        "AC-003",
+        "SC-001",
+        "SC-003"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~RepositoryScannerTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/RepositoryInventory.cs",
+        "src/BrownPants.Cli/Analysis/CSharpSemanticAnalyzer.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T004",
+      "criterionIds": [
+        "AC-001",
+        "AC-003",
+        "SC-001",
+        "SC-003"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~RepositoryScannerTests",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/CallImpactAnalyzerTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T005",
+      "criterionIds": [
+        "AC-001",
+        "AC-004",
+        "SC-001",
+        "SC-005"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~CallImpactAnalyzerTests",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/CallImpactAnalyzerTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T006",
+      "criterionIds": [
+        "AC-003",
+        "SC-003"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~CallImpactAnalyzerTests",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/CallImpactAnalyzerTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T007",
+      "criterionIds": [
+        "AC-005",
+        "SC-004"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~CallImpactReportRendererTests",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/CallImpactAnalyzerTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T008",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-004",
+        "SC-001",
+        "SC-002",
+        "SC-003",
+        "SC-005"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~CallImpactAnalyzerTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/CallImpactAnalyzer.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T009",
+      "criterionIds": [
+        "AC-004",
+        "AC-005",
+        "SC-002",
+        "SC-004",
+        "SC-005"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~CallImpactReportRendererTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Output/CallImpactReportRenderer.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T010",
+      "criterionIds": [
+        "AC-001",
+        "AC-003",
+        "AC-005",
+        "SC-001",
+        "SC-003",
+        "SC-004"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Program.cs",
+        "README.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T011",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-004",
+        "AC-005",
+        "SC-001",
+        "SC-002",
+        "SC-003",
+        "SC-004",
+        "SC-005"
+      ],
+      "verificationCommand": "dotnet build BrownPants.sln -c Release && dotnet test BrownPants.sln",
+      "evidencePaths": [
+        "specs/023-call-impact-report/verification.md"
+      ],
+      "result": "passed"
+    }
+  ]
+}
