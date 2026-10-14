@@ -169,6 +169,7 @@ public sealed class RepositoryScannerTests : IDisposable
         using var error = new StringWriter();
         Assert.Equal(0, Program.Run(new[] { "inspect", _root, "--format", "json" }, output, error));
         using var json = System.Text.Json.JsonDocument.Parse(output.ToString());
+        Assert.Equal(1, json.RootElement.GetProperty("SchemaVersion").GetInt32());
         var jsonSystems = json.RootElement.GetProperty("ProjectSystems").EnumerateArray().ToArray();
         var jsonLanguages = json.RootElement.GetProperty("LanguageCoverage").EnumerateArray().ToArray();
         Assert.Equal(systems.Count, jsonSystems.Length);
@@ -228,6 +229,7 @@ public sealed class RepositoryScannerTests : IDisposable
         using var error = new StringWriter();
         Assert.Equal(0, Program.Run(new[] { "inspect", _root, "--format", "json", "--limit", "2" }, output, error));
         using var json = System.Text.Json.JsonDocument.Parse(output.ToString());
+        Assert.Equal(1, json.RootElement.GetProperty("SchemaVersion").GetInt32());
         var jsonWorkflow = Assert.Single(json.RootElement.GetProperty("SddWorkflows").EnumerateArray(),
             item => item.GetProperty("Name").GetString() == "CustomSDD");
         Assert.Equal(4, jsonWorkflow.GetProperty("ArtifactFileCount").GetInt32());
@@ -483,6 +485,8 @@ public sealed class RepositoryScannerTests : IDisposable
         Assert.Equal(0, jsonExit);
         using (var document = System.Text.Json.JsonDocument.Parse(output.ToString()))
         {
+            Assert.Equal(1, document.RootElement.GetProperty("SchemaVersion").GetInt32());
+            Assert.Equal("SchemaVersion", document.RootElement.EnumerateObject().First().Name);
             Assert.Equal(2, document.RootElement.GetProperty("FileCount").GetInt32());
             var csharp = document.RootElement.GetProperty("CSharp");
             Assert.Equal(2, csharp.GetProperty("TypeCount").GetInt32());
@@ -493,6 +497,31 @@ public sealed class RepositoryScannerTests : IDisposable
         var invalidExit = Program.Run(new[] { "inspect", _root, "--format", "xml" }, output, error);
         Assert.Equal(2, invalidExit);
         Assert.Contains("Expected markdown or json", error.ToString());
+    }
+
+    [Fact]
+    public void Run_EmitsSchemaVersionForEmptyAndSemanticJsonAndKeepsMarkdownUnversioned()
+    {
+        Directory.CreateDirectory(_root);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        Assert.Equal(0, Program.Run(new[] { "inspect", _root, "--format", "json" }, output, error));
+        using (var emptyJson = System.Text.Json.JsonDocument.Parse(output.ToString()))
+        {
+            Assert.Equal(1, emptyJson.RootElement.GetProperty("SchemaVersion").GetInt32());
+        }
+
+        output.GetStringBuilder().Clear();
+        Assert.Equal(0, Program.Run(new[] { "inspect", _root, "--format", "json", "--semantic" }, output, error));
+        using (var semanticJson = System.Text.Json.JsonDocument.Parse(output.ToString()))
+        {
+            Assert.Equal(1, semanticJson.RootElement.GetProperty("SchemaVersion").GetInt32());
+        }
+
+        output.GetStringBuilder().Clear();
+        Assert.Equal(0, Program.Run(new[] { "inspect", _root }, output, error));
+        Assert.DoesNotContain("SchemaVersion", output.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]

@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace BrownPants.Cli.Analysis;
 
 public sealed record RepositoryInventory(
@@ -15,7 +17,11 @@ public sealed record RepositoryInventory(
     VisualBasicAnalysis VisualBasic,
     ArchitecturePatternAnalysis ArchitecturePatterns,
     IReadOnlyList<NativeProjectInfo> NativeProjects,
-    IReadOnlyList<DotNetProjectInfo> DotNetProjects);
+    IReadOnlyList<DotNetProjectInfo> DotNetProjects)
+{
+    [JsonPropertyOrder(-1)]
+    public int SchemaVersion => 1;
+}
 
 public sealed record ExtensionCount(string Extension, int Count);
 
