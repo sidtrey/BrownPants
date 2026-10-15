@@ -18,22 +18,34 @@ That gives a team a reviewable starting point before it writes a spec or edits c
 - **QA needs to know what to verify and what shipped.** The local workbench presents feature scenarios and tasks. The Azure DevOps adapter can trace related work items, PRs, builds, and releases; the local PR preview carries QA guidance and evidence gaps. A user can prepare or create a draft PR, while review and merge stay human-controlled.
 - **Your company restricts AI services or command-line agents.** BrownPants' default inspection runs locally without an LLM, network calls, project builds, or source modifications. IDE and SDD adapters are optional; an organization can use local reports or approved hosts without enabling online integrations.
 
-## Spec Kit vs. Spec Kit + BrownPants: same task, real brownfield evidence
+## Spec Kit vs. Spec Kit + BrownPants: same fix, wider brownfield view
 
-**With Spec Kit, you get** the shared feature spec, implementation plan, task list, and acceptance criteria. For this comparison, both Codex runs used those same artifacts to fix a deliberately introduced regression in BrownPants' real `RepositoryScanner.IsTestPath` method.
+### The developer's question: “What else relies on this code?”
 
-**Spec Kit alone:** The agent inspected the source and restored recognition of files under exact `test` and `tests` directories. It changed the scanner and left the seeded regression test for the experiment driver to validate.
+Spec Kit gives the team the feature spec, plan, task list, and agreed acceptance criteria. In this comparison, both workflows fixed the same seeded regression in BrownPants' `RepositoryScanner.IsTestPath`, and both passed the same tests.
 
-**The same Spec Kit task + BrownPants:** The agent received the same task and source, plus BrownPants' inventory, literal investigation leads, and semantic impact report. Those reports identified the scanner's consumers and related test paths before the code change. The agent independently chose the same narrow fix.
+**With Spec Kit alone**, the agent inspected the scanner and restored recognition of files under exact `test` and `tests` directories. It produced the right narrow code fix.
 
-### What both runs produced
+**With Spec Kit + BrownPants**, the agent got that same task plus a repository map before editing. BrownPants showed that this classifier feeds three user-visible evidence paths:
 
-- The injected defect failed the same focused check before either agent ran.
-- Both agents restored the exact directory-component rule and preserved filename-based classification.
-- Independent validation passed **75/75 focused tests** and **235/235 full Release tests** in each worktree.
-- Provider-reported usage was **153,864 input / 1,047 output tokens** for Spec Kit alone and **186,445 input / 1,448 output tokens** with BrownPants. The assisted run used more tokens after receiving the extra repository reports; this pair does not show token savings.
+```text
+IsTestPath
+  ├─ repository inventory → which files appear as test candidates
+  ├─ bug investigation   → whether a clue match is labeled as a test
+  └─ call impact         → whether an affected caller is labeled as a test
+```
 
-This is one controlled pair, not a general quality or productivity benchmark. It shows the concrete BrownPants evidence added to this task; it does not prove one approach is generally better. See the [full setup, task, diffs, usage provenance, and test record](docs/comparisons/brownpants-vs-spec-kit-2026-10.md).
+Those links are in [`RepositoryScanner.cs`](src/BrownPants.Cli/Analysis/RepositoryScanner.cs#L49), [`RepositoryInvestigator.cs`](src/BrownPants.Cli/Analysis/RepositoryInvestigator.cs#L23), and [`CallImpactAnalyzer.cs`](src/BrownPants.Cli/Analysis/CallImpactAnalyzer.cs#L118). That gives a developer a concrete review list: check the inventory, investigation labels, impact labels, and the relevant scanner/call-impact tests. QA can see which candidate paths deserve attention instead of receiving only “the fix passed.” Candidate paths still need human review; they do not prove coverage.
+
+### What the head-to-head actually showed
+
+- The same seeded check failed before either formal run, as expected for the injected bug.
+- Both agents independently restored the same directory rule. Neither changed the test file; the experiment driver ran the tests afterward.
+- Both formal runs completed. Each passed **75/75 focused tests** and **235/235 full Release tests**. Two preliminary setup attempts had no completed records and were excluded from this pair.
+- BrownPants' file-level impact report showed **49 direct caller paths, 138 transitive paths, 20 files, and 2 projects** for the whole changed scanner file. Those figures are not a count of calls to `IsTestPath` alone.
+- Provider-reported usage was **153,864 input / 1,047 output tokens** with Spec Kit and **186,445 input / 1,448 output tokens** with the additional BrownPants reports. The extra context used more tokens in this pair; this is evidence for impact visibility, not token savings or a claim that the agent wrote better code.
+
+The value shown here is earlier impact awareness: BrownPants connects a requested change to surrounding code and likely QA review areas. See the [full task, evidence, run status, hashes, and limits](docs/comparisons/brownpants-vs-spec-kit-2026-10.md).
 
 BrownPants complements Spec Kit: Spec Kit structures the work; BrownPants adds evidence about the existing code and links completion claims to reviewable artifacts. Neither guarantees a correct fix or replaces human review.
 

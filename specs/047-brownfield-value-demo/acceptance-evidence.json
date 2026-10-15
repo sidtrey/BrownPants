@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    {
+      "taskId": "T001",
+      "result": "passed",
+      "verificationCommand": "Review README faceoff against frozen acceptance criteria and recorded output",
+      "evidencePaths": [
+        "README.md",
+        "docs/comparisons/brownpants-vs-spec-kit-2026-10.md"
+      ],
+      "criterionIds": [
+        "AC-001",
+        "AC-006",
+        "SC-001",
+        "SC-004"
+      ]
+    },
+    {
+      "taskId": "T002",
+      "result": "passed",
+      "verificationCommand": "Check source citations and metrics against current source and BrownPants impact output",
+      "evidencePaths": [
+        "docs/comparisons/brownpants-vs-spec-kit-2026-10.md",
+        "src/BrownPants.Cli/Analysis/RepositoryScanner.cs",
+        "src/BrownPants.Cli/Analysis/RepositoryInvestigator.cs",
+        "src/BrownPants.Cli/Analysis/CallImpactAnalyzer.cs"
+      ],
+      "criterionIds": [
+        "AC-002",
+        "AC-004",
+        "SC-002",
+        "SC-004"
+      ]
+    },
+    {
+      "taskId": "T003",
+      "result": "passed",
+      "verificationCommand": "Review formal-run verification record and clarify excluded attempts and test statuses",
+      "evidencePaths": [
+        "docs/comparisons/brownpants-vs-spec-kit-2026-10.md",
+        "specs/046-brownfield-sdd-comparison/verification.md"
+      ],
+      "criterionIds": [
+        "AC-003",
+        "AC-005",
+        "SC-003"
+      ]
+    },
+    {
+      "taskId": "T004",
+      "result": "passed",
+      "verificationCommand": "Run acceptance hash/evidence validators and git diff --check",
+      "evidencePaths": [
+        "specs/047-brownfield-value-demo/verification.md",
+        "specs/047-brownfield-value-demo/acceptance-criteria.sha256",
+        "specs/047-brownfield-value-demo/acceptance-evidence.json"
+      ],
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-004",
+        "AC-005",
+        "AC-006",
+        "SC-001",
+        "SC-002",
+        "SC-003",
+        "SC-004"
+      ]
+    }
+  ]
+}

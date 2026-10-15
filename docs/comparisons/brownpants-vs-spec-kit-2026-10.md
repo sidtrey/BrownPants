@@ -1,17 +1,36 @@
 # Spec Kit and Spec Kit + BrownPants: controlled comparison
 
+## Why BrownPants matters in this task
+
+The agents made the same fix and passed the same tests. This pair does not show that BrownPants made the code change better. The brownfield value is that the assisted workflow put a source-linked impact map in front of the developer before editing.
+
+The changed classifier has three source-confirmed reporting consumers:
+
+```text
+RepositoryScanner.IsTestPath
+  ├─ RepositoryScanner.Scan                 → builds Inventory.TestPaths
+  ├─ RepositoryInvestigator.Investigate      → labels clue matches as test candidates
+  └─ CallImpactAnalyzer.Analyze              → labels impacted call paths as test candidates
+```
+
+Evidence locations:
+
+- [`RepositoryScanner.Scan`](../../src/BrownPants.Cli/Analysis/RepositoryScanner.cs#L49) calls `IsTestPath` to build the inventory's `TestPaths`; the classifier's exact directory and filename rules are at [lines 128-134](../../src/BrownPants.Cli/Analysis/RepositoryScanner.cs#L128).
+- [`RepositoryInvestigator.Investigate`](../../src/BrownPants.Cli/Analysis/RepositoryInvestigator.cs#L21) uses `IsTestPath` when attaching test-candidate labels to bug-clue matches.
+- [`CallImpactAnalyzer.Analyze`](../../src/BrownPants.Cli/Analysis/CallImpactAnalyzer.cs#L111) resolves callers and uses `IsTestPath` to label the paths it reports.
+- Existing tests demonstrate the user-visible labels in [`RepositoryScannerTests`](../../tests/BrownPants.Tests/RepositoryScannerTests.cs#L151) and [`CallImpactAnalyzerTests`](../../tests/BrownPants.Tests/CallImpactAnalyzerTests.cs#L12).
+
+For a team, this turns “restore test-directory recognition” into a more useful review question: could this change affect the inventory, bug-triage labels, or QA's view of impacted callers? BrownPants surfaces those connected paths and candidate tests so the developer can inspect them and QA can prioritize verification. It does not prove those tests cover the behavior.
+
 ## Result at a glance
 
-This comparison used BrownPants itself and a source-level regression in its real `RepositoryScanner.IsTestPath` method. Both Codex runs received the same Spec Kit spec, plan, tasks, prompt, source revision, seeded defect, and model. The assisted run additionally received BrownPants repository, investigation, and call-impact evidence; the experiment driver also checked its acceptance hash and evidence ledger.
+**Spec Kit alone:** The agent inspected the source and restored the exact `test` / `tests` directory rule. It produced the correct narrow fix for the task.
 
-Both agents restored the same exact `test` / `tests` directory rule. The focused scanner tests passed **75/75** and the complete Release suite passed **235/235** in each independent worktree. In this pair, BrownPants added useful navigation and impact evidence, but the agents produced the same code change and test outcome.
+**Spec Kit + BrownPants:** The agent received the same task plus an inventory, investigation leads, and semantic impact report. The report surfaced the classifier's use in inventory, investigation, and call-impact output before implementation. The agent independently made the same code change.
 
-Provider-reported Codex usage was:
+Both formal runs completed. The expected seeded regression failed before either agent ran. After the agents finished, the experiment driver recorded **75/75 focused tests** and **235/235 full Release tests** in each worktree. Neither agent was asked to run tests; test results were collected independently after both sessions.
 
-- **Spec Kit artifacts alone:** 153,864 input tokens (127,232 cached), 1,047 output tokens.
-- **Same artifacts + BrownPants reports:** 186,445 input tokens (163,072 cached), 1,448 output tokens.
-
-The assisted run consumed more tokens after receiving extra reports. This single pair does not establish general token savings, quality differences, productivity differences, or model performance.
+Provider-reported usage was **153,864 input tokens** (127,232 cached), **1,047 output** for Spec Kit alone and **186,445 input** (163,072 cached), **1,448 output** for the assisted run. Extra BrownPants reports increased token use in this pair. The measured benefit demonstrated here is impact visibility, not token savings or improved code quality.
 
 ## Shared task and seeded defect
 
@@ -45,19 +64,25 @@ The regression test was prepared before either run, so neither agent changed the
 
 ## What each workflow supplied
 
+The BrownPants evidence was generated with these repository commands:
+
+```powershell
+brownpants inspect . --format markdown --limit 10
+brownpants investigate . --clue IsTestPath --format markdown --limit 1000
+brownpants impact . --changed src/BrownPants.Cli/Analysis/RepositoryScanner.cs --format markdown --limit 10000
+```
+
+The figures below are from captured reports in the seeded experiment worktree. Re-running them against a later checkout can produce different counts as the repository changes.
+
 ### Spec Kit artifacts alone
 
-The baseline received the shared feature spec, plan, task list, frozen prompt, source, and seeded failure record. BrownPants reports were not supplied, and its Spec Kit hooks were disabled in this worktree. The agent inspected `RepositoryScanner.IsTestPath` and the existing scanner test, then restored exact directory-component recognition. Its Codex session recorded four completed command-execution events.
+The baseline received the shared feature spec, plan, task list, frozen prompt, source, and seeded failure record. BrownPants reports were not supplied, and its Spec Kit hooks were disabled in this worktree. The agent inspected the scanner and existing tests, then restored exact directory-component recognition. Its completed Codex turn recorded four command-execution events.
 
-### Same Spec Kit artifacts with BrownPants
+### Same Spec Kit task with BrownPants
 
-The assisted run received all of the same task inputs plus three BrownPants reports generated from the seeded worktree:
+The assisted condition received the same inputs plus three BrownPants reports generated from the seeded worktree: an inventory (583 files, 69 C# sources), literal investigation leads (`IsTestPath` had 10 matches at that time), and a semantic impact report for the changed scanner file. The report summarized 49 direct and 138 transitive caller paths across the file, 20 files, 2 projects, 12 test-path candidates, and maximum observed depth 8. These file-level counts do not mean every path calls `IsTestPath`; selected exact consumers are identified by source line in the evidence section above.
 
-- `inspect` inventoried **583 files** and identified **69 C# source files**.
-- `investigate --clue IsTestPath` returned **10 literal matches**, including `RepositoryScanner.cs`, `RepositoryInvestigator.cs`, and `CallImpactAnalyzer.cs`.
-- `impact --changed src/BrownPants.Cli/Analysis/RepositoryScanner.cs --limit 10000` reported complete semantic analysis, **49 direct caller paths**, **138 transitive caller paths**, **20 affected files**, **2 projects**, **12 test-path candidates**, and maximum observed depth **8**. These are file-level impact results across methods in the changed scanner file; the counts do not mean every path calls `IsTestPath` directly or that every candidate is covered by tests.
-
-The assisted agent verified the relevant source and restored the same directory rule. It recorded five completed command-execution events. The experiment driver also verified the task acceptance hash and structurally validated the three-task, six-criterion evidence ledger in the assisted worktree. That ledger check validates IDs, paths, and task mapping; it does not judge test quality.
+The assisted agent verified the relevant source and restored the same directory rule. Its completed Codex turn recorded five command-execution events. The experiment driver also verified the task acceptance hash and structurally validated the three-task, six-criterion evidence ledger. That ledger check validates IDs, paths, and task mapping; it does not judge test quality.
 
 ## Validation results
 
@@ -83,7 +108,7 @@ Neither agent was asked to run tests. The experiment driver captured the identic
 
 The task spec, plan, task list, and prompt are checked in under [`specs/046-brownfield-sdd-comparison/experiment/`](../../specs/046-brownfield-sdd-comparison/experiment/). The same prompt was piped to Codex CLI from each isolated worktree. Provider usage totals above come from each completed Codex JSONL `turn.completed.usage` record; they are not estimates. Raw session logs and temporary worktrees are not included in this repository.
 
-Two preliminary baseline setup attempts ended without a completed turn record and are excluded from the measured pair and token totals. Both measured worktrees were reset to the same commit and seeded hashes before the formal runs.
+Run-history note: two preliminary baseline setup attempts ended without completed turn records. They were excluded from the measured pair and token totals. Both formal worktrees were reset to the same source commit and seeded hashes; the measured baseline and assisted runs each completed and passed the recorded final tests. The seeded pre-run test failure was expected and confirms the injected regression.
 
 ## Limits
 
