@@ -80,6 +80,49 @@ public sealed class RepositoryScannerTests : IDisposable
     }
 
     [Fact]
+    public void DiscoverFiles_SkipsGeneratedTestOutputsButKeepsAuthoredFixturesAndAllowsExplicitRoot()
+    {
+        Write("TestResults/run.trx", "generated");
+        Write("test-results/junit.xml", "generated");
+        Write("testresults/summary.json", "generated");
+        Write("bin/app.dll", "generated");
+        Write("obj/project.assets.json", "generated");
+        Write("coverage/summary.json", "generated");
+        Write("artifacts/tool.nupkg", "generated");
+        Write("tests/fixtures/result.json", "authored fixture");
+        Write("src/App.cs", "class App { }");
+        var before = Directory.GetFiles(_root, "*", SearchOption.AllDirectories).OrderBy(path => path, StringComparer.Ordinal).ToArray();
+
+        var files = RepositoryScanner.DiscoverFiles(_root);
+        var repeated = RepositoryScanner.DiscoverFiles(_root);
+
+        Assert.Equal(files, repeated);
+        Assert.Contains("src/App.cs", files);
+        Assert.Contains("tests/fixtures/result.json", files);
+        Assert.DoesNotContain(files, path => path.StartsWith("TestResults/", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(files, path => path.StartsWith("test-results/", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(files, path => path.StartsWith("testresults/", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(files, path => path.StartsWith("artifacts/", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(files, path => path.StartsWith("bin/", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(files, path => path.StartsWith("obj/", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(files, path => path.StartsWith("coverage/", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(before, Directory.GetFiles(_root, "*", SearchOption.AllDirectories).OrderBy(path => path, StringComparer.Ordinal).ToArray());
+
+        var selectedResultsRoot = RepositoryScanner.DiscoverFiles(Path.Combine(_root, "TestResults"));
+        Assert.Contains("run.trx", selectedResultsRoot);
+        if (OperatingSystem.IsWindows())
+            Assert.Contains("summary.json", selectedResultsRoot); // TestResults and testresults are the same Windows directory.
+        else
+            Assert.Equal(new[] { "run.trx" }, selectedResultsRoot);
+
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        Assert.Equal(0, Program.Run(new[] { "inspect", Path.Combine(_root, "TestResults"), "--format", "json" }, output, error));
+        using var json = System.Text.Json.JsonDocument.Parse(output.ToString());
+        Assert.Equal(OperatingSystem.IsWindows() ? 2 : 1, json.RootElement.GetProperty("FileCount").GetInt32());
+    }
+
+    [Fact]
     public void DiscoverFiles_DoesNotFollowDirectorySymlinksWhenSupported()
     {
         var scanRoot = Path.Combine(_root, "repository");

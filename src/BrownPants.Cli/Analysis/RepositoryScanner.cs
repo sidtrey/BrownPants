@@ -10,7 +10,7 @@ public static class RepositoryScanner
 
     private static readonly HashSet<string> IgnoredDirectories = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".git", ".hg", ".svn", ".vs", ".idea", "bin", "obj", "node_modules",
+        ".git", ".hg", ".svn", ".vs", ".idea", "bin", "obj", "TestResults", "test-results", "testresults", "node_modules",
         "packages", "coverage", "dist", "target", "artifacts", ".tools", "venv", ".venv", ".tox", "__pycache__",
         ".gradle", ".next", ".nuxt", ".terraform", ".dart_tool", ".build", "Pods", "__pypackages__",
         ".pytest_cache", ".mypy_cache", ".ruff_cache", ".cache", "bower_components", "jspm_packages",

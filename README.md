@@ -103,6 +103,8 @@ Native coverage includes `.vcxproj` and legacy `.vcproj` markers, MFC/CLR projec
 
 For .NET brownfield code, `inspect` also reports direct NHibernate package references, explicit mapping/configuration files, and C#/VB session factory, session, query, transaction, and DI API candidates. It parses metadata without MSBuild evaluation and omits XML values such as connection strings from NHibernate metadata findings. Candidate presence does not establish transitive packages, runtime mapping activation, session lifetime, or database behavior. See [NHibernate awareness](specs/041-nhibernate-awareness/quickstart.md) and the [official session configuration](https://nhibernate.info/doc/nhibernate-reference/session-configuration.html) and [transaction guidance](https://nhibernate.info/doc/nhibernate-reference/transactions.html).
 
+Repository inventories skip generated `TestResults`, `test-results`, `testresults`, build outputs, coverage, and artifact directories. To inspect one of those folders intentionally, pass it directly as the repository root, for example `brownpants inspect TestResults`; fixtures and reports elsewhere remain included.
+
 ## Workflow integrations
 
 ### WinForms thread access review

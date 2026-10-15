@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    { "taskId": "T001", "criterionIds": ["AC-001", "AC-002", "AC-003", "AC-004", "SC-001", "SC-002", "SC-003"], "verificationCommand": "dotnet test BrownPants.sln -c Release --no-restore --filter FullyQualifiedName~RepositoryScannerTests", "evidencePaths": ["tests/BrownPants.Tests/RepositoryScannerTests.cs", "specs/042-generated-test-output-exclusion/verification.md"], "result": "passed" },
+    { "taskId": "T002", "criterionIds": ["AC-001", "AC-002", "AC-003", "SC-001", "SC-002"], "verificationCommand": "dotnet test BrownPants.sln -c Release --no-restore --filter FullyQualifiedName~RepositoryScannerTests", "evidencePaths": ["src/BrownPants.Cli/Analysis/RepositoryScanner.cs", "README.md", "specs/042-generated-test-output-exclusion/verification.md"], "result": "passed" },
+    { "taskId": "T003", "criterionIds": ["AC-001", "AC-002", "AC-003", "AC-004", "SC-001", "SC-002", "SC-003", "SC-004"], "verificationCommand": "dotnet build BrownPants.sln -c Release --no-restore; dotnet test BrownPants.sln -c Release --no-restore", "evidencePaths": ["specs/042-generated-test-output-exclusion/verification.md"], "result": "passed" }
+  ]
+}
