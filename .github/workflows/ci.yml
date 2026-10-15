@@ -171,6 +171,8 @@ jobs:
           $tool = Join-Path $toolPath $toolName
           & $tool --help
           if ($LASTEXITCODE -ne 0) { throw "Packed tool help failed with exit code $LASTEXITCODE." }
+          & pwsh -NoProfile -File ./tests/PackedModelRoutingSmoke.ps1 -ToolPath $tool
+          if ($LASTEXITCODE -ne 0) { throw "Packed tool model CLI smoke failed with exit code $LASTEXITCODE." }
           New-Item -ItemType Directory -Path ./TestResults -Force | Out-Null
           @'
           ```brownpants-flow

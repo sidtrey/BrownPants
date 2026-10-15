@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "profiles": [
+    {
+      "id": "routine-work",
+      "categories": ["documentation", "routine-maintenance"],
+      "qualityTier": "economy",
+      "rationale": "Use the team's efficient option for clear, bounded work.",
+      "models": {
+        "vscode": "Example Model Name (copilot)",
+        "visual-studio": "Example Model Name (copilot)",
+        "claude": "haiku",
+        "codex": "example-model-id"
+      },
+      "instructions": "Follow the accepted specification and keep changes narrowly scoped."
+    },
+    {
+      "id": "implementation",
+      "categories": ["implementation", "complex-debugging"],
+      "qualityTier": "high",
+      "rationale": "Code changes and complex diagnosis need stronger reasoning and validation.",
+      "models": {
+        "vscode": "Example Model Name (copilot)",
+        "visual-studio": "Example Model Name (copilot)",
+        "claude": "opus",
+        "codex": "example-model-id"
+      },
+      "instructions": "Use the approved plan, preserve acceptance criteria, and verify the change."
+    },
+    {
+      "id": "review",
+      "categories": ["review", "testing"],
+      "qualityTier": "balanced",
+      "rationale": "Review needs careful judgment with bounded scope.",
+      "models": {
+        "vscode": "Example Model Name (copilot)",
+        "visual-studio": "Example Model Name (copilot)",
+        "claude": "sonnet",
+        "codex": "example-model-id"
+      },
+      "instructions": "Report concrete findings with source locations and reproducible evidence."
+    }
+  ]
+}
