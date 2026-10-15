@@ -80,8 +80,15 @@ jobs:
             $spec = Join-Path $featureDir 'spec.md'
             if (-not (Test-Path -LiteralPath $spec -PathType Leaf)) { throw "Changed feature artifacts require a spec: $featureDir" }
             $specText = Get-Content -LiteralPath $spec -Raw
-            if ($specText -match '(?im)^\*\*Status\*\*:\s*Won''t do\s*
-
+            if ($specText -match '(?im)^\*\*Status\*\*:\s*Won''t do\s*$') {
+              Write-Host "Skipping acceptance evidence for closed feature: $featureDir"
+              continue
+            }
+            $tasks = Join-Path $featureDir 'tasks.md'
+            $ledger = Join-Path $featureDir 'acceptance-evidence.json'
+            if (-not (Test-Path -LiteralPath $ledger -PathType Leaf)) { throw "Changed feature tasks require an acceptance evidence ledger: $featureDir" }
+            ./scripts/check-acceptance-evidence.ps1 -RepositoryRoot . -SpecPath $spec -TasksPath $tasks -EvidencePath $ledger
+          }
       - name: Verify recorded acceptance baselines
         shell: pwsh
         run: |
