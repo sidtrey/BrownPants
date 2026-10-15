@@ -120,7 +120,7 @@ public sealed class RepositoryScannerTests : IDisposable
         using var error = new StringWriter();
         Assert.Equal(0, Program.Run(new[] { "inspect", Path.Combine(_root, "TestResults"), "--format", "json" }, output, error));
         using var json = System.Text.Json.JsonDocument.Parse(output.ToString());
-        Assert.Equal(OperatingSystem.IsWindows() ? 2 : 1, json.RootElement.GetProperty("FileCount").GetInt32());
+        Assert.Equal(resultsNameAliasesShareDirectory ? 2 : 1, json.RootElement.GetProperty("FileCount").GetInt32());
     }
 
     [Fact]
