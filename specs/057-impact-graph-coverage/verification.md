@@ -19,4 +19,4 @@ Impact for `examples/brownfield-bug-lab/managed/Workflows/OrderImportWorkflow.cs
 
 ## Scope limits
 
-Local verification ran on Windows only; the CI workflow retains Windows, Ubuntu, and macOS coverage. The packed smoke uses a small controlled SDK-style fixture. This verifies CLI packaging and sample-order behavior, while the BrownPants self-run provides the larger repository evidence above. The 100,000-edge production ceiling was verified with an injected one-edge test ceiling, not by constructing a 100,000-edge fixture.
+Local verification ran on Windows. GitHub Actions for commit `b570163716afbc609d6fac609f09355cb4a36cd3` subsequently passed on Windows, Ubuntu, and macOS. The packed smoke uses a small controlled SDK-style fixture. This verifies CLI packaging and sample-order behavior, while the BrownPants self-run provides the larger repository evidence above. The 100,000-edge production ceiling was verified with an injected one-edge test ceiling, not by constructing a 100,000-edge fixture.

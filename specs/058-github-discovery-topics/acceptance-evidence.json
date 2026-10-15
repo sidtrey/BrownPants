@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    { "taskId": "T001", "criterionIds": ["AC-001", "AC-002", "AC-003", "SC-001", "SC-002"], "verificationCommand": "Review the source-to-topic evidence mapping and validate GitHub naming/count rules", "evidencePaths": ["specs/058-github-discovery-topics/data-model.md", "specs/058-github-discovery-topics/research.md"], "result": "passed" },
+    { "taskId": "T002", "criterionIds": ["AC-001", "AC-002", "AC-003", "SC-004"], "verificationCommand": "Read current topics, apply reviewed topic set without displaying credentials", "evidencePaths": ["specs/058-github-discovery-topics/contracts/topics.md", "specs/058-github-discovery-topics/verification.md"], "result": "passed" },
+    { "taskId": "T003", "criterionIds": ["AC-001", "AC-002", "AC-003", "SC-001", "SC-002", "SC-003", "SC-004"], "verificationCommand": "Read the public repository topics endpoint and compare the saved set; record evidence", "evidencePaths": ["specs/058-github-discovery-topics/verification.md"], "result": "passed" },
+    { "taskId": "T004", "criterionIds": ["AC-001", "AC-002", "AC-003", "SC-001", "SC-002", "SC-003", "SC-004"], "verificationCommand": "Validate the acceptance hash and evidence ledger after updating the idea queue", "evidencePaths": ["IDEA-QUEUE.md", "specs/058-github-discovery-topics/acceptance-criteria.sha256", "specs/058-github-discovery-topics/verification.md"], "result": "passed" }
+  ]
+}
