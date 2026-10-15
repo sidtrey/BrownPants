@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    {
+      "taskId": "T001",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-004",
+        "AC-005",
+        "AC-006",
+        "SC-001",
+        "SC-002",
+        "SC-003",
+        "SC-004",
+        "SC-005"
+      ],
+      "verificationCommand": "Review frozen experiment artifacts and pinned input hashes",
+      "evidencePaths": [
+        "specs/046-brownfield-sdd-comparison/experiment/spec.md",
+        "specs/046-brownfield-sdd-comparison/experiment/prompt.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T002",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "SC-001",
+        "SC-002"
+      ],
+      "verificationCommand": "Apply the same seed patch to both detached worktrees and run the focused failing regression",
+      "evidencePaths": [
+        "specs/046-brownfield-sdd-comparison/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T003",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "SC-001",
+        "SC-002"
+      ],
+      "verificationCommand": "Compare source, feature artifact, seed patch, and test hashes in both worktrees",
+      "evidencePaths": [
+        "specs/046-brownfield-sdd-comparison/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T004",
+      "criterionIds": [
+        "AC-001",
+        "AC-003",
+        "AC-005",
+        "AC-006",
+        "SC-001",
+        "SC-003",
+        "SC-005"
+      ],
+      "verificationCommand": "Run the shared task with Codex CLI from the baseline worktree and record observed events and diff",
+      "evidencePaths": [
+        "specs/046-brownfield-sdd-comparison/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T005",
+      "criterionIds": [
+        "AC-001",
+        "AC-003",
+        "AC-005",
+        "AC-006",
+        "SC-001",
+        "SC-003",
+        "SC-005"
+      ],
+      "verificationCommand": "Run the shared task with Codex CLI from the assisted worktree and record BrownPants evidence, events, and diff",
+      "evidencePaths": [
+        "specs/046-brownfield-sdd-comparison/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T006",
+      "criterionIds": [
+        "AC-002",
+        "AC-003",
+        "SC-002",
+        "SC-003"
+      ],
+      "verificationCommand": "Run identical focused and full Release tests and review both final diffs",
+      "evidencePaths": [
+        "specs/046-brownfield-sdd-comparison/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T007",
+      "criterionIds": [
+        "AC-003",
+        "AC-005",
+        "AC-006",
+        "SC-003",
+        "SC-005"
+      ],
+      "verificationCommand": "Audit the sanitized comparison report against temporary run outputs and provider usage events",
+      "evidencePaths": [
+        "docs/comparisons/brownpants-vs-spec-kit-2026-10.md",
+        "specs/046-brownfield-sdd-comparison/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T008",
+      "criterionIds": [
+        "AC-004",
+        "AC-005",
+        "AC-006",
+        "SC-004"
+      ],
+      "verificationCommand": "Review README comparison claims against the detailed report",
+      "evidencePaths": [
+        "README.md",
+        "docs/comparisons/brownpants-vs-spec-kit-2026-10.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T009",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-004",
+        "AC-005",
+        "AC-006",
+        "SC-001",
+        "SC-002",
+        "SC-003",
+        "SC-004",
+        "SC-005"
+      ],
+      "verificationCommand": "Validate acceptance hash and evidence ledger; run Release build, full tests, diff check, and credential scan",
+      "evidencePaths": [
+        "specs/046-brownfield-sdd-comparison/verification.md",
+        "specs/046-brownfield-sdd-comparison/acceptance-criteria.sha256",
+        "specs/046-brownfield-sdd-comparison/acceptance-evidence.json"
+      ],
+      "result": "passed"
+    }
+  ]
+}

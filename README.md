@@ -18,31 +18,24 @@ That gives a team a reviewable starting point before it writes a spec or edits c
 - **QA needs to know what to verify and what shipped.** The local workbench presents feature scenarios and tasks. The Azure DevOps adapter can trace related work items, PRs, builds, and releases; the local PR preview carries QA guidance and evidence gaps. A user can prepare or create a draft PR, while review and merge stay human-controlled.
 - **Your company restricts AI services or command-line agents.** BrownPants' default inspection runs locally without an LLM, network calls, project builds, or source modifications. IDE and SDD adapters are optional; an organization can use local reports or approved hosts without enabling online integrations.
 
-## Spec Kit + BrownPants: same workflow, more system evidence
+## Spec Kit vs. Spec Kit + BrownPants: same task, real brownfield evidence
 
-**With Spec Kit, you get** a structured path from feature intent through specifications, plans, tasks, implementation, and review.
+**With Spec Kit, you get** the shared feature spec, implementation plan, task list, and acceptance criteria. For this comparison, both Codex runs used those same artifacts to fix a deliberately introduced regression in BrownPants' real `RepositoryScanner.IsTestPath` method.
 
-**With Spec Kit + BrownPants, you keep that workflow and add** a deterministic view of the existing codebase, source-located analysis for brownfield code, impact leads for changed methods, and acceptance-criteria and task-evidence checks. The Spec Kit adapter can refresh repository context as work moves through its phases. These additions help the team decide where to look, what may be affected, and what evidence supports completion.
+**Spec Kit alone:** The agent inspected the source and restored recognition of files under exact `test` and `tests` directories. It changed the scanner and left the seeded regression test for the experiment driver to validate.
 
-### Face-off: the same repository and bug
+**The same Spec Kit task + BrownPants:** The agent received the same task and source, plus BrownPants' inventory, literal investigation leads, and semantic impact report. Those reports identified the scanner's consumers and related test paths before the code change. The agent independently chose the same narrow fix.
 
-We ran a controlled SDD comparison on this repository. The task was to fix a bug in how `ContestController.cs` was recognized as test code. Both runs used the same source snapshot, task, acceptance hash, Codex CLI version, model, and independent test commands. The planned difference was that the BrownPants-assisted run also received a bounded inventory from `brownpants inspect`.
+### What both runs produced
 
-**SDD run without BrownPants:** The agent found the filename-matching bug, changed the scanner, and added regression coverage. Independent validation passed 75 focused tests and 229 full Release tests.
+- The injected defect failed the same focused check before either agent ran.
+- Both agents restored the exact directory-component rule and preserved filename-based classification.
+- Independent validation passed **75/75 focused tests** and **235/235 full Release tests** in each worktree.
+- Provider-reported usage was **153,864 input / 1,047 output tokens** for Spec Kit alone and **186,445 input / 1,448 output tokens** with BrownPants. The assisted run used more tokens after receiving the extra repository reports; this pair does not show token savings.
 
-**Same task with BrownPants inventory:** The assisted agent changed the scanner and added regression coverage; independent validation passed the same 75 focused and 229 full Release tests.
+This is one controlled pair, not a general quality or productivity benchmark. It shows the concrete BrownPants evidence added to this task; it does not prove one approach is generally better. See the [full setup, task, diffs, usage provenance, and test record](docs/comparisons/brownpants-vs-spec-kit-2026-10.md).
 
-### What this run measured
-
-- **Vanilla Spec Kit run:** 336,632 input tokens and 2,688 output tokens.
-- **Spec Kit + BrownPants run:** 260,164 input tokens and 2,234 output tokens.
-- **Both runs:** 229 full Release tests passed.
-
-Token counts are provider-reported Codex CLI usage, not estimates. This is one successful pair, so it does not establish reliable token savings or better code quality. Human review found a false positive in both proposed filename rules; that review caught a problem the passing tests did not. The [full comparison record](docs/comparisons/brownpants-vs-vanilla-sdd-2026-10.md) includes the setup, failed attempts, findings, and limits.
-
-The measured pair isolates the effect of adding repository inventory context to an SDD task; it is not a benchmark of every Spec Kit feature or BrownPants check.
-
-BrownPants complements Spec Kit: Spec Kit structures the work; BrownPants supplies brownfield evidence and checks that link agreed criteria to verifiable artifacts. Neither guarantees a correct fix or replaces human review.
+BrownPants complements Spec Kit: Spec Kit structures the work; BrownPants adds evidence about the existing code and links completion claims to reviewable artifacts. Neither guarantees a correct fix or replaces human review.
 
 A SHA-256 acceptance hash is a fingerprint of the agreed pass/fail conditions. If the criteria change during a task, the fingerprint changes and asks a maintainer to review the change. It keeps the goalposts visible; it does not prove the implementation is correct.
 
