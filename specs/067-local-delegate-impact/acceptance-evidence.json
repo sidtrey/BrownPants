@@ -1,0 +1,227 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    {
+      "taskId": "T001",
+      "criterionIds": [
+        "SC-006"
+      ],
+      "verificationCommand": "pwsh -NoProfile -File scripts/check-acceptance-evidence.ps1 -RepositoryRoot . -SpecPath specs/067-local-delegate-impact/spec.md -TasksPath specs/067-local-delegate-impact/tasks.md -EvidencePath specs/067-local-delegate-impact/acceptance-evidence.json",
+      "evidencePaths": [
+        "specs/067-local-delegate-impact/acceptance-evidence.json"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T002",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "SC-001",
+        "SC-002"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --filter FullyQualifiedName~SemanticAnalyzer_ResolvesLocalDelegate",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/RepositoryScannerTests.cs",
+        "specs/067-local-delegate-impact/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T003",
+      "criterionIds": [
+        "AC-001",
+        "SC-001"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --filter FullyQualifiedName~SemanticAnalyzer_ResolvesVisualBasicLocalDelegate",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/RepositoryScannerTests.cs",
+        "specs/067-local-delegate-impact/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T004",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "SC-001",
+        "SC-002"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --filter FullyQualifiedName~SemanticAnalyzer_ResolvesLocalDelegate",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/CSharpSemanticAnalyzer.cs",
+        "specs/067-local-delegate-impact/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T005",
+      "criterionIds": [
+        "AC-002",
+        "AC-003",
+        "SC-001",
+        "SC-002"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --filter FullyQualifiedName~Analyze_TracesMethodImpactThroughLocalDelegate",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/CallImpactAnalyzerTests.cs",
+        "specs/067-local-delegate-impact/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T006",
+      "criterionIds": [
+        "AC-005",
+        "SC-005"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --filter FullyQualifiedName~Evidence_LabelsCompilerResolvedLocalDelegateTargets",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/EvidenceReport.cs",
+        "src/BrownPants.Cli/Output/MarkdownReport.cs",
+        "tests/BrownPants.Tests/EvidenceCommandTests.cs",
+        "tests/BrownPants.Tests/RepositoryScannerTests.cs",
+        "specs/067-local-delegate-impact/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T007",
+      "criterionIds": [
+        "AC-004",
+        "SC-003"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --filter FullyQualifiedName~SemanticAnalyzer_LeavesReassignedCapturedAndEscapedDelegateTargetsUnresolved",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/RepositoryScannerTests.cs",
+        "specs/067-local-delegate-impact/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T008",
+      "criterionIds": [
+        "AC-004",
+        "SC-003"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --filter FullyQualifiedName~SemanticAnalyzer_LeavesReassignedCapturedAndEscapedDelegateTargetsUnresolved",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/CSharpSemanticAnalyzer.cs",
+        "src/BrownPants.Cli/Analysis/RepositoryInventory.cs",
+        "specs/067-local-delegate-impact/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T009",
+      "criterionIds": [
+        "AC-004",
+        "AC-005",
+        "SC-003",
+        "SC-005"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --filter FullyQualifiedName~Analyze_MarksUnresolvedDelegateTargetsIncomplete",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/CallImpactAnalyzer.cs",
+        "src/BrownPants.Cli/Analysis/EvidenceReport.cs",
+        "src/BrownPants.Cli/Output/MarkdownReport.cs",
+        "tests/BrownPants.Tests/CallImpactAnalyzerTests.cs",
+        "tests/BrownPants.Tests/EvidenceCommandTests.cs",
+        "specs/067-local-delegate-impact/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T010",
+      "criterionIds": [
+        "AC-006",
+        "SC-006"
+      ],
+      "verificationCommand": "pwsh -NoProfile -File examples/brownfield-bug-lab/evaluation/delegate-impact/Verify-FrozenInputs.ps1",
+      "evidencePaths": [
+        "examples/brownfield-bug-lab/evaluation/delegate-impact/task-spec.md",
+        "examples/brownfield-bug-lab/evaluation/delegate-impact/answer-key.sha256",
+        "examples/brownfield-bug-lab/evaluation/delegate-impact/protocol.sha256"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T011",
+      "criterionIds": [
+        "AC-006",
+        "SC-006"
+      ],
+      "verificationCommand": "pwsh -NoProfile -File examples/brownfield-bug-lab/evaluation/delegate-impact/Prepare-DelegateComparison.ps1 -FixtureRoot examples/brownfield-bug-lab/evaluation/delegate-impact/fixture -OutputRoot (Join-Path $env:TEMP ('brownpants-delegate-' + [guid]::NewGuid().ToString('N')))",
+      "evidencePaths": [
+        "examples/brownfield-bug-lab/evaluation/delegate-impact/Prepare-DelegateComparison.ps1",
+        "examples/brownfield-bug-lab/evaluation/delegate-impact/runs/codex-cli-0.162.1-gpt-6.1-sol-20261015/preparation.json"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T012",
+      "criterionIds": [
+        "AC-006",
+        "SC-006"
+      ],
+      "verificationCommand": "pwsh -NoProfile -File examples/brownfield-bug-lab/evaluation/delegate-impact/Score-DelegateComparison.ps1 -SelfTest",
+      "evidencePaths": [
+        "examples/brownfield-bug-lab/evaluation/delegate-impact/Run-DelegateComparison.ps1",
+        "examples/brownfield-bug-lab/evaluation/delegate-impact/Score-DelegateComparison.ps1",
+        "examples/brownfield-bug-lab/evaluation/delegate-impact/runs/codex-cli-0.162.1-gpt-6.1-sol-20261015/codex-runs.json"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T013",
+      "criterionIds": [
+        "AC-006",
+        "SC-006"
+      ],
+      "verificationCommand": "pwsh -NoProfile -File examples/brownfield-bug-lab/evaluation/delegate-impact/Score-DelegateComparison.ps1 -RunRoot examples/brownfield-bug-lab/evaluation/delegate-impact/runs/codex-cli-0.162.1-gpt-6.1-sol-20261015",
+      "evidencePaths": [
+        "examples/brownfield-bug-lab/evaluation/delegate-impact/runs/codex-cli-0.162.1-gpt-6.1-sol-20261015/comparison.json",
+        "examples/brownfield-bug-lab/evaluation/delegate-impact/runs/codex-cli-0.162.1-gpt-6.1-sol-20261015/pair-01/agent-results/baseline-events.jsonl",
+        "docs/comparisons/delegate-impact-comparison.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T014",
+      "criterionIds": [
+        "AC-006",
+        "SC-006"
+      ],
+      "verificationCommand": "Review README.md and docs/comparisons/delegate-impact-comparison.md against docs/comparisons/delegate-impact-comparison.json",
+      "evidencePaths": [
+        "README.md",
+        "docs/comparisons/delegate-impact-comparison.md",
+        "docs/comparisons/delegate-impact-comparison.json"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T015",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-004",
+        "AC-005",
+        "AC-006",
+        "SC-001",
+        "SC-002",
+        "SC-003",
+        "SC-004",
+        "SC-005",
+        "SC-006"
+      ],
+      "verificationCommand": "dotnet build BrownPants.sln -c Release; dotnet test BrownPants.sln -c Release; dotnet run --project examples/brownfield-bug-lab/managed/tests/LegacyOrderDesk.Checks.csproj -c Release; dotnet run --project src/BrownPants.Cli -c Release --no-build -- impact examples/brownfield-bug-lab --changed managed/Persistence/OrderRepository.cs --format json --limit 1000; dotnet run --project src/BrownPants.Cli -c Release --no-build -- inspect . --semantic --format json --limit 10; pwsh -NoProfile -File scripts/acceptance-criteria-hash.ps1 -SpecPath specs/067-local-delegate-impact/spec.md; pwsh -NoProfile -File scripts/check-acceptance-evidence.ps1 -RepositoryRoot . -SpecPath specs/067-local-delegate-impact/spec.md -TasksPath specs/067-local-delegate-impact/tasks.md -EvidencePath specs/067-local-delegate-impact/acceptance-evidence.json",
+      "evidencePaths": [
+        "specs/067-local-delegate-impact/verification.md"
+      ],
+      "result": "passed"
+    }
+  ]
+}

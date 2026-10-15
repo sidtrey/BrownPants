@@ -3,6 +3,7 @@ using Microsoft.Build.Locator;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.MSBuild;
+using Microsoft.CodeAnalysis.Operations;
 using CSharpInvocation = Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax;
 using CSharpObjectCreation = Microsoft.CodeAnalysis.CSharp.Syntax.ObjectCreationExpressionSyntax;
 using CSharpImplicitObjectCreation = Microsoft.CodeAnalysis.CSharp.Syntax.ImplicitObjectCreationExpressionSyntax;
@@ -121,6 +122,9 @@ public static class CSharpSemanticAnalyzer
         var constructorSyntaxCount = 0;
         var resolvedConstructorCount = 0;
         var unresolvedConstructorCount = 0;
+        var resolvedDelegateTargetCount = 0;
+        var unresolvedDelegateTargetCount = 0;
+        var unresolvedDelegateCalls = new List<CSharpUnresolvedCall>();
         var declarationCount = 0;
         var invocationSyntaxCount = 0;
         var skippedInvocationCount = 0;
@@ -169,6 +173,7 @@ public static class CSharpSemanticAnalyzer
 
                 var semanticModel = compilation.GetSemanticModel(syntaxTree);
                 var syntaxRoot = syntaxTree.GetRoot();
+                var delegateBindings = AnalyzeLocalDelegateBindings(syntaxRoot, semanticModel);
                 foreach (var declarationNode in syntaxRoot.DescendantNodes()
                     .Where(node => node is Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax
                         or Microsoft.CodeAnalysis.CSharp.Syntax.LocalFunctionStatementSyntax
@@ -240,6 +245,40 @@ public static class CSharpSemanticAnalyzer
                     if (symbol is IMethodSymbol method)
                     {
                         resolvedInvocationCount++;
+                        if (method.MethodKind == MethodKind.DelegateInvoke)
+                        {
+                            var invocationLocation = invocationNode.GetLocation().GetLineSpan();
+                            if (TryGetInvokedLocal(invocationNode, semanticModel, out var local)
+                                && delegateBindings.TryGetValue(local, out var binding)
+                                && binding.Target is not null)
+                            {
+                                resolvedDelegateTargetCount++;
+                                var target = binding.Target;
+                                var targetLocation = target.Locations.Where(location => location.IsInSource
+                                        && location.SourceTree is not null)
+                                    .Select(location => TryGetRepositoryRelativePath(repositoryRoot, location.SourceTree!.FilePath,
+                                        out var path) ? (Location: location, Path: path) : default)
+                                    .Where(candidate => candidate.Location is not null)
+                                    .OrderBy(candidate => candidate.Path, StringComparer.Ordinal).FirstOrDefault();
+                                AddResolvedCall(new CSharpResolvedCall(relativeProjectPath, relativeSourcePath,
+                                    invocationLocation.StartLinePosition.Line + 1, Normalize(expressionText),
+                                    EnclosingMethod(semanticModel.GetEnclosingSymbol(invocationNode.SpanStart), repositoryRoot),
+                                    ResolvedTarget(target, repositoryRoot), targetLocation.Location is not null ? targetLocation.Path : null,
+                                    targetLocation.Location?.GetLineSpan().StartLinePosition.Line + 1, "delegate",
+                                    ResolvedTarget(target.OriginalDefinition, repositoryRoot),
+                                    invocationLocation.StartLinePosition.Character + 1));
+                            }
+                            else
+                            {
+                                unresolvedDelegateTargetCount++;
+                                var reason = TryGetInvokedLocal(invocationNode, semanticModel, out local)
+                                    && delegateBindings.TryGetValue(local, out binding)
+                                    ? binding.Reason : "Delegate target is not a directly initialized local variable.";
+                                AddSample(unresolvedDelegateCalls, new CSharpUnresolvedCall(relativeProjectPath,
+                                    relativeSourcePath, invocationLocation.StartLinePosition.Line + 1,
+                                    Normalize(expressionText), reason, Array.Empty<string>(), "delegate"), sampleLimit);
+                            }
+                        }
                         var sourceLocation = method.Locations
                             .Where(location => location.IsInSource && location.SourceTree is not null)
                             .Select(location => TryGetRepositoryRelativePath(repositoryRoot, location.SourceTree!.FilePath,
@@ -338,8 +377,102 @@ public static class CSharpSemanticAnalyzer
             ImpactGraphOmittedCount = impactGraphOmittedCount,
             CompilerDiagnosticGroupCount = compilerDiagnosticGroupCounts.Count,
             CompilerDiagnosticGroupOmittedCount = Math.Max(0, compilerDiagnosticGroupCounts.Count - compilerDiagnosticGroups.Length),
-            CompilerDiagnosticGroups = compilerDiagnosticGroups
+            CompilerDiagnosticGroups = compilerDiagnosticGroups,
+            ResolvedDelegateTargetCount = resolvedDelegateTargetCount,
+            UnresolvedDelegateTargetCount = unresolvedDelegateTargetCount,
+            UnresolvedDelegateCalls = unresolvedDelegateCalls
         };
+    }
+
+    private sealed record LocalDelegateBinding(IMethodSymbol? Target, string Reason);
+
+    private static Dictionary<ILocalSymbol, LocalDelegateBinding> AnalyzeLocalDelegateBindings(
+        SyntaxNode root, SemanticModel semanticModel)
+    {
+        var result = new Dictionary<ILocalSymbol, LocalDelegateBinding>(SymbolEqualityComparer.Default);
+        var declarations = root.DescendantNodes().Where(node => node is VariableDeclaratorSyntax
+            or Microsoft.CodeAnalysis.VisualBasic.Syntax.ModifiedIdentifierSyntax);
+        foreach (var declaration in declarations)
+        {
+            if (semanticModel.GetDeclaredSymbol(declaration) is not ILocalSymbol local)
+                continue;
+            SyntaxNode? initializer = declaration switch
+            {
+                VariableDeclaratorSyntax csharp when csharp.Initializer is not null => csharp.Initializer.Value,
+                Microsoft.CodeAnalysis.VisualBasic.Syntax.ModifiedIdentifierSyntax vb =>
+                    vb.Ancestors().OfType<Microsoft.CodeAnalysis.VisualBasic.Syntax.VariableDeclaratorSyntax>()
+                        .FirstOrDefault()?.Initializer?.Value,
+                _ => null
+            };
+            var target = initializer is null ? null : DelegateTarget(semanticModel.GetOperation(initializer));
+            var reason = target is null
+                ? "Local delegate initializer is not a method group or lambda."
+                : "Local delegate has non-invocation use, reassignment, capture, or escape.";
+            var safe = target is not null;
+            foreach (var reference in root.DescendantNodes().Where(node => node is SimpleNameSyntax
+                or Microsoft.CodeAnalysis.VisualBasic.Syntax.IdentifierNameSyntax))
+            {
+                if (!SymbolEqualityComparer.Default.Equals(semanticModel.GetSymbolInfo(reference).Symbol, local))
+                    continue;
+                var enclosing = semanticModel.GetEnclosingSymbol(reference.SpanStart);
+                if (!SymbolEqualityComparer.Default.Equals(enclosing, local.ContainingSymbol)
+                    || !IsDirectDelegateInvocationReceiver(reference, semanticModel))
+                {
+                    safe = false;
+                    break;
+                }
+            }
+            result[local] = new LocalDelegateBinding(safe ? target : null, safe ? string.Empty : reason);
+        }
+        return result;
+    }
+
+    private static IMethodSymbol? DelegateTarget(IOperation? operation)
+    {
+        while (operation is IConversionOperation conversion) operation = conversion.Operand;
+        if (operation is IDelegateCreationOperation creation) operation = creation.Target;
+        while (operation is IConversionOperation conversion) operation = conversion.Operand;
+        return operation switch
+        {
+            IMethodReferenceOperation methodReference => methodReference.Method,
+            IAnonymousFunctionOperation anonymous => anonymous.Symbol,
+            _ => null
+        };
+    }
+
+    private static bool TryGetInvokedLocal(SyntaxNode invocation, SemanticModel model, out ILocalSymbol local)
+    {
+        if (model.GetOperation(invocation) is IInvocationOperation invocationOperation
+            && invocationOperation.Instance is ILocalReferenceOperation invokedInstance)
+        {
+            local = invokedInstance.Local;
+            return true;
+        }
+        SyntaxNode? expression = invocation switch
+        {
+            CSharpInvocation csharp => csharp.Expression,
+            VisualBasicInvocation vb => vb.Expression,
+            _ => null
+        };
+        var operation = expression is null ? null : model.GetOperation(expression);
+        while (operation is IConversionOperation conversion) operation = conversion.Operand;
+        if (operation is ILocalReferenceOperation localReference)
+        {
+            local = localReference.Local;
+            return true;
+        }
+        local = null!;
+        return false;
+    }
+
+    private static bool IsDirectDelegateInvocationReceiver(SyntaxNode reference, SemanticModel model)
+    {
+        var invocation = reference.AncestorsAndSelf().FirstOrDefault(node => node is CSharpInvocation or VisualBasicInvocation);
+        if (invocation is null || model.GetOperation(invocation) is not IInvocationOperation operation
+            || operation.TargetMethod.MethodKind != MethodKind.DelegateInvoke
+            || operation.Instance is not ILocalReferenceOperation localReference)
+            return false;
+        return SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(reference).Symbol, localReference.Local);
     }
 
     private static void AddProjectOnce(Project project, List<(string Project, Compilation Compilation)> compilations,

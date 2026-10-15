@@ -187,6 +187,9 @@ public sealed record CSharpSemanticAnalysis(
         = Array.Empty<SemanticCompilerDiagnosticGroup>();
     internal IReadOnlyList<CSharpResolvedCall>? ImpactGraphCalls { get; init; }
     internal int ImpactGraphOmittedCount { get; init; }
+    public int ResolvedDelegateTargetCount { get; init; }
+    public int UnresolvedDelegateTargetCount { get; init; }
+    public IReadOnlyList<CSharpUnresolvedCall> UnresolvedDelegateCalls { get; init; } = Array.Empty<CSharpUnresolvedCall>();
 }
 
 public sealed record SemanticReasonCount(string Reason, int Count);

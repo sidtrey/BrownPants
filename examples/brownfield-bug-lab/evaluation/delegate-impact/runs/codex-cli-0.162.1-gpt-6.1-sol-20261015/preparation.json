@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "taskSpecDigest": "3d5469a244e1a08c602e01b140af98da5c89d165b83e89b201a00493565032f3",
+  "answerKeyDigest": "eb212b96228435f94b0d9d4396964d5eb8a6b0c48ebf79d65e3560d5ab0a9fc0",
+  "promptDigest": "82e0ffd7231e3cda6650a1d3d147e7a99b1b55add98aab0730a119600bd24c09",
+  "schemaDigest": "8c5d66e486a12337b0b01fb5e9ed29b8ba340955d6de92d1ca668407c817c912",
+  "sourceFiles": [
+    {
+      "path": "DelegateImpact.Fixture.csproj",
+      "sha256": "a5627c860db69c76e8b522741c475d85f82257bbe64a25fa21eb3919599c949f"
+    },
+    {
+      "path": "packages.lock.json",
+      "sha256": "a4364d81a6de2707d66fbced18fbbc926c882ab96e1d1aebbb17e871285b9d75"
+    },
+    {
+      "path": "src/ImportWorkflow.cs",
+      "sha256": "6b5ba5bea925165e43c500eb5ff9fedf95fa8090dc34b9cd8624aad7ed7bfbe0"
+    },
+    {
+      "path": "src/WorkRepository.cs",
+      "sha256": "60bc68c61e3e22853a9172b1a08852ec360e1d14a540f4d3baffa638b0811f3e"
+    },
+    {
+      "path": "tests/Program.cs",
+      "sha256": "e824b36f1360b6b029a3ca29e9daab479e88330e03b0fc46901cd30cd48ec9b0"
+    }
+  ],
+  "pairs": [
+    {
+      "pair": 1,
+      "sourceDigest": "59d53be2fe46a27140a1c0065f1030481eb746d4205dfae4dd436ebacf101c29",
+      "impactPath": "pair-01/assisted-source/BrownPantsEvidence/impact.json"
+    },
+    {
+      "pair": 2,
+      "sourceDigest": "59d53be2fe46a27140a1c0065f1030481eb746d4205dfae4dd436ebacf101c29",
+      "impactPath": "pair-02/assisted-source/BrownPantsEvidence/impact.json"
+    },
+    {
+      "pair": 3,
+      "sourceDigest": "59d53be2fe46a27140a1c0065f1030481eb746d4205dfae4dd436ebacf101c29",
+      "impactPath": "pair-03/assisted-source/BrownPantsEvidence/impact.json"
+    }
+  ],
+  "cleanChecksPassed": true,
+  "seededChecksFailedAsExpected": true,
+  "identicalSeededCode": true
+}

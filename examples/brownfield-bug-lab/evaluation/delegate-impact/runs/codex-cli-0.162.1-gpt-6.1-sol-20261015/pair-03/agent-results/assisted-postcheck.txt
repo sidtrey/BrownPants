@@ -1,0 +1,2 @@
+Acceptance criteria verified: 3d5469a244e1a08c602e01b140af98da5c89d165b83e89b201a00493565032f3
+Frozen task/key digests and repaired fixture check verified.

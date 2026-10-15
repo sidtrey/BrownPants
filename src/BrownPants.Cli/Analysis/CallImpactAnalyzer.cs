@@ -134,14 +134,18 @@ public static class CallImpactAnalyzer
                 issues.Add($"{semantic.UnresolvedInvocationCount} invocation(s) were unresolved.");
             if (semantic.UnresolvedConstructorCount > 0)
                 issues.Add($"{semantic.UnresolvedConstructorCount} constructor relationship(s) were unresolved.");
+            if (semantic.UnresolvedDelegateTargetCount > 0)
+                issues.Add($"{semantic.UnresolvedDelegateTargetCount} delegate target(s) could not be resolved conservatively.");
             var resolvedTotal = semantic.ResolvedInvocationCount + semantic.ResolvedConstructorCount;
-            var unresolvedTotal = semantic.UnresolvedInvocationCount + semantic.UnresolvedConstructorCount;
+            var unresolvedTotal = semantic.UnresolvedInvocationCount + semantic.UnresolvedConstructorCount
+                + semantic.UnresolvedDelegateTargetCount;
             if (semantic.ImpactGraphCalls is null && semantic.ResolvedCalls.Count < resolvedTotal)
                 issues.Add($"Resolved relationship edges were sampled: {semantic.ResolvedCalls.Count} of {resolvedTotal} retained.");
             if (semantic.ImpactGraphCalls is not null && semantic.ImpactGraphOmittedCount > 0)
                 issues.Add($"Impact graph edges were sampled: {semantic.ImpactGraphCalls.Count} retained and {semantic.ImpactGraphOmittedCount} omitted.");
-            if (semantic.UnresolvedCalls.Count < unresolvedTotal)
-                issues.Add($"Unresolved relationship details were sampled: {semantic.UnresolvedCalls.Count} of {unresolvedTotal} retained.");
+            var retainedUnresolved = semantic.UnresolvedCalls.Count + semantic.UnresolvedDelegateCalls.Count;
+            if (retainedUnresolved < unresolvedTotal)
+                issues.Add($"Unresolved relationship details were sampled: {retainedUnresolved} of {unresolvedTotal} retained.");
             if (declarations.Count < semantic.DeclarationCount)
                 issues.Add($"Method declarations were sampled: {declarations.Count} of {semantic.DeclarationCount} retained.");
         }

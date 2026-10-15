@@ -40,6 +40,12 @@ Overall recall moved from **25% to 30%**, while precision moved from **71.4% to 
 
 Both pre-fix checks failed with “Batch import saved 1 of 2 orders.” The driver verified the frozen task hash and ran the same post-fix check in both copies; both passed. The [full protocol, scores, run details, and limits](docs/comparisons/brownfield-bug-lab-2026-10.md) include the machine-readable [results](docs/comparisons/brownfield-bug-lab-2026-10-results.json). This is a measured case study, not a general performance claim.
 
+### Delegate-impact head-to-head
+
+A separate frozen Codex CLI task seeded a persistence bug behind a local method-group delegate. Across three counterbalanced baseline/assisted pairs, baseline Codex found **1 of 2** expected managed-impact relationships in every run; the BrownPants-assisted runs found **2 of 2**. Pooled recall increased from **50% to 100%**, precision stayed at **100%**, all three paired trials favored BrownPants, and all six repairs passed the same independent check. This meets the pre-registered threshold for this delegate fixture; it does not establish an advantage across other tasks or codebases.
+
+Codex reported **366,727 input / 2,190 output tokens** for the three baseline runs and **326,586 input / 2,236 output tokens** for the assisted runs. These are recorded usage counts, not a cost or efficiency claim. The [comparison report](docs/comparisons/delegate-impact-comparison.md), [scored JSON](docs/comparisons/delegate-impact-comparison.json), frozen [task and scoring protocol](examples/brownfield-bug-lab/evaluation/delegate-impact/), and [raw run artifacts](examples/brownfield-bug-lab/evaluation/delegate-impact/runs/codex-cli-0.162.1-gpt-6.1-sol-20261015/) include the counterbalanced order, input hashes, outputs, usage, and post-fix checks.
+
 ### Grouped evidence follow-up
 
 The next matched run added deterministic `repeatedCandidateGroups` for repeated architecture/framework locations while preserving every raw finding. BrownPants grouped five sets in the fixture: C++/CLI bridge, MFC message map, and NHibernate session factory, session, and transaction. The [current head-to-head](docs/comparisons/brownfield-evidence-grouping-2026-10.md) scored **20/20 expected findings for both Spec Kit and Spec Kit + BrownPants** (100% recall, 86.96% precision each); both agents made the same fix. This run shows **no finding-quality advantage** for BrownPants on this prompt. The assisted run used **325,087 input / 5,010 output tokens**, while baseline used **704,193 input / 7,379 output tokens**; one pair does not establish cost or time savings. The [full results](docs/comparisons/brownfield-evidence-grouping-2026-10-results.json) include provider token details and a retained prompt-refinement pilot. Earlier v3 evidence-handoff results are preserved but superseded because their source commit and C++/CLI line could not be verified; see the [v4 report](docs/comparisons/brownfield-evidence-grouping-2026-10.md) for provenance limits.
@@ -117,23 +123,33 @@ Pass `--semantic` to opt in to MSBuildWorkspace project loading. When the requir
 
 ````markdown
 ```brownpants-flow
-flowchart approval
-node start start "Start request"
-node review decision "Approved?"
-node grant process "Grant access"
-node reject end "Show rejection"
-edge start -> review
-edge review -> grant label "yes"
-edge review -> reject label "no"
+flowchart brownfield-review
+node start start "Legacy code"
+node inspect process "Inspect"
+node impact process "Trace impacts"
+node criteria process "Set criteria"
+node verify process "Verify"
+node review end "Review"
+edge start -> inspect
+edge inspect -> impact
+edge impact -> criteria
+edge criteria -> verify
+edge verify -> review
 ```
 ````
 
 ```powershell
-dotnet run --project src/BrownPants.Cli -- diagram . docs/approval.md --output docs/approval.png
-dotnet run --project src/BrownPants.Cli -- diagram . docs/approval.md --output docs/approval.drawio --format drawio
+dotnet run --project src/BrownPants.Cli -- diagram . docs/flows/approval.md --output docs/flows/approval.png
+dotnet run --project src/BrownPants.Cli -- diagram . docs/flows/approval.md --output docs/flows/approval.drawio --format drawio
 ```
 
 The format supports `start`, `process`, `decision`, and `end` nodes, directed edges, and optional edge labels. Input is limited to 1 MiB, 200 nodes, 500 edges, and images up to 4096 pixels per side and 16 million pixels total. Labels must use printable ASCII. See `brownpants diagram --help` and the [flowchart contract](specs/032-local-text-flowcharts/contracts/local-flowchart.md).
+
+Here is the rendered chart generated from the example above with BrownPants' local renderer:
+
+![BrownPants flowchart showing inspection, impact tracing, acceptance criteria, verification, and review](docs/flows/approval.png)
+
+The [source Markdown](docs/flows/approval.md) is checked in alongside the PNG so contributors can regenerate or edit the diagram. This makes the feature visible in the README without relying on a hosted chart renderer.
 
 Native coverage includes `.vcxproj` and legacy `.vcproj` markers, MFC/CLR project settings, and source-located signals for MFC class inheritance from common framework types, runtime macros, object factories, message maps, COM activation and marshalling, COM interface metadata, C++/CLI, C#/VB interop attributes, factory types and calls, `Func<T>` factory delegates, constructor-injected interface/factory parameters, and DI APIs such as `AddTransient`, `RegisterType`, `RegisterInstance`, `Bind`, `GetRequiredService`, `GetInstance`, and container-scoped `Resolve`/`Get<T>`. Context checks on generic `Get`, `GetObject`, and `Resolve` names reduce matches from unrelated object APIs. Pattern findings carry `EvidenceKind: Candidate` in JSON and are labeled in Markdown; they are not proof of runtime relationships. Native flow output links recognized MFC command-map entries to a unique handler definition and explicitly class-qualified calls to a unique C++/C++CLI definition, with both source locations. Typed C++/CLI handle calls can also point to matching C# and VB method declarations, with native-to-managed and reverse-impact paths kept as lexical candidates. Missing and ambiguous targets remain visible. Analysis does not expand macros, prove overload selection, resolve runtime dispatch, or establish C++/CLI project references or compiler binding. C# and VB.NET patterns are syntax-based. Native C++ matches remain lexical candidates, not a full C++ parse. Inspect both sides of managed/native boundaries and the cited build configuration.
 

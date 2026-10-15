@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary", "fixVerified", "changedPaths", "impacts"],
+  "properties": {
+    "summary": { "type": "string" },
+    "fixVerified": { "type": "boolean" },
+    "changedPaths": { "type": "array", "items": { "type": "string" } },
+    "impacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["relationshipKind", "path", "callerSignature", "targetSignature"],
+        "properties": {
+          "relationshipKind": { "type": "string" },
+          "path": { "type": "string" },
+          "callerSignature": { "type": "string" },
+          "targetSignature": { "type": "string" }
+        }
+      }
+    }
+  }
+}
