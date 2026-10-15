@@ -381,6 +381,35 @@ public sealed class CallImpactAnalyzerTests
     }
 
     [Fact]
+    public void Analyze_TracesConstructionFromImplicitAndPrimaryConstructorTypeFiles()
+    {
+        var trees = new[]
+        {
+            CSharpSyntaxTree.ParseText("namespace Demo; public class ImplicitTarget { }", path: "src/ImplicitTarget.cs",
+                cancellationToken: TestContext.Current.CancellationToken),
+            CSharpSyntaxTree.ParseText("namespace Demo; public class PrimaryTarget(int id) { }", path: "src/PrimaryTarget.cs",
+                cancellationToken: TestContext.Current.CancellationToken),
+            CSharpSyntaxTree.ParseText("namespace Demo; public class Caller { public ImplicitTarget CreateImplicit() => new ImplicitTarget(); public PrimaryTarget CreatePrimary() => new PrimaryTarget(42); }",
+                path: "src/Caller.cs", cancellationToken: TestContext.Current.CancellationToken)
+        };
+        var compilation = CSharpCompilation.Create("ConstructorTypeImpactFixture", trees,
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var semantic = CSharpSemanticAnalyzer.AnalyzeCompilations(
+            new[] { ("ConstructorTypeImpactFixture.csproj", (Compilation)compilation) }, 1, 100, ".");
+
+        var report = CallImpactAnalyzer.Analyze(".", new[] { "src/ImplicitTarget.cs", "src/PrimaryTarget.cs" },
+            new[] { "src/ImplicitTarget.cs", "src/PrimaryTarget.cs", "src/Caller.cs" }, semantic, 100);
+
+        Assert.True(report.IsComplete);
+        Assert.Equal(2, report.Impacts.Count);
+        Assert.Contains(report.Impacts, item => item.Path == "src/Caller.cs" && item.Caller.Contains("CreateImplicit", StringComparison.Ordinal)
+            && item.Depth == 1 && item.RelationshipKind == "constructor");
+        Assert.Contains(report.Impacts, item => item.Path == "src/Caller.cs" && item.Caller.Contains("CreatePrimary", StringComparison.Ordinal)
+            && item.Depth == 1 && item.RelationshipKind == "constructor");
+    }
+
+    [Fact]
     public void SemanticAnalyzer_MapsOverloadsAndLeavesMetadataTargetLocationsEmpty()
     {
         var trees = new[]
@@ -424,8 +453,10 @@ public sealed class CallImpactAnalyzerTests
     {
         var semantic = CompileFixtureGraph();
         var declarations = semantic.Declarations!;
-        var core = declarations.Single(item => item.Path == "src/Core.cs").Symbol;
-        var service = declarations.Single(item => item.Path == "src/Service.cs").Symbol;
+        var core = declarations.Single(item => item.Path == "src/Core.cs"
+            && item.Symbol.Contains("Core.Save()", StringComparison.Ordinal)).Symbol;
+        var service = declarations.Single(item => item.Path == "src/Service.cs"
+            && item.Symbol.Contains("Service.Run", StringComparison.Ordinal)).Symbol;
         var originalEdge = semantic.ResolvedCalls.Single(item => item.Target == core);
         semantic = semantic with
         {

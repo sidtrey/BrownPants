@@ -161,6 +161,7 @@ public static class CSharpSemanticAnalyzer
                 compilerDiagnostics.Add(new SemanticCompilerDiagnostic(relativeProjectPath, path, line,
                     diagnostic.Id, Normalize(diagnostic.GetMessage())));
             }
+            var synthesizedConstructorDeclarations = new Dictionary<string, CSharpSemanticDeclaration>(StringComparer.Ordinal);
             foreach (var syntaxTree in compilation.SyntaxTrees)
             {
                 if (!TryGetRepositoryRelativePath(repositoryRoot, syntaxTree.FilePath, out var relativeSourcePath))
@@ -183,6 +184,40 @@ public static class CSharpSemanticAnalyzer
                         relativeSourcePath,
                         declarationNode.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
                         ResolvedTarget(method, repositoryRoot)), sampleLimit);
+                }
+                foreach (var typeDeclarationNode in syntaxRoot.DescendantNodes().Where(node =>
+                    node is Microsoft.CodeAnalysis.CSharp.Syntax.TypeDeclarationSyntax
+                        or Microsoft.CodeAnalysis.CSharp.Syntax.RecordDeclarationSyntax
+                        or Microsoft.CodeAnalysis.VisualBasic.Syntax.ClassStatementSyntax
+                        or Microsoft.CodeAnalysis.VisualBasic.Syntax.StructureStatementSyntax))
+                {
+                    if (semanticModel.GetDeclaredSymbol(typeDeclarationNode) is not INamedTypeSymbol
+                        { TypeKind: TypeKind.Class or TypeKind.Struct } typeSymbol)
+                        continue;
+
+                    foreach (var constructor in typeSymbol.InstanceConstructors)
+                    {
+                        if (constructor.DeclaringSyntaxReferences.Any(reference => reference.GetSyntax() is
+                            Microsoft.CodeAnalysis.CSharp.Syntax.ConstructorDeclarationSyntax
+                                or Microsoft.CodeAnalysis.VisualBasic.Syntax.SubNewStatementSyntax))
+                            continue;
+
+                        var sourceLocation = ConstructorSourceLocation(constructor, repositoryRoot);
+                        if (sourceLocation.Location is null && constructor.IsImplicitlyDeclared)
+                            sourceLocation = (typeDeclarationNode.GetLocation(), relativeSourcePath);
+                        if (sourceLocation.Location is null || sourceLocation.Path is null)
+                            continue;
+
+                        var symbol = ResolvedTarget(constructor, repositoryRoot);
+                        var key = string.Join("\n", relativeProjectPath, symbol);
+                        var declaration = new CSharpSemanticDeclaration(relativeProjectPath, sourceLocation.Path,
+                            sourceLocation.Location.GetLineSpan().StartLinePosition.Line + 1, symbol);
+                        if (!synthesizedConstructorDeclarations.TryGetValue(key, out var prior)
+                            || string.CompareOrdinal(declaration.Path, prior.Path) < 0
+                            || (string.Equals(declaration.Path, prior.Path, StringComparison.Ordinal)
+                                && declaration.Line < prior.Line))
+                            synthesizedConstructorDeclarations[key] = declaration;
+                    }
                 }
                 foreach (var invocationNode in syntaxRoot.DescendantNodes()
                     .Where(node => node is CSharpInvocation or VisualBasicInvocation))
@@ -251,18 +286,12 @@ public static class CSharpSemanticAnalyzer
                     if (symbolInfo.Symbol is IMethodSymbol { MethodKind: MethodKind.Constructor } method)
                     {
                         resolvedConstructorCount++;
-                        var sourceLocation = method.Locations
-                            .Where(location => location.IsInSource && location.SourceTree is not null)
-                            .Select(location => TryGetRepositoryRelativePath(repositoryRoot, location.SourceTree!.FilePath,
-                                out var targetPath) ? (Location: location, Path: targetPath) : default)
-                            .Where(candidate => candidate.Location is not null)
-                            .OrderBy(candidate => candidate.Path, StringComparer.Ordinal)
-                            .FirstOrDefault();
+                        var sourceLocation = ConstructorSourceLocation(method, repositoryRoot);
                         AddResolvedCall(new CSharpResolvedCall(relativeProjectPath, relativeSourcePath,
                             constructionNode.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
                             Normalize(expression),
                             EnclosingMethod(semanticModel.GetEnclosingSymbol(constructionNode.SpanStart), repositoryRoot),
-                            ResolvedTarget(method, repositoryRoot), sourceLocation.Location is not null ? sourceLocation.Path : null,
+                            ResolvedTarget(method, repositoryRoot), sourceLocation.Path,
                             sourceLocation.Location?.GetLineSpan().StartLinePosition.Line + 1, "constructor",
                             ResolvedTarget(method.OriginalDefinition, repositoryRoot),
                             constructionNode.GetLocation().GetLineSpan().StartLinePosition.Character + 1));
@@ -280,6 +309,13 @@ public static class CSharpSemanticAnalyzer
                                 .ToArray(), "constructor"), sampleLimit);
                     }
                 }
+            }
+            foreach (var declaration in synthesizedConstructorDeclarations.Values
+                .OrderBy(item => item.Path, StringComparer.Ordinal).ThenBy(item => item.Line)
+                .ThenBy(item => item.Symbol, StringComparer.Ordinal))
+            {
+                declarationCount++;
+                AddSample(declarations, declaration, sampleLimit);
             }
         }
 
@@ -335,6 +371,21 @@ public static class CSharpSemanticAnalyzer
 
     private static string ResolvedTarget(IMethodSymbol method, string repositoryRoot) =>
         CallableIdentity(method, repositoryRoot);
+
+    private static (Location? Location, string? Path) ConstructorSourceLocation(IMethodSymbol method, string repositoryRoot)
+    {
+        var locations = method.Locations
+            .Concat(method.DeclaringSyntaxReferences.Select(reference => reference.GetSyntax().GetLocation()))
+            .Concat(method.IsImplicitlyDeclared ? method.ContainingType.Locations : Array.Empty<Location>());
+        return locations
+            .Where(location => location.IsInSource && location.SourceTree is not null)
+            .Select(location => TryGetRepositoryRelativePath(repositoryRoot, location.SourceTree!.FilePath,
+                out var path) ? (Location: location, Path: path) : default)
+            .Where(candidate => candidate.Location is not null)
+            .OrderBy(candidate => candidate.Path, StringComparer.Ordinal)
+            .ThenBy(candidate => candidate.Location!.SourceSpan.Start)
+            .FirstOrDefault();
+    }
 
     private static string CallableIdentity(ISymbol? symbol, string repositoryRoot)
     {

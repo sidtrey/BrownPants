@@ -2543,16 +2543,25 @@ public sealed class RepositoryScannerTests : IDisposable
         var analysis = CSharpSemanticAnalyzer.AnalyzeCompilations(
             new[] { ("Fixture.csproj", (Compilation)compilation) }, 1, 100, repositoryRoot);
 
-        Assert.Equal(2, analysis.DeclarationCount);
+        Assert.Equal(4, analysis.DeclarationCount);
         Assert.Equal(1, analysis.ResolvedInvocationCount);
         Assert.Equal(0, analysis.UnresolvedInvocationCount);
         var declarations = Assert.IsAssignableFrom<IReadOnlyList<CSharpSemanticDeclaration>>(analysis.Declarations);
-        Assert.Equal(2, declarations.Count);
+        Assert.Equal(4, declarations.Count);
         Assert.Contains(declarations, declaration => declaration.Path == "obj/Generated.cs");
+        Assert.Contains(declarations, declaration => declaration.Symbol.Contains("Local.Entry..ctor()", StringComparison.Ordinal));
+        Assert.Contains(declarations, declaration => declaration.Symbol.Contains("Local.Generated.Generated..ctor()", StringComparison.Ordinal));
+        Assert.DoesNotContain(declarations, declaration => declaration.Symbol.Contains("External.Remote..ctor()", StringComparison.Ordinal));
         var call = Assert.Single(analysis.ResolvedCalls, item => item.RelationshipKind == "method");
         Assert.Contains("External.Remote.Execute", call.Target, StringComparison.Ordinal);
         Assert.Null(call.TargetPath);
         Assert.Null(call.TargetLine);
+        var externalConstructor = Assert.Single(analysis.ResolvedCalls, item => item.RelationshipKind == "constructor");
+        Assert.Contains("External.Remote..ctor()", externalConstructor.Target, StringComparison.Ordinal);
+        Assert.Null(externalConstructor.TargetPath);
+        Assert.Null(externalConstructor.TargetLine);
+        Assert.DoesNotContain(Path.Combine(_root, "external"),
+            System.Text.Json.JsonSerializer.Serialize(analysis), StringComparison.OrdinalIgnoreCase);
 
         var reportedPaths = declarations.Select(declaration => declaration.Project)
             .Concat(declarations.Select(declaration => declaration.Path))
@@ -2660,6 +2669,74 @@ public sealed class RepositoryScannerTests : IDisposable
         Assert.Contains("::<lambda@src/Workflow.vb:", call.Caller, StringComparison.Ordinal);
         Assert.DoesNotContain(".(", call.Caller, StringComparison.Ordinal);
         Assert.Equal(1, analysis.ResolvedInvocationCount);
+    }
+
+    [Fact]
+    public void SemanticAnalyzer_MapsImplicitAndPrimaryConstructorsToTheirSourceTypes()
+    {
+        var trees = new[]
+        {
+            CSharpSyntaxTree.ParseText("namespace Demo; public class ImplicitTarget { }", path: "src/ImplicitTarget.cs",
+                cancellationToken: TestContext.Current.CancellationToken),
+            CSharpSyntaxTree.ParseText("namespace Demo; public class PrimaryTarget(int id) { public int Id => id; }", path: "src/PrimaryTarget.cs",
+                cancellationToken: TestContext.Current.CancellationToken),
+            CSharpSyntaxTree.ParseText("namespace Demo; public class Caller { public ImplicitTarget CreateImplicit() => new ImplicitTarget(); public PrimaryTarget CreatePrimary() => new PrimaryTarget(42); }",
+                path: "src/Caller.cs", cancellationToken: TestContext.Current.CancellationToken)
+        };
+        var compilation = CSharpCompilation.Create("SourceBackedConstructorsFixture", trees,
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var analysis = CSharpSemanticAnalyzer.AnalyzeCompilations(
+            new[] { ("SourceBackedConstructorsFixture.csproj", (Compilation)compilation) }, 1, 100, _root);
+        var repeated = CSharpSemanticAnalyzer.AnalyzeCompilations(
+            new[] { ("SourceBackedConstructorsFixture.csproj", (Compilation)compilation) }, 1, 100, _root);
+
+        var constructors = analysis.ResolvedCalls.Where(call => call.RelationshipKind == "constructor").ToArray();
+        Assert.Equal(2, constructors.Length);
+        Assert.Equal(analysis.Declarations, repeated.Declarations);
+        Assert.Equal(analysis.ResolvedCalls, repeated.ResolvedCalls);
+        foreach (var call in constructors)
+        {
+            var declaration = Assert.Single(analysis.Declarations!, item => item.Symbol == call.Target);
+            Assert.Equal(call.TargetPath, declaration.Path);
+            Assert.Equal(call.TargetLine, declaration.Line);
+        }
+
+        var implicitConstructor = Assert.Single(constructors, call => call.Target.Contains("ImplicitTarget..ctor()", StringComparison.Ordinal));
+        Assert.Equal("src/ImplicitTarget.cs", implicitConstructor.TargetPath);
+        var primaryConstructor = Assert.Single(constructors, call => call.Target.Contains("PrimaryTarget..ctor(int)", StringComparison.Ordinal));
+        Assert.Equal("src/PrimaryTarget.cs", primaryConstructor.TargetPath);
+        Assert.DoesNotContain(analysis.Declarations!, declaration => declaration.Symbol.Contains("ImplicitTarget..ctor()", StringComparison.Ordinal)
+            && declaration.Path != "src/ImplicitTarget.cs");
+    }
+
+    [Fact]
+    public void SemanticAnalyzer_MapsVisualBasicImplicitConstructorToItsSourceType()
+    {
+        var tree = Microsoft.CodeAnalysis.VisualBasic.VisualBasicSyntaxTree.ParseText("""
+            Namespace Legacy.App
+                Public Class ImplicitTarget
+                End Class
+                Public Class Caller
+                    Public Function Create() As ImplicitTarget
+                        Return New ImplicitTarget()
+                    End Function
+                End Class
+            End Namespace
+            """, path: "src/ImplicitTarget.vb", cancellationToken: TestContext.Current.CancellationToken);
+        var compilation = Microsoft.CodeAnalysis.VisualBasic.VisualBasicCompilation.Create("SourceBackedVbFixture",
+            new[] { tree }, new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new Microsoft.CodeAnalysis.VisualBasic.VisualBasicCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var analysis = CSharpSemanticAnalyzer.AnalyzeCompilations(
+            new[] { ("SourceBackedVbFixture.vbproj", (Compilation)compilation) }, 1, 100, _root);
+
+        var call = Assert.Single(analysis.ResolvedCalls, item => item.RelationshipKind == "constructor");
+        var declaration = Assert.Single(analysis.Declarations!, item => item.Symbol == call.Target);
+        Assert.Equal("src/ImplicitTarget.vb", declaration.Path);
+        Assert.Equal(call.TargetPath, declaration.Path);
+        Assert.Equal(call.TargetLine, declaration.Line);
     }
 
     [Fact]
