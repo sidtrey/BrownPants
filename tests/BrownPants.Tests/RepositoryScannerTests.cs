@@ -22,6 +22,48 @@ public sealed class RepositoryScannerTests : IDisposable
         Assert.DoesNotContain("for Spec Kit", output.ToString(), StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("inspect", "--help", "--semantic")]
+    [InlineData("investigate", "-h", "--clue")]
+    [InlineData("impact", "--help", "--changed")]
+    [InlineData("instructions", "-h", "--source")]
+    [InlineData("placement", "--help", "--rule")]
+    [InlineData("frame", "--help", "create")]
+    [InlineData("frame create", "-h", "--overwrite")]
+    [InlineData("frame validate", "--help", "validate")]
+    public void Help_CommandTopicsPrintStaticCommandHelp(string topic, string option, string expectedText)
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var args = topic.Split(' ').Concat(new[] { option, "C:\\missing-brownpants-repository" }).ToArray();
+
+        Assert.Equal(0, Program.Run(args, output, error));
+        Assert.Contains(expectedText, output.ToString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(error.ToString());
+    }
+
+    [Fact]
+    public void Help_UnknownTopicSuggestsGlobalHelp()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        Assert.Equal(2, Program.Run(new[] { "help", "unknown" }, output, error));
+        Assert.Contains("unknown", error.ToString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("--help", error.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Help_AfterInvalidRepositoryPathDoesNotInspectPath()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        Assert.Equal(0, Program.Run(new[] { "inspect", "C:\\missing-brownpants-repository", "--help" }, output, error));
+        Assert.Contains("syntax-only", output.ToString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(error.ToString());
+    }
+
     [Fact]
     public void DiscoverFiles_ReturnsStablePathsAndSkipsIgnoredDirectories()
     {

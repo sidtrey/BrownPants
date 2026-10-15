@@ -13,18 +13,20 @@ public static class Program
 
     public static int Run(string[] args, TextWriter output, TextWriter error)
     {
-        if (args.Length == 0 || args[0] is "--help" or "-h" or "help")
+        if (args.Length == 0)
         {
-            output.WriteLine("BrownPants - deterministic brownfield evidence for spec-driven development");
-            output.WriteLine("Usage: brownpants inspect [path] [--format markdown|json] [--limit 1..10000] [--semantic]");
-            output.WriteLine("       brownpants investigate [path] --clue <text> [--clue <text> ...] [--format markdown|json] [--limit 1..10000]");
-            output.WriteLine("       brownpants impact <repository> --changed <relative-source-path> [--changed <relative-source-path> ...] [--format markdown|json] [--limit 1..10000]");
-            output.WriteLine("       brownpants instructions [path] [--source <relative-path>] [--section <anchor>] [--format markdown|json]");
-            output.WriteLine("       brownpants frame create <repository> <draft.json> <output.md> [--overwrite]");
-            output.WriteLine("       brownpants frame validate <repository> <frame.md>");
-            output.WriteLine("       brownpants placement --rule <text> [--scope repository|feature|unknown] [--durability enduring|feature|unknown] [--purpose principle|outcome|agent-workflow|mixed|unknown] [--format markdown|json]");
-            return args.Length == 0 ? 2 : 0;
+            WriteGlobalHelp(output);
+            return 2;
         }
+
+        if (IsHelpToken(args[0]) || string.Equals(args[0], "help", StringComparison.OrdinalIgnoreCase))
+        {
+            if (args.Length == 1) { WriteGlobalHelp(output); return 0; }
+            return WriteTopicHelp(args.Skip(1).ToArray(), output, error);
+        }
+
+        if (args.Skip(1).Any(IsHelpToken))
+            return WriteTopicHelp(args.TakeWhile(argument => !IsHelpToken(argument)).ToArray(), output, error);
 
         if (string.Equals(args[0], "instructions", StringComparison.OrdinalIgnoreCase))
             return RunInstructions(args.Skip(1).ToArray(), output, error);
@@ -111,6 +113,110 @@ public static class Program
             error.WriteLine($"Unable to inspect repository: {exception.Message}");
             return 1;
         }
+    }
+
+    private static bool IsHelpToken(string argument) => argument is "--help" or "-h";
+
+    private static int WriteTopicHelp(string[] topicParts, TextWriter output, TextWriter error)
+    {
+        var topic = string.Join(' ', topicParts);
+        var command = topicParts.FirstOrDefault() ?? string.Empty;
+        if (string.Equals(command, "help", StringComparison.OrdinalIgnoreCase))
+            topic = string.Join(' ', topicParts.Skip(1));
+        command = topic.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty;
+        var frameOperation = topic.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).FirstOrDefault() ?? string.Empty;
+
+        if (string.IsNullOrEmpty(command)) { WriteGlobalHelp(output); return 0; }
+        if (command.Equals("inspect", StringComparison.OrdinalIgnoreCase))
+        {
+            output.WriteLine("Usage: brownpants inspect [path] [--format markdown|json] [--limit 1..10000] [--semantic]");
+            output.WriteLine("  path                 Repository to inspect (default: current directory).");
+            output.WriteLine("  --format             Report as markdown (default) or json.");
+            output.WriteLine("  --limit              Maximum sampled entries, from 1 to 10000 (default: 200).");
+            output.WriteLine("  --semantic           Opt in to MSBuild project loading and semantic call-target resolution.");
+            output.WriteLine("Without --semantic, invocation names are syntax-only and targets are not resolved.");
+            output.WriteLine("Semantic project evaluation may execute imported MSBuild targets.");
+            return 0;
+        }
+        if (command.Equals("investigate", StringComparison.OrdinalIgnoreCase))
+        {
+            output.WriteLine("Usage: brownpants investigate [path] --clue <text> [--clue <text> ...] [--format markdown|json] [--limit 1..10000]");
+            output.WriteLine("  --clue               Literal identifier, error phrase, or path fragment; repeatable (up to 20).");
+            output.WriteLine("  --format             Report as markdown (default) or json.");
+            output.WriteLine("  --limit              Maximum sampled entries, from 1 to 10000 (default: 200).");
+            return 0;
+        }
+        if (command.Equals("impact", StringComparison.OrdinalIgnoreCase))
+        {
+            output.WriteLine("Usage: brownpants impact <repository> --changed <relative-source-path> [--changed <relative-source-path> ...] [--format markdown|json] [--limit 1..10000]");
+            output.WriteLine("  --changed            Repository-relative C# or Visual Basic source path; repeatable.");
+            output.WriteLine("  --format             Report as markdown (default) or json.");
+            output.WriteLine("  --limit              Maximum sampled entries, from 1 to 10000 (default: 200).");
+            return 0;
+        }
+        if (command.Equals("instructions", StringComparison.OrdinalIgnoreCase))
+        {
+            output.WriteLine("Usage: brownpants instructions [path] [--source <relative-path>] [--section <anchor>] [--format markdown|json]");
+            output.WriteLine("  --source             Include one repository-relative instruction file; repeatable.");
+            output.WriteLine("  --section            Retrieve one Markdown section from the single selected --source.");
+            output.WriteLine("  --format             Report as markdown (default) or json.");
+            return 0;
+        }
+        if (command.Equals("placement", StringComparison.OrdinalIgnoreCase))
+        {
+            output.WriteLine("Usage: brownpants placement --rule <text> [--scope repository|feature|unknown] [--durability enduring|feature|unknown] [--purpose principle|outcome|agent-workflow|mixed|unknown] [--format markdown|json]");
+            output.WriteLine("  --rule               Requirement or instruction to classify (required).");
+            output.WriteLine("  --scope, --durability, --purpose  Optional context; each defaults to unknown.");
+            output.WriteLine("  --format             Report as markdown (default) or json.");
+            return 0;
+        }
+        if (command.Equals("frame", StringComparison.OrdinalIgnoreCase))
+        {
+            if (frameOperation.Equals("create", StringComparison.OrdinalIgnoreCase))
+            {
+                output.WriteLine("Usage: brownpants frame create <repository> <draft.json> <output.md> [--overwrite]");
+                output.WriteLine("  --overwrite          Replace an existing output frame.");
+                return 0;
+            }
+            if (frameOperation.Equals("validate", StringComparison.OrdinalIgnoreCase))
+            {
+                output.WriteLine("Usage: brownpants frame validate <repository> <frame.md>");
+                output.WriteLine("Checks whether a saved context frame still matches its source files.");
+                return 0;
+            }
+            if (string.IsNullOrEmpty(frameOperation))
+            {
+                output.WriteLine("Usage: brownpants frame <create|validate> --help");
+                output.WriteLine("  create              Create a context frame from a draft.");
+                output.WriteLine("  validate            Check a frame against its source files.");
+                return 0;
+            }
+        }
+
+        error.WriteLine($"Unknown help topic '{topic}'. Use 'brownpants --help' to list supported commands.");
+        return 2;
+    }
+
+    private static void WriteGlobalHelp(TextWriter output)
+    {
+        output.WriteLine("BrownPants - deterministic brownfield evidence for spec-driven development");
+        output.WriteLine("Usage: brownpants <command> [options]");
+        output.WriteLine("Commands:");
+        output.WriteLine("  inspect       Inventory a repository and its source evidence.");
+        output.WriteLine("  investigate   Search repository evidence using clues from a bug report.");
+        output.WriteLine("  impact        Trace semantic callers affected by changed source files.");
+        output.WriteLine("  instructions  Discover instruction files or retrieve a selected section.");
+        output.WriteLine("  frame         Create or validate a context frame.");
+        output.WriteLine("  placement     Classify whether guidance belongs in a constitution or a spec.");
+        output.WriteLine("Usage: brownpants inspect [path] [--format markdown|json] [--limit 1..10000] [--semantic]");
+        output.WriteLine("       brownpants investigate [path] --clue <text> [--clue <text> ...] [--format markdown|json] [--limit 1..10000]");
+        output.WriteLine("       brownpants impact <repository> --changed <relative-source-path> [--changed <relative-source-path> ...] [--format markdown|json] [--limit 1..10000]");
+        output.WriteLine("       brownpants instructions [path] [--source <relative-path>] [--section <anchor>] [--format markdown|json]");
+        output.WriteLine("       brownpants frame create <repository> <draft.json> <output.md> [--overwrite]");
+        output.WriteLine("       brownpants frame validate <repository> <frame.md>");
+        output.WriteLine("       brownpants placement --rule <text> [--scope repository|feature|unknown] [--durability enduring|feature|unknown] [--purpose principle|outcome|agent-workflow|mixed|unknown] [--format markdown|json]");
+        output.WriteLine("Run 'brownpants <command> --help' for command options. Use -h as an alias.");
+        output.WriteLine("Use 'brownpants inspect --help' to understand syntax-only inventory and semantic target resolution.");
     }
 
     private static int RunPlacement(string[] args, TextWriter output, TextWriter error)
