@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    {
+      "taskId": "T001",
+      "criterionIds": ["AC-001", "SC-001"],
+      "verificationCommand": "dotnet restore examples/brownfield-bug-lab/legacy/Framework/LegacyOrderDesk.csproj; dotnet build examples/brownfield-bug-lab/legacy/Framework/LegacyOrderDesk.csproj --no-restore",
+      "evidencePaths": ["examples/brownfield-bug-lab/legacy/Framework/LegacyOrderDesk.csproj", "examples/brownfield-bug-lab/legacy/Framework/OrderDataAccess.cs"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T002",
+      "criterionIds": ["AC-002", "SC-002"],
+      "verificationCommand": "dotnet run --project src/BrownPants.Cli -c Release -- inspect examples/brownfield-bug-lab/legacy/Framework --semantic --format json --limit 1000",
+      "evidencePaths": ["specs/062-valid-legacy-semantic-fixture/verification.md"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T003",
+      "criterionIds": ["AC-003", "SC-003"],
+      "verificationCommand": "dotnet run --project examples/brownfield-bug-lab/managed/tests/LegacyOrderDesk.Checks.csproj -c Release; dotnet build BrownPants.sln -c Release; dotnet test BrownPants.sln -c Release",
+      "evidencePaths": ["specs/062-valid-legacy-semantic-fixture/verification.md"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T004",
+      "criterionIds": ["AC-003", "SC-003"],
+      "verificationCommand": "Review the documented restore/build/semantic commands and host requirements in examples/brownfield-bug-lab/README.md",
+      "evidencePaths": ["examples/brownfield-bug-lab/README.md"],
+      "result": "passed"
+    }
+  ]
+}

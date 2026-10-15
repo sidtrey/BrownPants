@@ -17,7 +17,7 @@ public sealed class OrderDataAccess
     }
 }
 
-public sealed class OrderEntity
+public class OrderEntity
 {
     public virtual int Id { get; protected set; }
     public virtual string CustomerCode { get; set; } = string.Empty;

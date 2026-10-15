@@ -1,6 +1,6 @@
 # Brownfield Bug Lab
 
-This local fixture models an order desk with a package-free .NET 10 core and evidence-only .NET Framework, MFC/C++/CLI, and NHibernate artifacts. The legacy projects are for inspection and are not built.
+This local fixture models an order desk with a package-free .NET 10 core, a buildable classic .NET Framework 4.7.2/NHibernate project, and evidence-only MFC/C++/CLI artifacts. The Framework project uses an exact NuGet package lock and is built separately; it is not part of the cross-platform solution build.
 
 ## Reproduce the fixed demo checks
 
@@ -21,6 +21,16 @@ Run semantic call impact from the managed root. This resolves the generic single
 ```powershell
 dotnet run --project src/BrownPants.Cli -- impact examples/brownfield-bug-lab/managed --changed Persistence/OrderRepository.cs --format markdown --limit 1000
 ```
+
+On Windows with .NET Framework 4.7.2 targeting assemblies installed, restore/build and resolve the NHibernate calls in the legacy project:
+
+```powershell
+dotnet restore examples/brownfield-bug-lab/legacy/Framework/LegacyOrderDesk.csproj
+dotnet build examples/brownfield-bug-lab/legacy/Framework/LegacyOrderDesk.csproj --no-restore
+dotnet run --project src/BrownPants.Cli -- inspect examples/brownfield-bug-lab/legacy/Framework --semantic --format markdown --limit 1000
+```
+
+Semantic inspection evaluates imported MSBuild targets. The project's `win` runtime identifier reflects its .NET Framework target; other hosts may report incomplete legacy-project coverage.
 
 Trace a changed C++/CLI bridge back through its native caller and MFC command map. To trace a changed managed workflow in the other direction, select its C# file; the typed bridge call and upstream MFC links appear as lexical candidates, separate from Roslyn-resolved managed calls:
 
