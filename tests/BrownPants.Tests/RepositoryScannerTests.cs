@@ -2352,7 +2352,61 @@ public sealed class RepositoryScannerTests : IDisposable
         Assert.Equal(2, analysis.ResolvedInvocationCount);
         Assert.True(analysis.WorkspaceIssueCount >= 2);
         Assert.Single(analysis.Issues);
+        Assert.DoesNotContain(_root, analysis.Issues[0], StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Listed.csproj", analysis.Issues[0], StringComparison.Ordinal);
         Assert.Equal(analysis.WorkspaceIssueCount - analysis.Issues.Count, analysis.WorkspaceIssueOmittedCount);
+        using var semanticJson = System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(analysis));
+        Assert.Equal(analysis.WorkspaceIssueCount, semanticJson.RootElement.GetProperty("WorkspaceIssueCount").GetInt32());
+        Assert.Equal(analysis.Issues[0], semanticJson.RootElement.GetProperty("Issues")[0].GetString());
+        Assert.DoesNotContain(_root, semanticJson.RootElement.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void WorkspaceDiagnosticNormalizer_ProducesRelativePortablePathsAndRedactsExternalPaths()
+    {
+        var firstRoot = Path.Combine(_root, "checkout-one");
+        var secondRoot = Path.Combine(_root, "checkout-two");
+        var relativeProject = Path.Combine("legacy", "Framework", "Legacy.csproj");
+        var externalPath = Path.Combine(_root, "sdk", "Microsoft.Common.CurrentVersion.targets");
+        var firstMessage = $"Project '{Path.Combine(firstRoot, relativeProject)}' failed while reading '{externalPath}': Project does not contain 'Compile' target.";
+        var secondMessage = $"Project '{Path.Combine(secondRoot, relativeProject)}' failed while reading '{externalPath}': Project does not contain 'Compile' target.";
+
+        var first = WorkspaceDiagnosticNormalizer.Normalize(firstMessage, firstRoot);
+        var second = WorkspaceDiagnosticNormalizer.Normalize(secondMessage, secondRoot);
+
+        Assert.Equal(first, second);
+        Assert.Contains("legacy/Framework/Legacy.csproj", first, StringComparison.Ordinal);
+        Assert.Contains("[external-path]", first, StringComparison.Ordinal);
+        Assert.Contains("Project does not contain 'Compile' target", first, StringComparison.Ordinal);
+        Assert.DoesNotContain(firstRoot, first, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain('\\', first);
+    }
+
+    [Fact]
+    public void WorkspaceDiagnosticNormalizer_DoesNotTreatSharedRootPrefixAsContained()
+    {
+        var root = Path.Combine(_root, "repository");
+        var siblingPath = root + "-copy" + Path.DirectorySeparatorChar + "project.csproj";
+        var message = $"Failed to load '{siblingPath}'.";
+
+        var normalized = WorkspaceDiagnosticNormalizer.Normalize(message, root);
+
+        Assert.Contains("[external-path]", normalized, StringComparison.Ordinal);
+        Assert.DoesNotContain("repository-copy", normalized, StringComparison.Ordinal);
+        Assert.DoesNotContain(root, normalized, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void WorkspaceDiagnosticNormalizer_PreservesUrlsAlongsideAbsolutePaths()
+    {
+        var root = Path.Combine(_root, "repository");
+        var localPath = Path.Combine(root, "src", "Project.csproj");
+        var message = $"See https://example.com/build/log and '{localPath}' for details.";
+
+        var normalized = WorkspaceDiagnosticNormalizer.Normalize(message, root);
+
+        Assert.Contains("https://example.com/build/log", normalized, StringComparison.Ordinal);
+        Assert.Contains("'src/Project.csproj'", normalized, StringComparison.Ordinal);
     }
 
     [Fact]

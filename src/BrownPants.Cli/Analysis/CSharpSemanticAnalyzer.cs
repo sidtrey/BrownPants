@@ -27,7 +27,12 @@ public static class CSharpSemanticAnalyzer
         var loaded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var discoveredFullPaths = discoveredPaths.Select(path => NormalizeProjectPath(Path.Combine(root, path)))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        void RecordIssue(string message) { issueCount++; AddSample(issues, message, sampleLimit); }
+        void RecordIssue(string message)
+        {
+            issueCount++;
+            if (issues.Count < sampleLimit)
+                issues.Add(WorkspaceDiagnosticNormalizer.Normalize(message, root));
+        }
 
         try
         {
