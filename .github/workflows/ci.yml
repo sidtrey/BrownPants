@@ -112,6 +112,10 @@ jobs:
         shell: pwsh
         run: ./tests/OpenSpecInstallerTests.ps1
 
+      - name: Check Copilot prompt integration
+        shell: pwsh
+        run: ./tests/CopilotPromptIntegrationTests.ps1
+
       - name: Pack .NET tool
         run: dotnet pack src/BrownPants.Cli --configuration Release --no-build --output ./artifacts
 

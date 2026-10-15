@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    { "taskId": "T001", "criterionIds": ["AC-001", "AC-002", "AC-003", "AC-004", "SC-003"], "verificationCommand": "pwsh -NoProfile -File tests/CopilotPromptIntegrationTests.ps1", "evidencePaths": [], "result": "planned" },
+    { "taskId": "T002", "criterionIds": ["AC-001", "AC-002", "AC-003", "AC-004", "SC-003"], "verificationCommand": "pwsh -NoProfile -File tests/CopilotPromptIntegrationTests.ps1", "evidencePaths": [], "result": "planned" },
+    { "taskId": "T003", "criterionIds": ["FR-007", "SC-004"], "verificationCommand": "pwsh -NoProfile -File tests/CopilotPromptIntegrationTests.ps1", "evidencePaths": [], "result": "planned" },
+    { "taskId": "T004", "criterionIds": ["AC-005", "AC-006", "AC-007", "SC-002"], "verificationCommand": "pwsh -NoProfile -File tests/CopilotPromptIntegrationTests.ps1", "evidencePaths": [], "result": "planned" },
+    { "taskId": "T005", "criterionIds": ["AC-005", "AC-006", "AC-007", "SC-001", "SC-002"], "verificationCommand": "pwsh -NoProfile -File tests/CopilotPromptIntegrationTests.ps1", "evidencePaths": [], "result": "planned" },
+    { "taskId": "T006", "criterionIds": ["FR-007", "SC-001", "SC-004"], "verificationCommand": "pwsh -NoProfile -File tests/CopilotPromptIntegrationTests.ps1", "evidencePaths": [], "result": "planned" },
+    { "taskId": "T007", "criterionIds": ["SC-003"], "verificationCommand": "pwsh -NoProfile -File tests/CopilotPromptIntegrationTests.ps1", "evidencePaths": [], "result": "planned" },
+    { "taskId": "T008", "criterionIds": ["FR-007", "SC-004"], "verificationCommand": "pwsh -NoProfile -File tests/CopilotPromptIntegrationTests.ps1", "evidencePaths": [], "result": "planned" },
+    { "taskId": "T009", "criterionIds": ["AC-001", "AC-002", "AC-003", "AC-004", "AC-005", "AC-006", "AC-007", "SC-001", "SC-002", "SC-003", "SC-004"], "verificationCommand": "dotnet build BrownPants.sln; dotnet test BrownPants.sln; pwsh -NoProfile -File tests/CopilotPromptIntegrationTests.ps1; pwsh -NoProfile -File scripts/acceptance-criteria-hash.ps1 -SpecPath specs/025-copilot-gui-context/spec.md; pwsh -NoProfile -File scripts/check-acceptance-evidence.ps1 -RepositoryRoot . -SpecPath specs/025-copilot-gui-context/spec.md -TasksPath specs/025-copilot-gui-context/tasks.md -EvidencePath specs/025-copilot-gui-context/acceptance-evidence.json", "evidencePaths": [], "result": "planned" }
+  ]
+}

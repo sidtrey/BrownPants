@@ -49,6 +49,10 @@ Native coverage includes `.vcxproj` and legacy `.vcproj` markers, MFC/CLR projec
 
 ## Workflow integrations
 
+### GitHub Copilot in Visual Studio and VS Code
+
+For a GUI-based workflow, install the repository-shareable Copilot context prompt with `pwsh -NoProfile -File ./integrations/copilot/Install.ps1 -ProjectRoot <target-repository>`, then invoke `/brownpants-context` in supported Copilot Chat. It uses the local BrownPants command and asks the assistant to verify findings against source files. If Copilot cannot use the terminal, run BrownPants from an approved shell and paste its report. Prompt discovery and terminal access remain subject to host settings and organization policy. In VS Code, `.prompt.md` support is for the Local harness; the Copilot harness does not load these prompt files. See the [Copilot integration guide](integrations/copilot/README.md).
+
 ### Register another SDD engine
 
 Add `.brownpants/sdd-workflows.json` to describe an engine that does not have a built-in detector:
