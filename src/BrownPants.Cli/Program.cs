@@ -46,6 +46,9 @@ public static class Program
         if (string.Equals(args[0], "impact", StringComparison.OrdinalIgnoreCase))
             return RunImpact(args.Skip(1).ToArray(), output, error);
 
+        if (string.Equals(args[0], "evidence", StringComparison.OrdinalIgnoreCase))
+            return EvidenceCommand.Run(args.Skip(1).ToArray(), output, error);
+
         if (string.Equals(args[0], "devops", StringComparison.OrdinalIgnoreCase))
             return RunDevOps(args.Skip(1).ToArray(), output, error);
 
@@ -476,6 +479,8 @@ public static class Program
             output.WriteLine("  --limit              Maximum sampled entries, from 1 to 10000 (default: 200).");
             return 0;
         }
+        if (command.Equals("evidence", StringComparison.OrdinalIgnoreCase))
+            return EvidenceCommand.Run(new[] { "--help" }, output, error);
         if (command.Equals("instructions", StringComparison.OrdinalIgnoreCase))
         {
             output.WriteLine("Usage: brownpants instructions [path] [--source <relative-path>] [--section <anchor>] [--format markdown|json]");
@@ -543,6 +548,7 @@ public static class Program
         output.WriteLine("  inspect       Inventory a repository and its source evidence.");
         output.WriteLine("  investigate   Search repository evidence using clues from a bug report.");
         output.WriteLine("  impact        Trace semantic callers affected by changed source files.");
+        output.WriteLine("  evidence      Produce a structured, source-located evidence handoff for any SDD engine.");
         output.WriteLine("  instructions  Discover instruction files or retrieve a selected section.");
         output.WriteLine("  workbench    Create a local visual review page for one Spec Kit feature.");
         output.WriteLine("  frame         Create or validate a context frame.");
@@ -555,6 +561,7 @@ public static class Program
         output.WriteLine("Usage: brownpants inspect [path] [--format markdown|json] [--limit 1..10000] [--semantic]");
         output.WriteLine("       brownpants investigate [path] --clue <text> [--clue <text> ...] [--format markdown|json] [--limit 1..10000]");
         output.WriteLine("       brownpants impact <repository> --changed <relative-source-path> [--changed <relative-source-path> ...] [--format markdown|json] [--limit 1..10000]");
+        output.WriteLine("       brownpants evidence [repository] --format json [--limit 1..10000] [--semantic]");
         output.WriteLine("       brownpants instructions [path] [--source <relative-path>] [--section <anchor>] [--format markdown|json]");
         output.WriteLine("       brownpants workbench [repository] [--engine speckit|openspec] [--feature <relative-feature-directory>] [--output <relative-html-path>] [--overwrite]");
         output.WriteLine("       brownpants frame create <repository> <draft.json> <output.md> [--overwrite]");

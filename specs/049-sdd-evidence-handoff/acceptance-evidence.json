@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    {
+      "taskId": "T001",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-004",
+        "SC-001",
+        "SC-003"
+      ],
+      "result": "passed",
+      "verificationCommand": "dotnet test BrownPants.sln --filter FullyQualifiedName~Evidence",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/EvidenceReport.cs",
+        "specs/049-sdd-evidence-handoff/contracts/evidence-report.md"
+      ]
+    },
+    {
+      "taskId": "T002",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "AC-004",
+        "SC-001"
+      ],
+      "result": "passed",
+      "verificationCommand": "dotnet run --project src/BrownPants.Cli -- evidence examples/brownfield-bug-lab --format json --limit 1000",
+      "evidencePaths": [
+        "src/BrownPants.Cli/EvidenceCommand.cs",
+        "src/BrownPants.Cli/Program.cs",
+        "specs/049-sdd-evidence-handoff/quickstart.md"
+      ]
+    },
+    {
+      "taskId": "T003",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-004",
+        "SC-001",
+        "SC-002",
+        "SC-003"
+      ],
+      "result": "passed",
+      "verificationCommand": "dotnet test BrownPants.sln --filter FullyQualifiedName~Evidence",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/EvidenceCommandTests.cs"
+      ]
+    },
+    {
+      "taskId": "T004",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "SC-001",
+        "SC-003"
+      ],
+      "result": "passed",
+      "verificationCommand": "dotnet test BrownPants.sln --filter FullyQualifiedName~Evidence",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/EvidenceCommandTests.cs"
+      ]
+    },
+    {
+      "taskId": "T005",
+      "criterionIds": [
+        "AC-002",
+        "AC-003",
+        "AC-005",
+        "SC-004"
+      ],
+      "result": "passed",
+      "verificationCommand": "Review updated task prompt and run the fixed comparison",
+      "evidencePaths": [
+        "examples/brownfield-bug-lab/evaluation/task-prompt-v3.md"
+      ]
+    },
+    {
+      "taskId": "T006",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-004",
+        "SC-002",
+        "SC-003"
+      ],
+      "result": "passed",
+      "verificationCommand": "Generate evidence JSON and audit it against the fixed answer key and decoys",
+      "evidencePaths": [
+        "examples/brownfield-bug-lab/evaluation/answer-key.json",
+        "docs/comparisons/brownfield-evidence-handoff-2026-10-results.json"
+      ]
+    },
+    {
+      "taskId": "T007",
+      "criterionIds": [
+        "AC-005",
+        "SC-004"
+      ],
+      "result": "passed",
+      "verificationCommand": "Run the matched vanilla and BrownPants-assisted task and score with the frozen evaluator",
+      "evidencePaths": [
+        "docs/comparisons/brownfield-evidence-handoff-2026-10.md",
+        "docs/comparisons/brownfield-evidence-handoff-2026-10-results.json"
+      ]
+    },
+    {
+      "taskId": "T008",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-004",
+        "AC-005",
+        "SC-001",
+        "SC-002",
+        "SC-003",
+        "SC-004"
+      ],
+      "result": "passed",
+      "verificationCommand": "dotnet build BrownPants.sln; dotnet test BrownPants.sln; git diff --check",
+      "evidencePaths": [
+        "specs/049-sdd-evidence-handoff/verification.md",
+        "specs/049-sdd-evidence-handoff/acceptance-criteria.sha256",
+        "scripts/check-acceptance-evidence.ps1"
+      ]
+    }
+  ]
+}

@@ -22,6 +22,14 @@ Run semantic call impact from the managed root. This resolves the generic single
 dotnet run --project src/BrownPants.Cli -- impact examples/brownfield-bug-lab/managed --changed Persistence/OrderRepository.cs --format markdown --limit 1000
 ```
 
+For an SDD agent, create a single JSON handoff containing project context, source-located architecture/framework candidates, and test-path candidates:
+
+```powershell
+dotnet run --project src/BrownPants.Cli -- evidence examples/brownfield-bug-lab --format json --limit 1000
+```
+
+The handoff is task-neutral, so agents should use the bug report to select relevant findings and verify them against source. Candidates remain candidates. Use the separate semantic `impact` report for resolved managed callers.
+
 The impact report connects `ImportBatch<T>` to the `Save(IEnumerable<T>)` overload and shows how `ImportMapped<TSource>` forwards through `SaveMapped<TSource>`. Inventory also locates factory/DI wiring, MFC message-map and runtime-type markers, a C++/CLI bridge, and NHibernate dependency/session/configuration/mapping evidence. Those native and ORM findings are candidates; this fixture does not prove runtime relationships or database behavior.
 
 ## Reproduce the seeded bug comparison

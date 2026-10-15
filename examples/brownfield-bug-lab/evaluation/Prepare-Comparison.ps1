@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory=$true)][string] $DemoRoot,
     [Parameter(Mandatory=$true)][string] $OutputRoot,
+    [string] $TaskPromptPath = (Join-Path $PSScriptRoot 'task-prompt.md'),
     [string] $BrownPantsProject = (Join-Path $PSScriptRoot '../../../src/BrownPants.Cli')
 )
 $ErrorActionPreference = 'Stop'
@@ -34,7 +35,7 @@ foreach ($condition in @('baseline','assisted')) {
 $control = Join-Path $output 'control'
 New-Item -ItemType Directory -Path $control | Out-Null
 Copy-Item -LiteralPath (Join-Path $source 'evaluation/bug-report.md') -Destination $control
-Copy-Item -LiteralPath (Join-Path $source 'evaluation/task-prompt.md') -Destination $control
+Copy-Item -LiteralPath $TaskPromptPath -Destination (Join-Path $control 'task-prompt.md')
 Copy-Item -LiteralPath (Join-Path $source 'evaluation/task-spec.md') -Destination $control
 Copy-Item -LiteralPath (Join-Path $source 'evaluation/acceptance-criteria.sha256') -Destination $control
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot '../../../scripts/acceptance-criteria-hash.ps1') -Destination (Join-Path $control 'acceptance-criteria-hash.ps1')
@@ -50,6 +51,9 @@ function Invoke-BrownPants([string[]]$commandArguments) {
 $inspect = Invoke-BrownPants @('inspect',$assisted,'--format','markdown','--limit','1000')
 if ($LASTEXITCODE -ne 0) { throw 'BrownPants inspect failed.' }
 $inspect | Set-Content -Encoding utf8 (Join-Path $evidence 'inspect.md')
+$evidenceJson = Invoke-BrownPants @('evidence',$assisted,'--format','json','--limit','1000')
+if ($LASTEXITCODE -ne 0) { throw 'BrownPants evidence export failed.' }
+$evidenceJson | Set-Content -Encoding utf8 (Join-Path $evidence 'evidence.json')
 $investigate = Invoke-BrownPants @('investigate',$assisted,'--clue','RequiresRetry','--clue','OrderRepository','--format','markdown','--limit','1000')
 if ($LASTEXITCODE -ne 0) { throw 'BrownPants investigate failed.' }
 $investigate | Set-Content -Encoding utf8 (Join-Path $evidence 'investigate.md')
@@ -59,6 +63,7 @@ $impact | Set-Content -Encoding utf8 (Join-Path $evidence 'impact.md')
 $visibleEvidence = Join-Path $assisted 'BrownPantsEvidence'
 New-Item -ItemType Directory -Path $visibleEvidence | Out-Null
 Copy-Item -LiteralPath (Join-Path $evidence 'inspect.md') -Destination $visibleEvidence
+Copy-Item -LiteralPath (Join-Path $evidence 'evidence.json') -Destination $visibleEvidence
 Copy-Item -LiteralPath (Join-Path $evidence 'investigate.md') -Destination $visibleEvidence
 Copy-Item -LiteralPath (Join-Path $evidence 'impact.md') -Destination $visibleEvidence
 foreach ($condition in @('baseline','assisted')) {

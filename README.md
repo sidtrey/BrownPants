@@ -33,9 +33,13 @@ The matched agent run produced the same narrow repair in both conditions, and th
 | MFC and NHibernate candidates | 10 | 0 / 2 | 2 / 3 |
 | Test candidates | 1 | 1 / 1 | 0 / 1 |
 
-Overall recall moved from **20% to 25%**, while precision moved from **71.4% to 66.7%**. The assisted run therefore **did not meet the frozen advantage criterion** of at least 20 percentage points more recall with no precision loss. This pair shows BrownPants can produce detailed source-linked brownfield evidence; it does not show a better repair or a net improvement in the agents' final structured findings. The agents used **299,072 input / 3,531 output tokens** and **389,425 input / 3,331 output tokens**, respectively (cached input is included in input totals).
+Overall recall moved from **25% to 30%**, while precision moved from **71.4% to 66.7%**. The assisted run therefore **did not meet the frozen advantage criterion** of at least 20 percentage points more recall with no precision loss. This pair shows BrownPants can produce detailed source-linked brownfield evidence; it does not show a better repair or a net improvement in the agents' final structured findings. The agents used **299,072 input / 3,531 output tokens** and **389,425 input / 3,331 output tokens**, respectively (cached input is included in input totals).
 
 Both pre-fix checks failed with “Batch import saved 1 of 2 orders.” The driver verified the frozen task hash and ran the same post-fix check in both copies; both passed. The [full protocol, scores, run details, and limits](docs/comparisons/brownfield-bug-lab-2026-10.md) include the machine-readable [results](docs/comparisons/brownfield-bug-lab-2026-10-results.json). This is a measured case study, not a general performance claim.
+
+### Evidence handoff repeat
+
+After that result, BrownPants added a structured `evidence` command and used it to prepare a second matched run with a task prompt that explicitly covered every scored evidence domain. The baseline scored **5/20 findings (25% recall, 45.5% precision)**; the BrownPants-assisted run scored **20/20 (100% recall, 74.1% precision)**. Both fixes were identical and passed the same independent check. The assisted run still submitted seven extra framework candidates, so the report keeps those false positives visible. See the [repeat protocol and token counts](docs/comparisons/brownfield-evidence-handoff-2026-10.md) and [machine-readable results](docs/comparisons/brownfield-evidence-handoff-2026-10-results.json).
 
 BrownPants complements Spec Kit: Spec Kit structures the work; BrownPants adds evidence about the existing code and links completion claims to reviewable artifacts. Neither guarantees a correct fix or replaces human review.
 
