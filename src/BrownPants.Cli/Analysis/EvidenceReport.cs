@@ -56,7 +56,8 @@ public static class EvidenceReportAnalyzer
         {
             foreach (var call in semantic.ResolvedCalls)
             {
-                findings.Add(CreateFinding("managed-call", "resolved", "resolved call", call.Path, call.Line,
+                var signal = call.RelationshipKind == "constructor" ? "resolved constructor" : "resolved call";
+                findings.Add(CreateFinding("managed-call", "resolved", signal, call.Path, call.Line,
                     call.Caller, call.Target, call.Expression));
             }
         }
@@ -77,14 +78,16 @@ public static class EvidenceReportAnalyzer
             .ThenBy(item => item.TargetSignature, StringComparer.Ordinal)
             .ToArray();
         var ordered = allOrdered.Take(sampleLimit).ToArray();
-        var semanticTotal = semanticRequested ? semantic?.ResolvedInvocationCount ?? 0 : 0;
+        var semanticTotal = semanticRequested && semantic is not null
+            ? semantic.ResolvedInvocationCount + semantic.ResolvedConstructorCount
+            : 0;
         var knownTotal = inventory.ArchitecturePatterns.SignalCount + semanticTotal
             + inventory.TestPaths.Count(IsSourceTestPath);
 
         var limitations = new SortedSet<string>(StringComparer.Ordinal)
         {
             "Architecture, framework, and test-path findings are candidates and require source review.",
-            "Native, ORM, reflection, runtime, and constructor relationships are not inferred as managed call edges."
+            "Native, ORM, reflection, and runtime relationships are not inferred as managed edges; constructor edges require explicit compiler-bound source construction."
         };
         if (!semanticRequested)
             limitations.Add("Semantic analysis was not requested; no resolved managed call findings are included.");
@@ -92,8 +95,9 @@ public static class EvidenceReportAnalyzer
         {
             if (!semantic.ProjectCoverageComplete)
                 limitations.Add($"Semantic project coverage is incomplete: {semantic.ProjectsLoaded} of {semantic.ProjectsDiscovered} projects loaded.");
-            if (semantic.UnresolvedInvocationCount > 0)
-                limitations.Add($"{semantic.UnresolvedInvocationCount} managed invocation(s) remain unresolved.");
+            var unresolvedTotal = semantic.UnresolvedInvocationCount + semantic.UnresolvedConstructorCount;
+            if (unresolvedTotal > 0)
+                limitations.Add($"{semantic.UnresolvedInvocationCount} managed invocation(s) and {semantic.UnresolvedConstructorCount} constructor relationship(s) remain unresolved.");
             foreach (var issue in semantic.Issues.OrderBy(value => value, StringComparer.Ordinal))
                 limitations.Add(issue);
         }
@@ -113,10 +117,13 @@ public static class EvidenceReportAnalyzer
                 ordered.Length,
                 ordered.Length < Math.Max(knownTotal, allOrdered.Length)
                     || inventory.ArchitecturePatterns.SignalCount > inventory.ArchitecturePatterns.Signals.Count
-                    || (semanticRequested && semantic is not null && semantic.ResolvedInvocationCount > semantic.ResolvedCalls.Count),
+                    || (semanticRequested && semantic is not null
+                        && semantic.ResolvedInvocationCount + semantic.ResolvedConstructorCount > semantic.ResolvedCalls.Count),
                 semanticRequested,
                 semanticRequested ? semantic?.ProjectCoverageComplete : null,
-                semanticRequested ? semantic?.UnresolvedInvocationCount ?? 0 : 0),
+                semanticRequested && semantic is not null
+                    ? semantic.UnresolvedInvocationCount + semantic.UnresolvedConstructorCount
+                    : 0),
             limitations.ToArray());
     }
 

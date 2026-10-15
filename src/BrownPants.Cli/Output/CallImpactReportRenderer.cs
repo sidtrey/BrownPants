@@ -32,7 +32,8 @@ public static class CallImpactReportRenderer
             foreach (var impact in report.Impacts)
             {
                 var candidate = impact.IsTestCandidate ? " — test-path candidate" : string.Empty;
-                output.AppendLine($"- Depth {impact.Depth}: `{Escape(impact.Caller)}` calls `{Escape(impact.Target)}` on the path to changed method `{Escape(impact.ChangedMethod)}` at `{Escape(impact.Path)}:{impact.Line}` (project `{Escape(impact.Project)}`){candidate}");
+                var relation = impact.RelationshipKind == "constructor" ? "constructs" : "calls";
+                output.AppendLine($"- Depth {impact.Depth}: `{Escape(impact.Caller)}` {relation} `{Escape(impact.Target)}` on the path to changed member `{Escape(impact.ChangedMethod)}` at `{Escape(impact.Path)}:{impact.Line}` (project `{Escape(impact.Project)}`){candidate}");
             }
         }
         if (report.Issues.Count > 0)
@@ -46,7 +47,7 @@ public static class CallImpactReportRenderer
         output.AppendLine();
         output.AppendLine("## Evidence limits");
         output.AppendLine();
-        output.Append("These are observed statically resolved C# and Visual Basic method-call relationships. Test-path candidates do not prove test coverage. Reflection, dynamic dispatch, runtime conditions, native C++/MFC calls, and constructor/object-creation relationships are not represented. Graph counts and depth describe observed evidence; they are not effort estimates.");
+        output.Append("These are observed statically resolved C# and Visual Basic method and explicit constructor relationships. Constructor relationships cover compiler-bound source construction only; they do not prove runtime activation through dependency injection, reflection, dynamic dispatch, or native C++/MFC. Test-path candidates do not prove test coverage. Graph counts and depth describe observed evidence; they are not effort estimates.");
         return output.ToString().TrimEnd();
     }
 

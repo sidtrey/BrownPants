@@ -4,7 +4,11 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.MSBuild;
 using CSharpInvocation = Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax;
+using CSharpObjectCreation = Microsoft.CodeAnalysis.CSharp.Syntax.ObjectCreationExpressionSyntax;
+using CSharpImplicitObjectCreation = Microsoft.CodeAnalysis.CSharp.Syntax.ImplicitObjectCreationExpressionSyntax;
+using CSharpConstructorInitializer = Microsoft.CodeAnalysis.CSharp.Syntax.ConstructorInitializerSyntax;
 using VisualBasicInvocation = Microsoft.CodeAnalysis.VisualBasic.Syntax.InvocationExpressionSyntax;
+using VisualBasicObjectCreation = Microsoft.CodeAnalysis.VisualBasic.Syntax.ObjectCreationExpressionSyntax;
 
 namespace BrownPants.Cli.Analysis;
 
@@ -94,6 +98,9 @@ public static class CSharpSemanticAnalyzer
         var projectsLoaded = 0;
         var resolvedInvocationCount = 0;
         var unresolvedInvocationCount = 0;
+        var constructorSyntaxCount = 0;
+        var resolvedConstructorCount = 0;
+        var unresolvedConstructorCount = 0;
         var declarationCount = 0;
         var invocationSyntaxCount = 0;
         var skippedInvocationCount = 0;
@@ -132,7 +139,9 @@ public static class CSharpSemanticAnalyzer
                 foreach (var declarationNode in syntaxRoot.DescendantNodes()
                     .Where(node => node is Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax
                         or Microsoft.CodeAnalysis.CSharp.Syntax.LocalFunctionStatementSyntax
-                        or Microsoft.CodeAnalysis.VisualBasic.Syntax.MethodStatementSyntax))
+                        or Microsoft.CodeAnalysis.CSharp.Syntax.ConstructorDeclarationSyntax
+                        or Microsoft.CodeAnalysis.VisualBasic.Syntax.MethodStatementSyntax
+                        or Microsoft.CodeAnalysis.VisualBasic.Syntax.SubNewStatementSyntax))
                 {
                     if (semanticModel.GetDeclaredSymbol(declarationNode) is not IMethodSymbol method)
                         continue;
@@ -197,6 +206,44 @@ public static class CSharpSemanticAnalyzer
                                 .ToArray()), sampleLimit);
                     }
                 }
+
+                foreach (var constructionNode in syntaxRoot.DescendantNodes()
+                    .Where(node => node is CSharpObjectCreation or CSharpImplicitObjectCreation
+                        or CSharpConstructorInitializer or VisualBasicObjectCreation))
+                {
+                    constructorSyntaxCount++;
+                    var expression = constructionNode.ToString();
+                    var symbolInfo = semanticModel.GetSymbolInfo(constructionNode);
+                    if (symbolInfo.Symbol is IMethodSymbol { MethodKind: MethodKind.Constructor } method)
+                    {
+                        resolvedConstructorCount++;
+                        var sourceLocation = method.Locations
+                            .Where(location => location.IsInSource && location.SourceTree is not null)
+                            .Select(location => TryGetRepositoryRelativePath(repositoryRoot, location.SourceTree!.FilePath,
+                                out var targetPath) ? (Location: location, Path: targetPath) : default)
+                            .Where(candidate => candidate.Location is not null)
+                            .OrderBy(candidate => candidate.Path, StringComparer.Ordinal)
+                            .FirstOrDefault();
+                        AddSample(resolvedCalls, new CSharpResolvedCall(relativeProjectPath, relativeSourcePath,
+                            constructionNode.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
+                            Normalize(expression),
+                            EnclosingMethod(semanticModel.GetEnclosingSymbol(constructionNode.SpanStart)),
+                            ResolvedTarget(method), sourceLocation.Location is not null ? sourceLocation.Path : null,
+                            sourceLocation.Location?.GetLineSpan().StartLinePosition.Line + 1, "constructor"), sampleLimit);
+                    }
+                    else
+                    {
+                        unresolvedConstructorCount++;
+                        var reason = symbolInfo.CandidateReason.ToString();
+                        reasonCounts[reason] = reasonCounts.GetValueOrDefault(reason) + 1;
+                        AddSample(unresolvedCalls, new CSharpUnresolvedCall(relativeProjectPath, relativeSourcePath,
+                            constructionNode.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
+                            Normalize(expression), reason,
+                            symbolInfo.CandidateSymbols.Take(10)
+                                .Select(candidate => candidate.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat))
+                                .ToArray(), "constructor"), sampleLimit);
+                    }
+                }
             }
         }
 
@@ -205,7 +252,8 @@ public static class CSharpSemanticAnalyzer
             invocationSyntaxCount, skippedInvocationCount, resolvedInvocationCount + unresolvedInvocationCount,
             reasonCounts.OrderBy(pair => pair.Key, StringComparer.Ordinal).Select(pair => new SemanticReasonCount(pair.Key, pair.Value)).ToArray(),
             Math.Max(0, projectsDiscovered - projectsLoaded), projectsDiscovered == projectsLoaded, 0, 0,
-            compilerErrorCount, Math.Max(0, compilerErrorCount - compilerDiagnostics.Count), compilerDiagnostics);
+            compilerErrorCount, Math.Max(0, compilerErrorCount - compilerDiagnostics.Count), compilerDiagnostics,
+            constructorSyntaxCount, resolvedConstructorCount, unresolvedConstructorCount);
     }
 
     private static void AddProjectOnce(Project project, List<(string Project, Compilation Compilation)> compilations,

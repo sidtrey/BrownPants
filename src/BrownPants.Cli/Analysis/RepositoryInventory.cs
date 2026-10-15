@@ -138,7 +138,10 @@ public sealed record CSharpSemanticAnalysis(
     int WorkspaceIssueOmittedCount = 0,
     int CompilerErrorCount = 0,
     int CompilerErrorOmittedCount = 0,
-    IReadOnlyList<SemanticCompilerDiagnostic>? CompilerDiagnostics = null);
+    IReadOnlyList<SemanticCompilerDiagnostic>? CompilerDiagnostics = null,
+    int ConstructorSyntaxCount = 0,
+    int ResolvedConstructorCount = 0,
+    int UnresolvedConstructorCount = 0);
 
 public sealed record SemanticReasonCount(string Reason, int Count);
 public sealed record SemanticCompilerDiagnostic(string Project, string? Path, int? Line, string Code, string Message);
@@ -146,7 +149,7 @@ public sealed record SemanticCompilerDiagnostic(string Project, string? Path, in
 public sealed record CSharpSemanticDeclaration(string Project, string Path, int Line, string Symbol);
 
 public sealed record CSharpResolvedCall(string Project, string Path, int Line, string Expression, string Caller, string Target,
-    string? TargetPath = null, int? TargetLine = null);
+    string? TargetPath = null, int? TargetLine = null, string RelationshipKind = "method");
 
 public sealed record CSharpUnresolvedCall(
     string Project,
@@ -154,7 +157,8 @@ public sealed record CSharpUnresolvedCall(
     int Line,
     string Expression,
     string CandidateReason,
-    IReadOnlyList<string> CandidateTargets);
+    IReadOnlyList<string> CandidateTargets,
+    string RelationshipKind = "method");
 
 public sealed record DotNetProjectInfo(
     string Path,

@@ -2199,7 +2199,7 @@ public sealed class RepositoryScannerTests : IDisposable
         var declarations = Assert.IsAssignableFrom<IReadOnlyList<CSharpSemanticDeclaration>>(analysis.Declarations);
         Assert.Equal(2, declarations.Count);
         Assert.Contains(declarations, declaration => declaration.Path == "obj/Generated.cs");
-        var call = Assert.Single(analysis.ResolvedCalls);
+        var call = Assert.Single(analysis.ResolvedCalls, item => item.RelationshipKind == "method");
         Assert.Contains("External.Remote.Execute", call.Target, StringComparison.Ordinal);
         Assert.Null(call.TargetPath);
         Assert.Null(call.TargetLine);
@@ -2251,8 +2251,51 @@ public sealed class RepositoryScannerTests : IDisposable
             new[] { ("LegacyFixture.vbproj", (Compilation)compilation) }, 1, 10, _root);
 
         Assert.Equal(1, analysis.ResolvedInvocationCount);
+        Assert.Equal(1, analysis.ResolvedConstructorCount);
         Assert.Contains(analysis.ResolvedCalls, call => call.Target.Contains("Legacy.App.Store.Save", StringComparison.Ordinal));
+        Assert.Contains(analysis.ResolvedCalls, call => call.RelationshipKind == "constructor"
+            && call.Target.Contains("Legacy.App.Store..ctor()", StringComparison.Ordinal));
         Assert.Contains(analysis.ResolvedCalls, call => call.Caller.Contains("Legacy.App.Controller.Run", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void SemanticAnalyzer_ResolvesConstructorOverloadsTargetTypedCreationAndChaining()
+    {
+        var tree = CSharpSyntaxTree.ParseText("""
+            namespace Legacy.App;
+            public class Store
+            {
+                public Store(int id) { }
+                public Store(string name) { }
+                public Store() : this(1) { }
+            }
+            public class StoreFactory
+            {
+                public Store Create() => new Store("primary");
+                public Store CreateDefault() => new();
+                public Store CreateAmbiguous() => new Store(default);
+            }
+            """, path: "src/Store.cs", cancellationToken: TestContext.Current.CancellationToken);
+        var compilation = CSharpCompilation.Create("ConstructorFixture", new[] { tree },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var analysis = CSharpSemanticAnalyzer.AnalyzeCompilations(
+            new[] { ("ConstructorFixture.csproj", (Compilation)compilation) }, 1, 20, _root);
+
+        Assert.Equal(4, analysis.ConstructorSyntaxCount);
+        Assert.Equal(3, analysis.ResolvedConstructorCount);
+        Assert.Equal(1, analysis.UnresolvedConstructorCount);
+        Assert.Equal(0, analysis.ResolvedInvocationCount);
+        var constructors = analysis.ResolvedCalls.Where(call => call.RelationshipKind == "constructor").ToArray();
+        Assert.Equal(3, constructors.Length);
+        Assert.Contains(constructors, call => call.Target.Contains("Store..ctor(string)", StringComparison.Ordinal));
+        Assert.Contains(constructors, call => call.Target.Contains("Store..ctor(int)", StringComparison.Ordinal));
+        Assert.All(constructors, call => Assert.Equal("src/Store.cs", call.TargetPath));
+        Assert.All(constructors, call => Assert.True(call.TargetLine > 0));
+        var unresolved = Assert.Single(analysis.UnresolvedCalls, call => call.RelationshipKind == "constructor");
+        Assert.Contains(unresolved.CandidateReason, new[] { "OverloadResolutionFailure", "Ambiguous" });
+        Assert.NotEmpty(unresolved.CandidateTargets);
     }
 
     [Fact]

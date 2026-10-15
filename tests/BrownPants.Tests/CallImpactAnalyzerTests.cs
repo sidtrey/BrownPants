@@ -29,6 +29,32 @@ public sealed class CallImpactAnalyzerTests
     }
 
     [Fact]
+    public void Analyze_TracesConstructorRelationshipsThroughFactoryAndTestCallers()
+    {
+        var trees = new[]
+        {
+            CSharpSyntaxTree.ParseText("namespace Demo; public class Core { public Core(int value) { } }", path: "src/Core.cs", cancellationToken: TestContext.Current.CancellationToken),
+            CSharpSyntaxTree.ParseText("namespace Demo; public class Factory { public Core Create() => new Core(1); }", path: "src/Factory.cs", cancellationToken: TestContext.Current.CancellationToken),
+            CSharpSyntaxTree.ParseText("namespace Demo; public class CoreTests { public Core Create(Factory factory) => factory.Create(); }", path: "tests/CoreTests.cs", cancellationToken: TestContext.Current.CancellationToken)
+        };
+        var compilation = CSharpCompilation.Create("ConstructorImpactFixture", trees,
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var semantic = CSharpSemanticAnalyzer.AnalyzeCompilations(
+            new[] { ("fixture.csproj", (Compilation)compilation) }, 1, 100, ".");
+
+        var report = CallImpactAnalyzer.Analyze(".", new[] { "src/Core.cs" },
+            new[] { "src/Core.cs", "src/Factory.cs", "tests/CoreTests.cs" }, semantic, 100);
+
+        Assert.True(report.IsComplete);
+        Assert.Contains(report.Impacts, item => item.Path == "src/Factory.cs" && item.Depth == 1
+            && item.RelationshipKind == "constructor");
+        Assert.Contains(report.Impacts, item => item.Path == "tests/CoreTests.cs" && item.Depth == 2
+            && item.RelationshipKind == "method");
+        Assert.Contains("constructs", CallImpactReportRenderer.Render(report), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SemanticAnalyzer_MapsOverloadsAndLeavesMetadataTargetLocationsEmpty()
     {
         var trees = new[]
@@ -132,6 +158,7 @@ public sealed class CallImpactAnalyzerTests
         Assert.Equal(1, parsed.RootElement.GetProperty("SchemaVersion").GetInt32());
         Assert.StartsWith("{\"SchemaVersion\":1,", json, StringComparison.Ordinal);
         Assert.Equal(2, parsed.RootElement.GetProperty("Impacts").GetArrayLength());
+        Assert.Equal("method", parsed.RootElement.GetProperty("Impacts")[0].GetProperty("RelationshipKind").GetString());
         Assert.Equal(json, JsonSerializer.Serialize(repeated));
         Assert.Equal(markdown, CallImpactReportRenderer.Render(repeated));
         Assert.Contains("Depth 1", markdown, StringComparison.Ordinal);

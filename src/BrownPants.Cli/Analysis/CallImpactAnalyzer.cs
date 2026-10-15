@@ -31,7 +31,8 @@ public sealed record CallImpact(
     int Line,
     int Depth,
     string Project,
-    bool IsTestCandidate);
+    bool IsTestCandidate,
+    string RelationshipKind = "method");
 
 public static class CallImpactAnalyzer
 {
@@ -86,10 +87,14 @@ public static class CallImpactAnalyzer
             issues.Add($"Semantic workspace reported {semantic.Issues.Count} load or workspace issue(s).");
         if (semantic.UnresolvedInvocationCount > 0)
             issues.Add($"{semantic.UnresolvedInvocationCount} invocation(s) were unresolved.");
-        if (semantic.ResolvedCalls.Count < semantic.ResolvedInvocationCount)
-            issues.Add($"Resolved call edges were sampled: {semantic.ResolvedCalls.Count} of {semantic.ResolvedInvocationCount} retained.");
-        if (semantic.UnresolvedCalls.Count < semantic.UnresolvedInvocationCount)
-            issues.Add($"Unresolved call details were sampled: {semantic.UnresolvedCalls.Count} of {semantic.UnresolvedInvocationCount} retained.");
+        if (semantic.UnresolvedConstructorCount > 0)
+            issues.Add($"{semantic.UnresolvedConstructorCount} constructor relationship(s) were unresolved.");
+        var resolvedTotal = semantic.ResolvedInvocationCount + semantic.ResolvedConstructorCount;
+        var unresolvedTotal = semantic.UnresolvedInvocationCount + semantic.UnresolvedConstructorCount;
+        if (semantic.ResolvedCalls.Count < resolvedTotal)
+            issues.Add($"Resolved relationship edges were sampled: {semantic.ResolvedCalls.Count} of {resolvedTotal} retained.");
+        if (semantic.UnresolvedCalls.Count < unresolvedTotal)
+            issues.Add($"Unresolved relationship details were sampled: {semantic.UnresolvedCalls.Count} of {unresolvedTotal} retained.");
         if (declarations.Count < semantic.DeclarationCount)
             issues.Add($"Method declarations were sampled: {declarations.Count} of {semantic.DeclarationCount} retained.");
 
@@ -115,8 +120,8 @@ public static class CallImpactAnalyzer
                         if (callerDepth > 0)
                         {
                             var impact = new CallImpact(changedSymbol, call.Target, call.Caller, NormalizePath(call.Path), call.Line,
-                                callerDepth, NormalizePath(call.Project), RepositoryScanner.IsTestPath(call.Path));
-                            var key = string.Join("\n", impact.ChangedMethod, impact.Target, impact.Caller, impact.Path, impact.Line);
+                                callerDepth, NormalizePath(call.Project), RepositoryScanner.IsTestPath(call.Path), call.RelationshipKind);
+                            var key = string.Join("\n", impact.ChangedMethod, impact.Target, impact.Caller, impact.Path, impact.Line, impact.RelationshipKind);
                             if (!impacts.ContainsKey(key)) impacts[key] = impact;
                         }
                         if (!visited.TryGetValue(call.Caller, out var prior) || callerDepth < prior)
@@ -132,6 +137,7 @@ public static class CallImpactAnalyzer
         var orderedImpacts = impacts.Values.OrderBy(item => item.Depth).ThenBy(item => item.Path, StringComparer.Ordinal)
             .ThenBy(item => item.Line).ThenBy(item => item.Caller, StringComparer.Ordinal)
             .ThenBy(item => item.ChangedMethod, StringComparer.Ordinal).ThenBy(item => item.Target, StringComparer.Ordinal)
+            .ThenBy(item => item.RelationshipKind, StringComparer.Ordinal)
             .Take(sampleLimit).ToArray();
         if (impacts.Count > orderedImpacts.Length)
             issues.Add($"Impact findings were sampled: {orderedImpacts.Length} of {impacts.Count} retained.");

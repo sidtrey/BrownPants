@@ -233,8 +233,9 @@ public static class MarkdownReport
         report.AppendLine($"- Invocation syntax nodes seen / skipped / analyzed: {semantic.InvocationSyntaxCount} / {semantic.SkippedInvocationCount} / {semantic.AnalyzedInvocationCount}");
         report.AppendLine($"- Invocation expressions resolved to methods: {semantic.ResolvedInvocationCount}");
         report.AppendLine($"- Invocation expressions without a resolved method: {semantic.UnresolvedInvocationCount}");
+        report.AppendLine($"- Explicit constructor syntax / resolved / unresolved: {semantic.ConstructorSyntaxCount} / {semantic.ResolvedConstructorCount} / {semantic.UnresolvedConstructorCount}");
         if (semantic.UnresolvedReasonCounts is { Count: > 0 })
-            report.AppendLine($"- Unresolved invocation counts by Roslyn candidate reason: {string.Join(", ", semantic.UnresolvedReasonCounts.Select(item => $"{Escape(item.Reason)}={item.Count}"))}");
+            report.AppendLine($"- Unresolved relationship counts by Roslyn candidate reason: {string.Join(", ", semantic.UnresolvedReasonCounts.Select(item => $"{Escape(item.Reason)}={item.Count}"))}");
         if (semantic.ResolvedCalls.Count > 0)
         {
             var shownCallCount = semantic.ResolvedCalls.Count;
@@ -242,10 +243,12 @@ public static class MarkdownReport
             foreach (var call in semantic.ResolvedCalls)
             {
                 var targetLocation = call.TargetPath is null ? string.Empty : $" declared at `{Escape(call.TargetPath)}:{call.TargetLine}`";
-                report.AppendLine($"  - `{Escape(call.Path)}:{call.Line}` `{Escape(call.Caller)}` → `{Escape(call.Target)}`{targetLocation} via `{Escape(call.Expression)}` (project `{Escape(call.Project)}`)");
+                var relation = call.RelationshipKind == "constructor" ? "constructs" : "calls";
+                report.AppendLine($"  - `{Escape(call.Path)}:{call.Line}` `{Escape(call.Caller)}` {relation} `{Escape(call.Target)}`{targetLocation} via `{Escape(call.Expression)}` (project `{Escape(call.Project)}`)");
             }
-            if (semantic.ResolvedInvocationCount > shownCallCount)
-                report.AppendLine($"  - {semantic.ResolvedInvocationCount - shownCallCount} additional resolved calls omitted from this report.");
+            var resolvedTotal = semantic.ResolvedInvocationCount + semantic.ResolvedConstructorCount;
+            if (resolvedTotal > shownCallCount)
+                report.AppendLine($"  - {resolvedTotal - shownCallCount} additional resolved relationships omitted from this report.");
         }
         if (semantic.UnresolvedCalls.Count > 0)
         {
@@ -255,10 +258,11 @@ public static class MarkdownReport
                 var candidates = call.CandidateTargets.Count == 0
                     ? string.Empty
                     : $"; candidates: {string.Join(", ", call.CandidateTargets.Select(Escape))}";
-                report.AppendLine($"  - `{Escape(call.Path)}:{call.Line}` `{Escape(call.Expression)}` ({Escape(call.CandidateReason)}{candidates})");
+                report.AppendLine($"  - `{Escape(call.Path)}:{call.Line}` `{Escape(call.RelationshipKind)}` `{Escape(call.Expression)}` ({Escape(call.CandidateReason)}{candidates})");
             }
-            if (semantic.UnresolvedInvocationCount > semantic.UnresolvedCalls.Count)
-                report.AppendLine($"  - {semantic.UnresolvedInvocationCount - semantic.UnresolvedCalls.Count} additional unresolved calls omitted from samples.");
+            var unresolvedTotal = semantic.UnresolvedInvocationCount + semantic.UnresolvedConstructorCount;
+            if (unresolvedTotal > semantic.UnresolvedCalls.Count)
+                report.AppendLine($"  - {unresolvedTotal - semantic.UnresolvedCalls.Count} additional unresolved relationships omitted from samples.");
         }
         if (semantic.Issues.Count > 0)
         {
