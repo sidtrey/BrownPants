@@ -126,7 +126,21 @@ public sealed record CSharpSemanticAnalysis(
     IReadOnlyList<CSharpUnresolvedCall> UnresolvedCalls,
     IReadOnlyList<string> Issues,
     int DeclarationCount = 0,
-    IReadOnlyList<CSharpSemanticDeclaration>? Declarations = null);
+    IReadOnlyList<CSharpSemanticDeclaration>? Declarations = null,
+    int InvocationSyntaxCount = 0,
+    int SkippedInvocationCount = 0,
+    int AnalyzedInvocationCount = 0,
+    IReadOnlyList<SemanticReasonCount>? UnresolvedReasonCounts = null,
+    int ProjectsFailed = 0,
+    bool ProjectCoverageComplete = true,
+    int WorkspaceIssueCount = 0,
+    int WorkspaceIssueOmittedCount = 0,
+    int CompilerErrorCount = 0,
+    int CompilerErrorOmittedCount = 0,
+    IReadOnlyList<SemanticCompilerDiagnostic>? CompilerDiagnostics = null);
+
+public sealed record SemanticReasonCount(string Reason, int Count);
+public sealed record SemanticCompilerDiagnostic(string Project, string? Path, int? Line, string Code, string Message);
 
 public sealed record CSharpSemanticDeclaration(string Project, string Path, int Line, string Symbol);
 

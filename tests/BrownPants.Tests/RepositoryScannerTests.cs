@@ -1995,6 +1995,92 @@ public sealed class RepositoryScannerTests : IDisposable
     }
 
     [Fact]
+    public void SemanticAnalyzer_ReconcilesInvocationCountsAndReportsTargetAndCompilerDiagnosticLocations()
+    {
+        var tree = CSharpSyntaxTree.ParseText("""
+            namespace Legacy.App
+            {
+                public class Store { public void Save() { } }
+                public class Controller
+                {
+                    public void Run(Store store) { store.Save(); }
+                    public void Missing() { Unknown(); }
+                    public string NameOfStore() { return nameof(Store); }
+                }
+            }
+            """, path: "src/Api.cs", cancellationToken: TestContext.Current.CancellationToken);
+        var references = new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) };
+        var compilation = CSharpCompilation.Create("CoverageFixture", new[] { tree }, references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var analysis = CSharpSemanticAnalyzer.AnalyzeCompilations(
+            new[] { ("CoverageFixture.csproj", (Compilation)compilation) }, 1, 10, _root);
+
+        Assert.Equal(3, analysis.InvocationSyntaxCount);
+        Assert.Equal(1, analysis.SkippedInvocationCount);
+        Assert.Equal(2, analysis.AnalyzedInvocationCount);
+        Assert.Equal(1, analysis.ResolvedInvocationCount);
+        Assert.Equal(1, analysis.UnresolvedInvocationCount);
+        Assert.Equal(analysis.InvocationSyntaxCount,
+            analysis.SkippedInvocationCount + analysis.AnalyzedInvocationCount);
+        Assert.Equal(analysis.AnalyzedInvocationCount,
+            analysis.ResolvedInvocationCount + analysis.UnresolvedInvocationCount);
+
+        var resolved = Assert.Single(analysis.ResolvedCalls);
+        Assert.Equal("src/Api.cs", resolved.TargetPath);
+        Assert.True(resolved.TargetLine > 0);
+        var unresolved = Assert.Single(analysis.UnresolvedCalls);
+        Assert.Contains(analysis.UnresolvedReasonCounts ?? Array.Empty<SemanticReasonCount>(), reason => reason.Reason == unresolved.CandidateReason
+            && reason.Count == 1);
+        Assert.Equal(1, analysis.CompilerErrorCount);
+        var compilerError = Assert.Single(analysis.CompilerDiagnostics ?? Array.Empty<SemanticCompilerDiagnostic>());
+        Assert.Equal("src/Api.cs", compilerError.Path);
+        Assert.Equal("CS0103", compilerError.Code);
+        Assert.True(compilerError.Line > 0);
+    }
+
+    [Fact]
+    public void SemanticAnalyzer_LoadsUnlistedProjectsOnceAndReportsFailedProjectsAndIssueTotals()
+    {
+        var projectGuid = Guid.Parse("12345678-1234-1234-1234-123456789012").ToString("B");
+        Write("Listed.csproj", LegacyProject("Listed", "Listed.cs", projectGuid));
+        Write("Listed.cs", "namespace Fixture; public class Listed { public void Run() { Helper(); } public void Helper() { } }");
+        Write("Standalone.csproj", LegacyProject("Standalone", "Standalone.cs"));
+        Write("Standalone.cs", "namespace Fixture; public class Standalone { public void Run() { Helper(); } public void Helper() { } }");
+        Write("Broken.csproj", "<Project><broken></Project>");
+        Write("AlsoBroken.csproj", "<Project>");
+
+        var solution = string.Join(Environment.NewLine, new[]
+        {
+            "Microsoft Visual Studio Solution File, Format Version 12.00",
+            "# Visual Studio Version 17",
+            "VisualStudioVersion = 17.0.31903.59",
+            "MinimumVisualStudioVersion = 10.0.40219.1",
+            "Project(\"{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}\") = \"Listed\", \"Listed.csproj\", \"" + projectGuid + "\"",
+            "EndProject",
+            "Global",
+            "EndGlobal"
+        });
+        Write("A.sln", solution);
+        Write("B.sln", solution);
+
+        var analysis = CSharpSemanticAnalyzer.AnalyzeRepository(
+            _root,
+            new[] { "AlsoBroken.csproj", "Broken.csproj", "Listed.csproj", "Standalone.csproj" },
+            new[] { "B.sln", "A.sln" },
+            sampleLimit: 1);
+
+        Assert.Equal(4, analysis.ProjectsDiscovered);
+        Assert.Equal(4, analysis.ProjectsLoaded);
+        Assert.Equal(0, analysis.ProjectsFailed);
+        Assert.False(analysis.ProjectCoverageComplete);
+        Assert.Equal(2, analysis.ResolvedInvocationCount);
+        Assert.True(analysis.WorkspaceIssueCount >= 2);
+        Assert.Single(analysis.Issues);
+        Assert.Equal(analysis.WorkspaceIssueCount - analysis.Issues.Count, analysis.WorkspaceIssueOmittedCount);
+    }
+
+    [Fact]
     public void SemanticAnalyzer_ExcludesExternalTreesAndTargetLocationsFromRepositoryFindings()
     {
         var repositoryRoot = Path.Combine(_root, "repository");
@@ -2148,6 +2234,24 @@ public sealed class RepositoryScannerTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, content);
     }
+
+    private static string LegacyProject(string name, string sourcePath, string? projectGuid = null) => $"""
+        <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+          <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+          <PropertyGroup>
+            <ProjectGuid>{projectGuid ?? Guid.NewGuid().ToString("B")}</ProjectGuid>
+            <OutputType>Library</OutputType>
+            <RootNamespace>Fixture</RootNamespace>
+            <AssemblyName>{name}</AssemblyName>
+            <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+            <LangVersion>7.3</LangVersion>
+          </PropertyGroup>
+          <ItemGroup>
+            <Reference Include="System" />
+            <Compile Include="{sourcePath}" />
+          </ItemGroup>
+        </Project>
+        """;
 
     private static string ToCrLf(string source)
     {

@@ -412,6 +412,7 @@ public static class Program
             output.WriteLine("  --limit              Maximum sampled entries, from 1 to 10000 (default: 200).");
             output.WriteLine("  --semantic           Opt in to MSBuild project loading and semantic call-target resolution.");
             output.WriteLine("Without --semantic, invocation names are syntax-only and targets are not resolved.");
+            output.WriteLine("Semantic reports include project coverage and compiler diagnostics; partial coverage is identified.");
             output.WriteLine("Semantic project evaluation may execute imported MSBuild targets.");
             return 0;
         }

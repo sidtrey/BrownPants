@@ -226,17 +226,24 @@ public static class MarkdownReport
     private static void AppendSemanticAnalysis(StringBuilder report, CSharpSemanticAnalysis semantic)
     {
         report.AppendLine();
-        report.AppendLine("### Semantic symbol resolution");
+        report.AppendLine("### .NET C# and Visual Basic semantic method resolution");
         report.AppendLine();
         report.AppendLine($"- Projects discovered / loaded by MSBuild: {semantic.ProjectsDiscovered} / {semantic.ProjectsLoaded}");
+        report.AppendLine($"- Projects not loaded: {semantic.ProjectsFailed}; project coverage complete: {semantic.ProjectCoverageComplete.ToString().ToLowerInvariant()}");
+        report.AppendLine($"- Invocation syntax nodes seen / skipped / analyzed: {semantic.InvocationSyntaxCount} / {semantic.SkippedInvocationCount} / {semantic.AnalyzedInvocationCount}");
         report.AppendLine($"- Invocation expressions resolved to methods: {semantic.ResolvedInvocationCount}");
         report.AppendLine($"- Invocation expressions without a resolved method: {semantic.UnresolvedInvocationCount}");
+        if (semantic.UnresolvedReasonCounts is { Count: > 0 })
+            report.AppendLine($"- Unresolved invocation counts by Roslyn candidate reason: {string.Join(", ", semantic.UnresolvedReasonCounts.Select(item => $"{Escape(item.Reason)}={item.Count}"))}");
         if (semantic.ResolvedCalls.Count > 0)
         {
             var shownCallCount = semantic.ResolvedCalls.Count;
             report.AppendLine("- Resolved call samples:");
             foreach (var call in semantic.ResolvedCalls)
-                report.AppendLine($"  - `{Escape(call.Path)}:{call.Line}` `{Escape(call.Caller)}` → `{Escape(call.Target)}` via `{Escape(call.Expression)}` (project `{Escape(call.Project)}`)");
+            {
+                var targetLocation = call.TargetPath is null ? string.Empty : $" declared at `{Escape(call.TargetPath)}:{call.TargetLine}`";
+                report.AppendLine($"  - `{Escape(call.Path)}:{call.Line}` `{Escape(call.Caller)}` → `{Escape(call.Target)}`{targetLocation} via `{Escape(call.Expression)}` (project `{Escape(call.Project)}`)");
+            }
             if (semantic.ResolvedInvocationCount > shownCallCount)
                 report.AppendLine($"  - {semantic.ResolvedInvocationCount - shownCallCount} additional resolved calls omitted from this report.");
         }
@@ -258,6 +265,17 @@ public static class MarkdownReport
             report.AppendLine("- MSBuild / workspace issues:");
             foreach (var issue in semantic.Issues)
                 report.AppendLine($"  - {Escape(issue)}");
+        }
+        report.AppendLine($"- MSBuild / workspace issue total: {semantic.WorkspaceIssueCount}; {semantic.WorkspaceIssueOmittedCount} issue samples omitted.");
+        report.AppendLine($"- Compiler error total: {semantic.CompilerErrorCount}; {semantic.CompilerErrorOmittedCount} error samples omitted.");
+        if (semantic.CompilerDiagnostics is { Count: > 0 })
+        {
+            report.AppendLine("- Compiler error samples:");
+            foreach (var diagnostic in semantic.CompilerDiagnostics)
+            {
+                var location = diagnostic.Path is null ? string.Empty : $" `{Escape(diagnostic.Path)}:{diagnostic.Line}`";
+                report.AppendLine($"  - `{Escape(diagnostic.Project)}`{location} {Escape(diagnostic.Code)}: {Escape(diagnostic.Message)}");
+            }
         }
         report.AppendLine("- Resolution uses the loaded project configuration and may be partial when references or MSBuild imports are unavailable.");
     }

@@ -14,8 +14,14 @@ public static class CSharpSemanticAnalyzer
         IReadOnlyList<string> solutionPaths, int sampleLimit)
     {
         var issues = new List<string>();
+        var issueCount = 0;
         var compilations = new List<(string Project, Compilation Compilation)>();
-        var discovered = projectPaths.Count;
+        var discoveredPaths = projectPaths.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var discovered = discoveredPaths.Length;
+        var loaded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var discoveredFullPaths = discoveredPaths.Select(path => NormalizeProjectPath(Path.Combine(root, path)))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        void RecordIssue(string message) { issueCount++; AddSample(issues, message, sampleLimit); }
 
         try
         {
@@ -30,49 +36,49 @@ public static class CSharpSemanticAnalyzer
             workspace.RegisterWorkspaceFailedHandler(args =>
             {
                 if (args.Diagnostic.Kind == WorkspaceDiagnosticKind.Failure)
-                    AddSample(issues, args.Diagnostic.Message, sampleLimit);
+                    RecordIssue(args.Diagnostic.Message);
             });
 
             if (solutionPaths.Count > 0)
             {
-                foreach (var solutionPath in solutionPaths)
+                // Use one stable solution context. Every discovered project omitted from it
+                // is opened directly below, preventing duplicate evaluation across solutions.
+                foreach (var solutionPath in solutionPaths.OrderBy(path => path, StringComparer.Ordinal).Take(1))
                 {
                     try
                     {
                         var solution = workspace.OpenSolutionAsync(Path.Combine(root, solutionPath)).GetAwaiter().GetResult();
                         foreach (var project in solution.Projects.Where(project =>
                             project.Language is LanguageNames.CSharp or LanguageNames.VisualBasic))
-                            AddProject(project, compilations, issues, sampleLimit);
+                            AddProjectOnce(project, compilations, loaded, discoveredFullPaths, RecordIssue, root);
                     }
                     catch (Exception exception) when (IsLoadFailure(exception))
                     {
-                        AddSample(issues, $"Solution '{solutionPath}' could not be loaded: {exception.Message}", sampleLimit);
+                        RecordIssue($"Solution '{solutionPath}' could not be loaded: {exception.Message}");
                     }
                 }
             }
-            else
+            foreach (var projectPath in discoveredPaths.Where(path => !loaded.Contains(NormalizeProjectPath(Path.Combine(root, path)))))
             {
-                foreach (var projectPath in projectPaths)
+                try
                 {
-                    try
-                    {
-                        var project = workspace.OpenProjectAsync(Path.Combine(root, projectPath)).GetAwaiter().GetResult();
-                        AddProject(project, compilations, issues, sampleLimit);
-                    }
-                    catch (Exception exception) when (IsLoadFailure(exception))
-                    {
-                        AddSample(issues, $"Project '{projectPath}' could not be loaded: {exception.Message}", sampleLimit);
-                    }
+                    var project = workspace.OpenProjectAsync(Path.Combine(root, projectPath)).GetAwaiter().GetResult();
+                    AddProjectOnce(project, compilations, loaded, discoveredFullPaths, RecordIssue, root);
                 }
+                catch (Exception exception) when (IsLoadFailure(exception))
+                { RecordIssue($"Project '{projectPath}' could not be loaded: {exception.Message}"); }
             }
         }
         catch (Exception exception) when (IsLoadFailure(exception))
         {
-            AddSample(issues, $"MSBuild could not be initialized: {exception.Message}", sampleLimit);
+            RecordIssue($"MSBuild could not be initialized: {exception.Message}");
         }
 
         var semantic = AnalyzeCompilations(compilations, discovered, sampleLimit, root);
-        return semantic with { Issues = issues.Concat(semantic.Issues).Distinct(StringComparer.Ordinal).Take(sampleLimit).ToArray() };
+        var failed = Math.Max(0, discovered - loaded.Count);
+        return semantic with { ProjectsLoaded = loaded.Count, ProjectsFailed = failed,
+            ProjectCoverageComplete = failed == 0 && issueCount == 0, Issues = issues,
+            WorkspaceIssueCount = issueCount, WorkspaceIssueOmittedCount = Math.Max(0, issueCount - issues.Count) };
     }
 
     public static CSharpSemanticAnalysis AnalyzeCompilations(
@@ -89,6 +95,12 @@ public static class CSharpSemanticAnalyzer
         var resolvedInvocationCount = 0;
         var unresolvedInvocationCount = 0;
         var declarationCount = 0;
+        var invocationSyntaxCount = 0;
+        var skippedInvocationCount = 0;
+        var reasonCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+        var compilerDiagnostics = new List<SemanticCompilerDiagnostic>();
+        var compilerErrorCount = 0;
+        var seenProjects = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var repositoryRoot = Path.GetFullPath(root);
 
         foreach (var (projectPath, compilation) in compilations)
@@ -96,7 +108,20 @@ public static class CSharpSemanticAnalyzer
             if (!TryGetRepositoryRelativePath(repositoryRoot, projectPath, out var relativeProjectPath))
                 continue;
 
+            if (!seenProjects.Add(NormalizeProjectPath(projectPath))) continue;
+
             projectsLoaded++;
+            foreach (var diagnostic in compilation.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error))
+            {
+                compilerErrorCount++;
+                if (compilerDiagnostics.Count >= sampleLimit) continue;
+                string? path = null; int? line = null;
+                if (diagnostic.Location.IsInSource && diagnostic.Location.SourceTree is not null
+                    && TryGetRepositoryRelativePath(repositoryRoot, diagnostic.Location.SourceTree.FilePath, out var diagnosticPath))
+                { path = diagnosticPath; line = diagnostic.Location.GetLineSpan().StartLinePosition.Line + 1; }
+                compilerDiagnostics.Add(new SemanticCompilerDiagnostic(relativeProjectPath, path, line,
+                    diagnostic.Id, Normalize(diagnostic.GetMessage())));
+            }
             foreach (var syntaxTree in compilation.SyntaxTrees)
             {
                 if (!TryGetRepositoryRelativePath(repositoryRoot, syntaxTree.FilePath, out var relativeSourcePath))
@@ -121,6 +146,7 @@ public static class CSharpSemanticAnalyzer
                 foreach (var invocationNode in syntaxRoot.DescendantNodes()
                     .Where(node => node is CSharpInvocation or VisualBasicInvocation))
                 {
+                    invocationSyntaxCount++;
                     var expressionText = invocationNode switch
                     {
                         CSharpInvocation csharp => csharp.Expression.ToString(),
@@ -128,7 +154,10 @@ public static class CSharpSemanticAnalyzer
                         _ => throw new InvalidOperationException("Unexpected invocation syntax.")
                     };
                     if (invocationNode is CSharpInvocation && expressionText == "nameof")
+                    {
+                        skippedInvocationCount++;
                         continue;
+                    }
 
                     var symbolInfo = semanticModel.GetSymbolInfo(invocationNode);
                     var symbol = symbolInfo.Symbol;
@@ -155,12 +184,14 @@ public static class CSharpSemanticAnalyzer
                     else
                     {
                         unresolvedInvocationCount++;
+                        var reason = symbolInfo.CandidateReason.ToString();
+                        reasonCounts[reason] = reasonCounts.GetValueOrDefault(reason) + 1;
                         AddSample(unresolvedCalls, new CSharpUnresolvedCall(
                             relativeProjectPath,
                             relativeSourcePath,
                             invocationNode.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
                             Normalize(expressionText),
-                            symbolInfo.CandidateReason.ToString(),
+                            reason,
                             symbolInfo.CandidateSymbols.Take(10)
                                 .Select(candidate => candidate.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat))
                                 .ToArray()), sampleLimit);
@@ -170,19 +201,28 @@ public static class CSharpSemanticAnalyzer
         }
 
         return new CSharpSemanticAnalysis(projectsDiscovered, projectsLoaded, resolvedInvocationCount,
-            unresolvedInvocationCount, resolvedCalls, unresolvedCalls, issues, declarationCount, declarations);
+            unresolvedInvocationCount, resolvedCalls, unresolvedCalls, issues, declarationCount, declarations,
+            invocationSyntaxCount, skippedInvocationCount, resolvedInvocationCount + unresolvedInvocationCount,
+            reasonCounts.OrderBy(pair => pair.Key, StringComparer.Ordinal).Select(pair => new SemanticReasonCount(pair.Key, pair.Value)).ToArray(),
+            Math.Max(0, projectsDiscovered - projectsLoaded), projectsDiscovered == projectsLoaded, 0, 0,
+            compilerErrorCount, Math.Max(0, compilerErrorCount - compilerDiagnostics.Count), compilerDiagnostics);
     }
 
-    private static void AddProject(Project project, List<(string Project, Compilation Compilation)> compilations,
-        List<string> issues, int sampleLimit)
+    private static void AddProjectOnce(Project project, List<(string Project, Compilation Compilation)> compilations,
+        HashSet<string> loaded, HashSet<string> discoveredPaths, Action<string> recordIssue, string root)
     {
+        var path = project.FilePath ?? project.Name;
+        var normalizedPath = NormalizeProjectPath(path, root);
+        if (!discoveredPaths.Contains(normalizedPath)) return;
+        if (!loaded.Add(normalizedPath)) return;
         var compilation = project.GetCompilationAsync().GetAwaiter().GetResult();
         if (compilation is null)
         {
-            AddSample(issues, $"Project '{project.FilePath ?? project.Name}' produced no C# compilation.", sampleLimit);
+            loaded.Remove(normalizedPath);
+            recordIssue($"Project '{path}' produced no compilation.");
             return;
         }
-        compilations.Add((project.FilePath ?? project.Name, compilation));
+        compilations.Add((path, compilation));
     }
 
     private static bool IsLoadFailure(Exception exception) => exception is not OutOfMemoryException
@@ -191,6 +231,9 @@ public static class CSharpSemanticAnalyzer
 
     private static string Normalize(string value) =>
         string.Join(" ", value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    private static string NormalizeProjectPath(string path, string? root = null) =>
+        Path.GetFullPath(path, root ?? Environment.CurrentDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
     private static string ResolvedTarget(IMethodSymbol method)
     {
