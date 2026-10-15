@@ -53,6 +53,10 @@ Native coverage includes `.vcxproj` and legacy `.vcproj` markers, MFC/CLR projec
 
 For a GUI-based workflow, install the repository-shareable Copilot context prompt with `pwsh -NoProfile -File ./integrations/copilot/Install.ps1 -ProjectRoot <target-repository>`, then invoke `/brownpants-context` in supported Copilot Chat. It uses the local BrownPants command and asks the assistant to verify findings against source files. If Copilot cannot use the terminal, run BrownPants from an approved shell and paste its report. Prompt discovery and terminal access remain subject to host settings and organization policy. In VS Code, `.prompt.md` support is for the Local harness; the Copilot harness does not load these prompt files. See the [Copilot integration guide](integrations/copilot/README.md).
 
+### Codex and Claude Code local sessions
+
+Install a project skill for Codex, Claude Code, or both with `pwsh -NoProfile -File ./integrations/agent-skills/Install.ps1 -ProjectRoot <target-repository> -Agent both`. Invoke `$brownpants-context` in Codex CLI/IDE or `/brownpants-context` in a local Claude Code session. The workflow uses the local BrownPants command and respects host and organization terminal policies; if commands are unavailable or disallowed, run BrownPants in an approved environment and provide the report. This adapter does not claim support for Claude Cowork/cloud sessions. See the [local agent skills guide](integrations/agent-skills/README.md).
+
 ### Register another SDD engine
 
 Add `.brownpants/sdd-workflows.json` to describe an engine that does not have a built-in detector:

@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    {
+      "taskId": "T001",
+      "criterionIds": ["AC-001", "AC-002", "AC-003", "SC-003"],
+      "verificationCommand": "pwsh -NoProfile -File tests/AgentSkillIntegrationTests.ps1",
+      "evidencePaths": ["tests/AgentSkillIntegrationTests.ps1"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T002",
+      "criterionIds": ["AC-001", "AC-002", "AC-003", "SC-003"],
+      "verificationCommand": "pwsh -NoProfile -File tests/AgentSkillIntegrationTests.ps1",
+      "evidencePaths": ["integrations/agent-skills/brownpants-context/SKILL.md"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T003",
+      "criterionIds": ["AC-001", "AC-002", "AC-003", "SC-004"],
+      "verificationCommand": "pwsh -NoProfile -File tests/AgentSkillIntegrationTests.ps1",
+      "evidencePaths": ["integrations/agent-skills/README.md"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T004",
+      "criterionIds": ["AC-004", "AC-005", "AC-006", "AC-007", "SC-002", "SC-005"],
+      "verificationCommand": "pwsh -NoProfile -File tests/AgentSkillIntegrationTests.ps1",
+      "evidencePaths": ["tests/AgentSkillIntegrationTests.ps1"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T005",
+      "criterionIds": ["AC-004", "AC-005", "AC-006", "AC-007", "SC-001", "SC-002"],
+      "verificationCommand": "pwsh -NoProfile -File tests/AgentSkillIntegrationTests.ps1",
+      "evidencePaths": ["integrations/agent-skills/Install.ps1"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T006",
+      "criterionIds": ["AC-004", "AC-005", "SC-001", "SC-004"],
+      "verificationCommand": "pwsh -NoProfile -File tests/AgentSkillIntegrationTests.ps1",
+      "evidencePaths": ["README.md", "integrations/README.md", "integrations/agent-skills/README.md"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T007",
+      "criterionIds": ["SC-005"],
+      "verificationCommand": "pwsh -NoProfile -File tests/AgentSkillIntegrationTests.ps1",
+      "evidencePaths": [".github/workflows/ci.yml"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T008",
+      "criterionIds": ["AC-001", "AC-002", "AC-003", "AC-004", "AC-005", "AC-006", "AC-007", "SC-001", "SC-002", "SC-003", "SC-004", "SC-005"],
+      "verificationCommand": "dotnet build BrownPants.sln -c Release; dotnet test BrownPants.sln -c Release; pwsh -NoProfile -File tests/AgentSkillIntegrationTests.ps1; pwsh -NoProfile -File scripts/acceptance-criteria-hash.ps1 -SpecPath specs/029-local-agent-context-skills/spec.md; pwsh -NoProfile -File scripts/check-acceptance-evidence.ps1 -RepositoryRoot . -SpecPath specs/029-local-agent-context-skills/spec.md -TasksPath specs/029-local-agent-context-skills/tasks.md -EvidencePath specs/029-local-agent-context-skills/acceptance-evidence.json",
+      "evidencePaths": ["specs/029-local-agent-context-skills/verification.md"],
+      "result": "planned"
+    }
+  ]
+}

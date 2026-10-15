@@ -7,5 +7,7 @@ BrownPants keeps repository scanning and the JSON/Markdown evidence contract ind
 - [`speckit/`](speckit/README.md): Spec Kit extension with mandatory context refreshes before constitution, specification, clarification, planning, checklist, task, analysis, implementation, and issue-sync phases, and after implementation. It also offers an optional bug-assessment evidence hook when Spec Kit's bundled bug extension is installed.
 - [`openspec/`](openspec/README.md): Explicit Codex skill for OpenSpec proposal and implementation workflows. Installs separately under `.agents/skills/` and preserves OpenSpec-managed skills.
 - [`copilot/`](copilot/README.md): User-invoked GitHub Copilot chat prompt for Visual Studio and VS Code Local harness, with a conflict-preserving local installer and an explicit fallback when terminal access is unavailable.
+- [`agent-skills/`](agent-skills/README.md): Shared project-local BrownPants context skill for Codex and Claude Code, with a safe offline installer and policy-respecting user-run report fallback.
+- [`agent-skills/`](agent-skills/README.md): Shared project-local BrownPants context skill for Codex and Claude Code, with a safe offline installer and policy-respecting user-run report fallback.
 
 Adapters must state their invocation model, tool prerequisites, supported workflows, and evidence limits. Do not describe a manual skill as an automatic hook or claim analysis that the core report does not provide.

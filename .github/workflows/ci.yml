@@ -125,6 +125,10 @@ jobs:
         shell: pwsh
         run: ./tests/CopilotPromptIntegrationTests.ps1
 
+      - name: Check local agent skills integration
+        shell: pwsh
+        run: ./tests/AgentSkillIntegrationTests.ps1
+
       - name: Pack .NET tool
         run: dotnet pack src/BrownPants.Cli --configuration Release --no-build --output ./artifacts
 
