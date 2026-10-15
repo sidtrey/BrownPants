@@ -1,6 +1,10 @@
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $workflow = Get-Content -LiteralPath (Join-Path $root '.github/workflows/ci.yml') -Raw
+if ($workflow -notmatch '(?m)^name:\s*CI\s*$') { throw 'CI must retain its declared workflow name.' }
+if ($workflow -notmatch '(?m)^  workflow_dispatch:\s*$') { throw 'CI must retain its manual verification trigger.' }
+if ([regex]::Matches($workflow, '(?m)^jobs:\s*$').Count -ne 1) { throw 'CI must contain exactly one jobs section.' }
+if ([regex]::Matches($workflow, '(?m)^      - name: Verify recorded acceptance baselines\s*$').Count -ne 1) { throw 'CI must contain exactly one acceptance-baseline verification step.' }
 if ($workflow -notmatch '(?ms)pull_request:\s*\r?\n\s+types:\s*\r?\n(?:\s+-\s+\w+\s*\r?\n)*\s+-\s+labeled\s*\r?\n\s+-\s+unlabeled') {
     throw 'CI must rerun on pull request label additions and removals.'
 }
