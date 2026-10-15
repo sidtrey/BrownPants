@@ -16,7 +16,10 @@ public static class WinFormsUiThreadingReportRenderer
             .AppendLine().AppendLine($"- C#/VB files scanned: {report.ScannedFiles}")
             .AppendLine($"- Candidates: {report.CandidateCount}")
             .AppendLine($"- Omitted by limit: {report.OmittedCount}")
-            .AppendLine($"- Parse/read errors: {report.ParseErrorCount}").AppendLine();
+            .AppendLine($"- Parse errors: {report.ParseErrorCount}")
+            .AppendLine($"- Indexed source types: {report.IndexedTypeCount}")
+            .AppendLine($"- Assignments with unresolved receiver types: {report.UnresolvedReceiverCount}")
+            .AppendLine("- Type matching uses source declarations and does not evaluate project conditions.").AppendLine();
         foreach (var item in report.Findings)
         {
             text.AppendLine($"## `{item.Path}:{item.Line}:{item.Column}`")

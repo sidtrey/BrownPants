@@ -145,7 +145,7 @@ Repository inventories skip generated `TestResults`, `test-results`, `testresult
 
 ### WinForms thread access review
 
-For a legacy WinForms application, run `brownpants winforms analyze <repository>` to list syntax-based candidate property writes on controls. Reports separate recognizable background callbacks from `Invoke`/`BeginInvoke`/`InvokeAsync` callback syntax; `InvokeRequired` is only a marker. Every result remains a candidate because static syntax cannot prove the runtime thread or successful marshaling. The command parses C# and Visual Basic without building or evaluating the project, so it can inspect .NET Framework code from a .NET 10 host on any OS. See the [WinForms review guide](integrations/winforms/README.md).
+For a legacy WinForms application, run `brownpants winforms analyze <repository>` to list candidate property writes on controls. It indexes C#/VB declarations across files, follows partial/derived controls and typed member chains, recognizes aliases, and respects local scopes so same-named ordinary objects do not inherit a Control's type. The report also counts unresolved receivers as coverage issues. It separates recognizable background callbacks from `Invoke`/`BeginInvoke`/`InvokeAsync` callback syntax; `InvokeRequired` is only a marker. Every result remains a candidate because source syntax cannot prove runtime thread identity or successful marshaling. The command parses C# and Visual Basic without building or evaluating the project, so it can inspect .NET Framework code from a .NET 10 host on any OS. See the [WinForms review guide](integrations/winforms/README.md).
 
 ### GitHub Copilot in Visual Studio and VS Code
 

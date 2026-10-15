@@ -8,4 +8,4 @@ public sealed record WinFormsUiThreadingIssue(string Path, int Line, string Id, 
 
 public sealed record WinFormsUiThreadingReport(int SchemaVersion, int ScannedFiles, int CandidateCount,
     int OmittedCount, int ParseErrorCount, IReadOnlyList<WinFormsUiThreadingFinding> Findings,
-    IReadOnlyList<WinFormsUiThreadingIssue> Issues);
+    IReadOnlyList<WinFormsUiThreadingIssue> Issues, int UnresolvedReceiverCount = 0, int IndexedTypeCount = 0);

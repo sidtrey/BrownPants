@@ -9,7 +9,8 @@ public static class WinFormsCommand
         if (args.Length > 0 && args[0] is "--help" or "-h")
         {
             output.WriteLine("Usage: brownpants winforms analyze <repository> [--format markdown|json] [--limit 1..10000]");
-            output.WriteLine("Reports syntax-based WinForms property-write candidates; no project evaluation or source execution.");
+            output.WriteLine("Indexes source declarations across C#/VB files and reports scoped WinForms property-write candidates.");
+            output.WriteLine("No project evaluation or source execution; unresolved receiver types are shown as coverage issues.");
             return 0;
         }
         if (args.Length < 2 || !args[0].Equals("analyze", StringComparison.OrdinalIgnoreCase))
