@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "runDate": "2026-10-15",
+  "sourceCommit": "921ebf07c8f0b190e477ef347aea7c5d6afe428f",
+  "host": {
+    "cli": "Codex CLI 0.162.1",
+    "model": "gpt-6-luna",
+    "dotnetSdk": "10.0.402",
+    "os": "Windows",
+    "shell": "PowerShell 7.6.6"
+  },
+  "task": {
+    "acceptanceCriteriaSha256": "777ecb0e7523c67dc4a3e8b28cebae70e7b9476939c00a65eea50308c7d3dd63",
+    "promptSha256": "BAE85DC4E442CE8C9575D5B1D27C8D1D1CE4F7AA2FE78238F4C70058A6F25E59",
+    "seededSourceSha256": "824F0DF68674A89D352DB4D9DA764DDF8552C73803600AC8207A8273B2453F47",
+    "fixedOrderRepositorySha256": "4C92563FA6E7F45D666F5CF899514201613EE4E00CC2FFFE91AC45B52398C350",
+    "baselineAndAssistedFixesIdentical": true
+  },
+  "agentRuns": {
+    "baseline": {
+      "completed": true,
+      "usage": {
+        "inputTokens": 299072,
+        "cachedInputTokens": 269824,
+        "outputTokens": 3531
+      },
+      "agentReportedCheck": "not verified by agent; independent check passed"
+    },
+    "assisted": {
+      "completed": true,
+      "usage": {
+        "inputTokens": 389425,
+        "cachedInputTokens": 344576,
+        "outputTokens": 3331
+      },
+      "agentReportedCheck": "not verified by agent; independent check passed"
+    }
+  },
+  "validation": {
+    "sameSeededPrecheckFailedForBoth": true,
+    "precheckFailure": "Batch import saved 1 of 2 orders.",
+    "samePostFixCommand": "dotnet run --project managed/tests/LegacyOrderDesk.Checks.csproj -c Release",
+    "baselinePostFix": "passed",
+    "assistedPostFix": "passed",
+    "acceptanceHashVerifiedByDriver": true,
+    "evaluatorSelfTest": "passed: 20 expected facts and 2 decoys",
+    "brownpantsInventoryCandidateSignals": 21,
+    "brownpantsManagedImpactDirectCallers": 4,
+    "brownpantsManagedImpactTransitiveCallers": 1,
+    "brownpantsManagedImpactAffectedFiles": 2
+  },
+  "scoring": {
+    "schemaVersion": 1,
+    "criteriaSha256": "777ecb0e7523c67dc4a3e8b28cebae70e7b9476939c00a65eea50308c7d3dd63",
+    "conditions": [
+      {
+        "condition": "spec-kit",
+        "expected": 20,
+        "submitted": 7,
+        "truePositives": 5,
+        "falsePositives": 2,
+        "falseNegatives": 15,
+        "precision": 0.7143,
+        "recall": 0.25,
+        "byCategory": [
+          {
+            "category": "managed-call",
+            "expected": 4,
+            "submitted": 4,
+            "truePositives": 4,
+            "falsePositives": 0,
+            "falseNegatives": 0,
+            "precision": 1.0,
+            "recall": 1.0
+          },
+          {
+            "category": "architecture-candidate",
+            "expected": 5,
+            "submitted": 0,
+            "truePositives": 0,
+            "falsePositives": 0,
+            "falseNegatives": 5,
+            "precision": 0,
+            "recall": 0.0
+          },
+          {
+            "category": "framework-candidate",
+            "expected": 10,
+            "submitted": 2,
+            "truePositives": 0,
+            "falsePositives": 2,
+            "falseNegatives": 10,
+            "precision": 0.0,
+            "recall": 0.0
+          },
+          {
+            "category": "test-identification",
+            "expected": 1,
+            "submitted": 1,
+            "truePositives": 1,
+            "falsePositives": 0,
+            "falseNegatives": 0,
+            "precision": 1.0,
+            "recall": 1.0
+          }
+        ]
+      },
+      {
+        "condition": "spec-kit-plus-brownpants",
+        "expected": 20,
+        "submitted": 9,
+        "truePositives": 6,
+        "falsePositives": 3,
+        "falseNegatives": 14,
+        "precision": 0.6667,
+        "recall": 0.3,
+        "byCategory": [
+          {
+            "category": "managed-call",
+            "expected": 4,
+            "submitted": 4,
+            "truePositives": 4,
+            "falsePositives": 0,
+            "falseNegatives": 0,
+            "precision": 1.0,
+            "recall": 1.0
+          },
+          {
+            "category": "architecture-candidate",
+            "expected": 5,
+            "submitted": 1,
+            "truePositives": 0,
+            "falsePositives": 1,
+            "falseNegatives": 5,
+            "precision": 0.0,
+            "recall": 0.0
+          },
+          {
+            "category": "framework-candidate",
+            "expected": 10,
+            "submitted": 3,
+            "truePositives": 2,
+            "falsePositives": 1,
+            "falseNegatives": 8,
+            "precision": 0.6667,
+            "recall": 0.2
+          },
+          {
+            "category": "test-identification",
+            "expected": 1,
+            "submitted": 1,
+            "truePositives": 0,
+            "falsePositives": 1,
+            "falseNegatives": 1,
+            "precision": 0.0,
+            "recall": 0.0
+          }
+        ]
+      }
+    ],
+    "recallGainPercentagePoints": 5.0,
+    "managedCallRecallGainPercentagePoints": 0.0,
+    "advantageThreshold": 20,
+    "advantageDemonstrated": false
+  }
+}

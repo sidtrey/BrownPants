@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "findings": [
+    { "id": "EDGE_SINGLE_OVERLOAD", "category": "managed-call", "path": "managed/Workflows/OrderImportWorkflow.cs", "target": "fully-qualified target signature", "line": 1 },
+    { "id": "EDGE_BATCH_OVERLOAD", "category": "managed-call", "path": "managed/Workflows/OrderImportWorkflow.cs", "target": "fully-qualified target signature", "line": 1 },
+    { "id": "EDGE_GENERIC_MAPPING", "category": "managed-call", "path": "managed/Workflows/OrderImportWorkflow.cs", "target": "fully-qualified target signature", "line": 1 },
+    { "id": "DI_BATCH_REGISTRATION", "category": "architecture-candidate", "path": "managed/Workflows/OrderImportWorkflow.cs", "line": 1 },
+    { "id": "FACTORY_CREATION", "category": "architecture-candidate", "path": "managed/Workflows/OrderImportWorkflow.cs", "line": 1 },
+    { "id": "MFC_MESSAGE_ENTRY", "category": "framework-candidate", "path": "legacy/Native/OrderMfcView.cpp", "line": 1 },
+    { "id": "CPPCLI_BOUNDARY", "category": "framework-candidate", "path": "legacy/Bridge/OrderManagedBridge.cpp", "line": 1 },
+    { "id": "NHIBERNATE_PERSISTENCE", "category": "framework-candidate", "path": "legacy/Framework/OrderDataAccess.cs", "line": 1 },
+    { "id": "NHIBERNATE_MAPPING", "category": "framework-candidate", "path": "legacy/Persistence/OrderEntity.hbm.xml", "line": 1 },
+    { "id": "REGRESSION_CHECK", "category": "test", "path": "checks/Program.cs", "line": 1 }
+  ],
+  "notes": [],
+  "changedPaths": [],
+  "remainingLimitations": []
+}

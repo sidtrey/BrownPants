@@ -18,34 +18,24 @@ That gives a team a reviewable starting point before it writes a spec or edits c
 - **QA needs to know what to verify and what shipped.** The local workbench presents feature scenarios and tasks. The Azure DevOps adapter can trace related work items, PRs, builds, and releases; the local PR preview carries QA guidance and evidence gaps. A user can prepare or create a draft PR, while review and merge stay human-controlled.
 - **Your company restricts AI services or command-line agents.** BrownPants' default inspection runs locally without an LLM, network calls, project builds, or source modifications. IDE and SDD adapters are optional; an organization can use local reports or approved hosts without enabling online integrations.
 
-## Spec Kit vs. Spec Kit + BrownPants: same fix, wider brownfield view
+## Spec Kit vs. Spec Kit + BrownPants: brownfield bug lab
 
-### The developer's question: “What else relies on this code?”
+The [Brownfield Bug Lab](examples/brownfield-bug-lab/) is a small .NET 10 order importer with a seeded retry-row bug, generic overloads, factory/DI wiring, and analysis-only .NET Framework, MFC/C++/CLI, and NHibernate artifacts. It keeps the old integrations visible for inspection without requiring those frameworks to build.
 
-Spec Kit gives the team the feature spec, plan, task list, and agreed acceptance criteria. In this comparison, both workflows fixed the same seeded regression in BrownPants' `RepositoryScanner.IsTestPath`, and both passed the same tests.
+BrownPants' own reports identify the legacy project and source candidates, including **21 architecture signals** with paths and lines. Its semantic impact report resolves the four managed calls around the changed batch save: single-item `Save(T)`, batch `Save(IEnumerable<T>)`, `SaveMapped<TSource>`, and the generic forwarding call from `SaveMapped` to the batch overload. The forwarding path matters because both ordinary and mapped imports can reach the affected method. MFC and NHibernate findings remain candidates; the fixture does not prove native-to-managed runtime behavior or database behavior.
 
-**With Spec Kit alone**, the agent inspected the scanner and restored recognition of files under exact `test` and `tests` directories. It produced the right narrow code fix.
+The matched agent run produced the same narrow repair in both conditions, and the same independent regression check passed after each fix. The structured finding scores were:
 
-**With Spec Kit + BrownPants**, the agent got that same task plus a repository map before editing. BrownPants showed that this classifier feeds three user-visible evidence paths:
+| Finding domain | Expected | Spec Kit hits / submitted | + BrownPants hits / submitted |
+| --- | ---: | ---: | ---: |
+| Managed call edges | 4 | 4 / 4 | 4 / 4 |
+| Factory and DI candidates | 5 | 0 / 0 | 0 / 1 |
+| MFC and NHibernate candidates | 10 | 0 / 2 | 2 / 3 |
+| Test candidates | 1 | 1 / 1 | 0 / 1 |
 
-```text
-IsTestPath
-  ├─ repository inventory → which files appear as test candidates
-  ├─ bug investigation   → whether a clue match is labeled as a test
-  └─ call impact         → whether an affected caller is labeled as a test
-```
+Overall recall moved from **20% to 25%**, while precision moved from **71.4% to 66.7%**. The assisted run therefore **did not meet the frozen advantage criterion** of at least 20 percentage points more recall with no precision loss. This pair shows BrownPants can produce detailed source-linked brownfield evidence; it does not show a better repair or a net improvement in the agents' final structured findings. The agents used **299,072 input / 3,531 output tokens** and **389,425 input / 3,331 output tokens**, respectively (cached input is included in input totals).
 
-Those links are in [`RepositoryScanner.cs`](src/BrownPants.Cli/Analysis/RepositoryScanner.cs#L49), [`RepositoryInvestigator.cs`](src/BrownPants.Cli/Analysis/RepositoryInvestigator.cs#L23), and [`CallImpactAnalyzer.cs`](src/BrownPants.Cli/Analysis/CallImpactAnalyzer.cs#L118). That gives a developer a concrete review list: check the inventory, investigation labels, impact labels, and the relevant scanner/call-impact tests. QA can see which candidate paths deserve attention instead of receiving only “the fix passed.” Candidate paths still need human review; they do not prove coverage.
-
-### What the head-to-head actually showed
-
-- The same seeded check failed before either formal run, as expected for the injected bug.
-- Both agents independently restored the same directory rule. Neither changed the test file; the experiment driver ran the tests afterward.
-- Both formal runs completed. Each passed **75/75 focused tests** and **235/235 full Release tests**. Two preliminary setup attempts had no completed records and were excluded from this pair.
-- BrownPants' file-level impact report showed **49 direct caller paths, 138 transitive paths, 20 files, and 2 projects** for the whole changed scanner file. Those figures are not a count of calls to `IsTestPath` alone.
-- Provider-reported usage was **153,864 input / 1,047 output tokens** with Spec Kit and **186,445 input / 1,448 output tokens** with the additional BrownPants reports. The extra context used more tokens in this pair; this is evidence for impact visibility, not token savings or a claim that the agent wrote better code.
-
-The value shown here is earlier impact awareness: BrownPants connects a requested change to surrounding code and likely QA review areas. See the [full task, evidence, run status, hashes, and limits](docs/comparisons/brownpants-vs-spec-kit-2026-10.md).
+Both pre-fix checks failed with “Batch import saved 1 of 2 orders.” The driver verified the frozen task hash and ran the same post-fix check in both copies; both passed. The [full protocol, scores, run details, and limits](docs/comparisons/brownfield-bug-lab-2026-10.md) include the machine-readable [results](docs/comparisons/brownfield-bug-lab-2026-10-results.json). This is a measured case study, not a general performance claim.
 
 BrownPants complements Spec Kit: Spec Kit structures the work; BrownPants adds evidence about the existing code and links completion claims to reviewable artifacts. Neither guarantees a correct fix or replaces human review.
 

@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    {
+      "taskId": "T001",
+      "criterionIds": ["AC-001", "AC-002", "AC-003", "AC-004", "SC-001"],
+      "result": "passed",
+      "verificationCommand": "Run managed checks and semantic impact against the fixture",
+      "evidencePaths": [
+        "examples/brownfield-bug-lab/managed/LegacyOrderDesk.csproj",
+        "examples/brownfield-bug-lab/managed/Persistence/OrderRepository.cs",
+        "examples/brownfield-bug-lab/README.md",
+        "specs/048-brownfield-capability-demo/verification.md"
+      ]
+    },
+    {
+      "taskId": "T002",
+      "criterionIds": ["AC-001", "AC-006", "SC-002"],
+      "result": "passed",
+      "verificationCommand": "Run repository inventory and inspect the legacy evidence fixture",
+      "evidencePaths": [
+        "examples/brownfield-bug-lab/legacy/Native/LegacyOrderDesk.vcxproj",
+        "examples/brownfield-bug-lab/legacy/Bridge/OrderManagedBridge.cpp",
+        "examples/brownfield-bug-lab/legacy/Persistence/hibernate.cfg.xml",
+        "examples/brownfield-bug-lab/legacy/Persistence/OrderEntity.hbm.xml",
+        "specs/048-brownfield-capability-demo/verification.md"
+      ]
+    },
+    {
+      "taskId": "T003",
+      "criterionIds": ["AC-004", "AC-005", "SC-004", "SC-005"],
+      "result": "passed",
+      "verificationCommand": "Review frozen task inputs, answer key, protocol, and result schema",
+      "evidencePaths": [
+        "examples/brownfield-bug-lab/evaluation/task-spec.md",
+        "examples/brownfield-bug-lab/evaluation/answer-key.json",
+        "examples/brownfield-bug-lab/evaluation/protocol.md",
+        "examples/brownfield-bug-lab/evaluation/result.schema.md"
+      ]
+    },
+    {
+      "taskId": "T004",
+      "criterionIds": ["AC-003", "SC-003"],
+      "result": "passed",
+      "verificationCommand": "Prepare matched copies and verify the same seeded precheck failure",
+      "evidencePaths": [
+        "examples/brownfield-bug-lab/evaluation/Prepare-Comparison.ps1",
+        "examples/brownfield-bug-lab/evaluation/Seed-BrownfieldBug.ps1",
+        "examples/brownfield-bug-lab/evaluation/bug-report.md",
+        "specs/048-brownfield-capability-demo/verification.md"
+      ]
+    },
+    {
+      "taskId": "T005",
+      "criterionIds": ["AC-004", "AC-005", "SC-001", "SC-004", "SC-005"],
+      "result": "passed",
+      "verificationCommand": "Run scorer self-test against all expected findings and decoys",
+      "evidencePaths": [
+        "examples/brownfield-bug-lab/evaluation/Score-Comparison.ps1",
+        "examples/brownfield-bug-lab/evaluation/answer-key.json",
+        "docs/comparisons/brownfield-bug-lab-2026-10-results.json"
+      ]
+    },
+    {
+      "taskId": "T006",
+      "criterionIds": ["AC-003", "AC-004", "AC-005", "SC-003", "SC-005"],
+      "result": "passed",
+      "verificationCommand": "Complete matched agent runs, independently verify both fixes, and score results",
+      "evidencePaths": [
+        "docs/comparisons/brownfield-bug-lab-2026-10.md",
+        "docs/comparisons/brownfield-bug-lab-2026-10-results.json",
+        "specs/048-brownfield-capability-demo/verification.md"
+      ]
+    },
+    {
+      "taskId": "T007",
+      "criterionIds": ["AC-004", "AC-005", "AC-006", "SC-004", "SC-005"],
+      "result": "passed",
+      "verificationCommand": "Audit README and comparison claims against captured outputs and scoring",
+      "evidencePaths": [
+        "README.md",
+        "examples/brownfield-bug-lab/README.md",
+        "docs/comparisons/brownfield-bug-lab-2026-10.md",
+        "docs/comparisons/brownfield-bug-lab-2026-10-results.json"
+      ]
+    },
+    {
+      "taskId": "T008",
+      "criterionIds": ["AC-001", "AC-002", "AC-003", "AC-004", "AC-005", "AC-006", "SC-001", "SC-002", "SC-003", "SC-004", "SC-005"],
+      "result": "passed",
+      "verificationCommand": "Run managed checks, BrownPants analysis, evaluator, acceptance validators, and git diff --check",
+      "evidencePaths": [
+        "specs/048-brownfield-capability-demo/verification.md",
+        "specs/048-brownfield-capability-demo/acceptance-criteria.sha256",
+        "specs/048-brownfield-capability-demo/acceptance-evidence.json",
+        "scripts/acceptance-criteria-hash.ps1",
+        "scripts/check-acceptance-evidence.ps1"
+      ]
+    }
+  ]
+}
