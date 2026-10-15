@@ -9,13 +9,13 @@ Add an opt-in Azure DevOps adapter that reads mapped work-item and delivery evid
 ## Technical Context
 
 **Language/Version**: C# / .NET 10; Markdown and JSON configuration/reports  
-**Primary Dependencies**: Existing CLI and `System.Net.Http`; no AI SDK, Azure DevOps SDK, or mandatory Azure CLI dependency  
-**Storage**: Repository-local mapping/configuration and optional local preview; no credential storage  
+**Primary Dependencies**: Existing CLI, `System.Net.Http`, and Microsoft Authentication Library for .NET (MSAL)
+**Storage**: Repository-local mapping/configuration and optional local preview; no BrownPants-managed token persistence
 **Testing**: xUnit with injected `HttpMessageHandler`, CLI tests, and cross-platform package smoke  
 **Target Platform**: Windows, macOS, Linux; Azure DevOps Services first, with custom Server URLs only where API behavior is verified  
 **Project Type**: .NET CLI provider integration  
 **Performance Goals**: Bounded requests and response samples; report normal work-item sets without unbounded pagination  
-**Constraints**: No requests by default; allowlisted Azure DevOps Services hosts; explicit HTTPS custom-host opt-in; fixed environment-only credential; stable outputs; only one confirmed draft-PR POST; no reviewer, approval, merge, completion, work-item field/state, build, or release writes  
+**Constraints**: No requests by default; allowlisted Azure DevOps Services hosts; explicit HTTPS custom-host opt-in; browser-based Entra or fixed environment-only token auth; stable outputs; only one confirmed draft-PR POST; no reviewer, approval, merge, completion, work-item field/state, build, or release writes
 **Scope**: Connection and feature mappings, traceability report, local PR preview, explicit Azure Repos draft-PR create operation, docs and tests
 
 ## Constitution Check
@@ -31,7 +31,7 @@ Gate: PASS, provided the HTTP client exposes only the allowed read operations an
 ## Architecture and Data Flow
 
 1. Parse and validate `.brownpants/azure-devops.json` without reading the credential.
-2. Resolve the fixed `BROWNPANTS_AZURE_DEVOPS_TOKEN` environment variable only after an online option is supplied; reject unknown cloud hosts and require explicit custom-host opt-in for Azure DevOps Server; redact any request/exception details containing secrets.
+2. After `--online`, use MSAL system-browser delegated sign-in for configured Azure DevOps Services auth or read `BROWNPANTS_AZURE_DEVOPS_TOKEN` for headless/Server auth. Reject unapproved cloud hosts and require explicit custom-host opt-in for Server; redact request/exception details containing secrets.
 3. Map the selected feature path to configured work-item IDs. Issue versioned GET requests only to the configured Azure DevOps host and bounded endpoints.
 4. Normalize work-item fields and returned relations into a deterministic report with diagnostics and completeness status.
 5. Build a local PR preview by checking the acceptance digest, task list, evidence ledger, and local evidence paths; include missing proof as a visible gap.

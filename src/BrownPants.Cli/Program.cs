@@ -43,6 +43,9 @@ public static class Program
         if (string.Equals(args[0], "impact", StringComparison.OrdinalIgnoreCase))
             return RunImpact(args.Skip(1).ToArray(), output, error);
 
+        if (string.Equals(args[0], "devops", StringComparison.OrdinalIgnoreCase))
+            return RunDevOps(args.Skip(1).ToArray(), output, error);
+
         if (!string.Equals(args[0], "inspect", StringComparison.OrdinalIgnoreCase))
         {
             error.WriteLine($"Unknown command '{args[0]}'. Use --help for usage.");
@@ -117,6 +120,252 @@ public static class Program
 
     private static bool IsHelpToken(string argument) => argument is "--help" or "-h";
 
+    private static int RunDevOps(string[] args, TextWriter output, TextWriter error)
+    {
+        if (args.Length == 0 || IsHelpToken(args[0]))
+        {
+            output.WriteLine("Usage: brownpants devops <trace|pr> --help");
+            return 0;
+        }
+        if (args[0].Equals("pr", StringComparison.OrdinalIgnoreCase))
+            return RunDevOpsPr(args.Skip(1).ToArray(), output, error);
+        if (!args[0].Equals("trace", StringComparison.OrdinalIgnoreCase))
+        {
+            error.WriteLine("Expected 'devops trace' or 'devops pr preview'.");
+            return 2;
+        }
+
+        string? repository = null;
+        string? feature = null;
+        string? configPath = null;
+        var online = false;
+        var allowCustomHost = false;
+        var format = "markdown";
+        for (var index = 1; index < args.Length; index++)
+        {
+            switch (args[index])
+            {
+                case "--feature":
+                    if (++index >= args.Length || string.IsNullOrWhiteSpace(args[index])) { error.WriteLine("Missing value for --feature."); return 2; }
+                    feature = args[index];
+                    break;
+                case "--config":
+                    if (++index >= args.Length || string.IsNullOrWhiteSpace(args[index])) { error.WriteLine("Missing value for --config."); return 2; }
+                    configPath = args[index];
+                    break;
+                case "--format":
+                    if (++index >= args.Length || string.IsNullOrWhiteSpace(args[index])) { error.WriteLine("Missing value for --format."); return 2; }
+                    format = args[index].ToLowerInvariant();
+                    break;
+                case "--online": online = true; break;
+                case "--allow-custom-host": allowCustomHost = true; break;
+                default:
+                    if (args[index].StartsWith("-", StringComparison.Ordinal)) { error.WriteLine($"Unknown devops option '{args[index]}'."); return 2; }
+                    if (repository is not null) { error.WriteLine("Only one repository path may be supplied."); return 2; }
+                    repository = args[index];
+                    break;
+            }
+        }
+        if (!online) { error.WriteLine("Azure DevOps access requires explicit --online opt-in."); return 2; }
+        if (string.IsNullOrWhiteSpace(feature)) { error.WriteLine("A --feature relative path is required."); return 2; }
+        if (format is not ("markdown" or "json")) { error.WriteLine("Unsupported format. Expected markdown or json."); return 2; }
+
+        try
+        {
+            var root = Path.GetFullPath(repository ?? Directory.GetCurrentDirectory());
+            var configuration = AzureDevOpsConfiguration.Load(root, configPath, allowCustomHost);
+            var token = AzureDevOpsAuthentication.AcquireTokenAsync(configuration).GetAwaiter().GetResult();
+            using var client = new AzureDevOpsClient(configuration, new HttpClientHandler { AllowAutoRedirect = false }, token);
+            var report = AzureDevOpsTraceabilityAnalyzer.AnalyzeAsync(configuration, feature, client).GetAwaiter().GetResult();
+            output.WriteLine(format == "json" ? AzureDevOpsReportRenderer.RenderJson(report) : AzureDevOpsReportRenderer.RenderMarkdown(report));
+            return report.IsComplete ? 0 : 1;
+        }
+        catch (AzureDevOpsAuthenticationException exception)
+        {
+            error.WriteLine($"Azure DevOps authentication failed: {exception.Message}");
+            return 1;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or AzureDevOpsApiException)
+        {
+            error.WriteLine($"Azure DevOps trace failed: {exception.Message}");
+            return 1;
+        }
+    }
+
+    private static int RunDevOpsPr(string[] args, TextWriter output, TextWriter error)
+    {
+        if (args.Length > 0 && args[0].Equals("create", StringComparison.OrdinalIgnoreCase))
+            return RunDevOpsPrCreate(args.Skip(1).ToArray(), output, error);
+        return RunDevOpsPreview(args, output, error);
+    }
+
+    private static int RunDevOpsPrCreate(string[] args, TextWriter output, TextWriter error)
+    {
+        if (args.Length == 0 || IsHelpToken(args[0]))
+        {
+            output.WriteLine("Usage: brownpants devops pr create <repository> --preview <file> --online --confirm [--allow-custom-host] [--config <path>]");
+            output.WriteLine("Creates exactly one draft PR and associates only work items listed in the integrity-checked preview.");
+            return 0;
+        }
+        string? repository = null;
+        string? previewPath = null;
+        string? configPath = null;
+        var online = false;
+        var confirmed = false;
+        var allowCustomHost = false;
+        for (var index = 0; index < args.Length; index++)
+        {
+            switch (args[index])
+            {
+                case "--preview":
+                case "--config":
+                    var option = args[index];
+                    if (++index >= args.Length || string.IsNullOrWhiteSpace(args[index])) { error.WriteLine($"Missing value for {option}."); return 2; }
+                    if (option == "--preview") previewPath = args[index]; else configPath = args[index];
+                    break;
+                case "--online": online = true; break;
+                case "--confirm": confirmed = true; break;
+                case "--allow-custom-host": allowCustomHost = true; break;
+                default:
+                    if (args[index].StartsWith("-", StringComparison.Ordinal)) { error.WriteLine($"Unknown devops option '{args[index]}'."); return 2; }
+                    if (repository is not null) { error.WriteLine("Only one repository path may be supplied."); return 2; }
+                    repository = args[index];
+                    break;
+            }
+        }
+        if (!online || !confirmed) { error.WriteLine("Draft PR creation requires explicit --online and --confirm opt-ins."); return 2; }
+        if (string.IsNullOrWhiteSpace(previewPath)) { error.WriteLine("A saved --preview file is required."); return 2; }
+        try
+        {
+            var root = Path.GetFullPath(repository ?? Directory.GetCurrentDirectory());
+            var configuration = AzureDevOpsConfiguration.Load(root, configPath, allowCustomHost);
+            var content = File.ReadAllText(Path.GetFullPath(Path.IsPathRooted(previewPath) ? previewPath : Path.Combine(root, previewPath)));
+            var token = AzureDevOpsAuthentication.AcquireTokenAsync(configuration).GetAwaiter().GetResult();
+            using var submitter = new AzureDevOpsPullRequestSubmitter(configuration, new HttpClientHandler { AllowAutoRedirect = false }, token);
+            var result = submitter.CreateDraftAsync(content).GetAwaiter().GetResult();
+            output.WriteLine($"Created draft PR {result.Id}: {result.Url}");
+            output.WriteLine("The PR remains a draft; BrownPants does not approve, complete, or merge it.");
+            return 0;
+        }
+        catch (AzureDevOpsAuthenticationException exception)
+        {
+            error.WriteLine($"Azure DevOps authentication failed: {exception.Message}");
+            return 1;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or AzureDevOpsApiException)
+        {
+            error.WriteLine($"Unable to create draft PR: {exception.Message}");
+            return 1;
+        }
+    }
+
+    private static int RunDevOpsPreview(string[] args, TextWriter output, TextWriter error)
+    {
+        if (args.Length == 0 || args[0].Equals("--help", StringComparison.OrdinalIgnoreCase))
+        {
+            output.WriteLine("Usage: brownpants devops pr preview <repository> --feature <relative-feature-path> --source <branch> --target <branch> [--online] [--output <relative-path>] [--overwrite]");
+            return 0;
+        }
+        if (!args[0].Equals("preview", StringComparison.OrdinalIgnoreCase))
+        {
+            error.WriteLine("Only 'devops pr preview' is available in this build.");
+            return 2;
+        }
+        string? repository = null;
+        string? feature = null;
+        string? source = null;
+        string? target = null;
+        string? configPath = null;
+        string? outputPath = null;
+        var online = false;
+        var allowCustomHost = false;
+        var overwrite = false;
+        for (var index = 1; index < args.Length; index++)
+        {
+            switch (args[index])
+            {
+                case "--feature":
+                case "--source":
+                case "--target":
+                case "--config":
+                case "--output":
+                    var option = args[index];
+                    if (++index >= args.Length || string.IsNullOrWhiteSpace(args[index])) { error.WriteLine($"Missing value for {option}."); return 2; }
+                    switch (option)
+                    {
+                        case "--feature": feature = args[index]; break;
+                        case "--source": source = args[index]; break;
+                        case "--target": target = args[index]; break;
+                        case "--config": configPath = args[index]; break;
+                        case "--output": outputPath = args[index]; break;
+                    }
+                    break;
+                case "--online": online = true; break;
+                case "--allow-custom-host": allowCustomHost = true; break;
+                case "--overwrite": overwrite = true; break;
+                default:
+                    if (args[index].StartsWith("-", StringComparison.Ordinal)) { error.WriteLine($"Unknown devops option '{args[index]}'."); return 2; }
+                    if (repository is not null) { error.WriteLine("Only one repository path may be supplied."); return 2; }
+                    repository = args[index];
+                    break;
+            }
+        }
+        if (string.IsNullOrWhiteSpace(feature) || string.IsNullOrWhiteSpace(source) || string.IsNullOrWhiteSpace(target))
+        { error.WriteLine("--feature, --source, and --target are required."); return 2; }
+        if (overwrite && outputPath is null) { error.WriteLine("--overwrite requires --output."); return 2; }
+
+        try
+        {
+            var root = Path.GetFullPath(repository ?? Directory.GetCurrentDirectory());
+            var configuration = AzureDevOpsConfiguration.Load(root, configPath, allowCustomHost);
+            AzureDevOpsTraceReport? trace = null;
+            if (online)
+            {
+                var token = AzureDevOpsAuthentication.AcquireTokenAsync(configuration).GetAwaiter().GetResult();
+                using var client = new AzureDevOpsClient(configuration, new HttpClientHandler { AllowAutoRedirect = false }, token);
+                trace = AzureDevOpsTraceabilityAnalyzer.AnalyzeAsync(configuration, feature, client).GetAwaiter().GetResult();
+            }
+            var preview = PullRequestPreviewAnalyzer.Analyze(root, feature, source, target, configuration.Repository, trace);
+            var rendered = PullRequestPreviewRenderer.Render(preview);
+            if (outputPath is null) output.Write(rendered);
+            else
+            {
+                var destination = ResolveRepositoryOutput(root, outputPath);
+                if (HasReparsePointAncestor(destination, root)) throw new ArgumentException("Preview output cannot pass through a symbolic link or reparse point.");
+                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                if (overwrite) File.WriteAllText(destination, rendered);
+                else
+                {
+                    using var stream = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+                    using var writer = new StreamWriter(stream);
+                    writer.Write(rendered);
+                }
+                output.WriteLine($"Created PR preview: {Path.GetRelativePath(root, destination).Replace('\\', '/')}");
+            }
+            return preview.IsComplete ? 0 : 1;
+        }
+        catch (AzureDevOpsAuthenticationException exception)
+        {
+            error.WriteLine($"Azure DevOps authentication failed: {exception.Message}");
+            return 1;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or AzureDevOpsApiException)
+        {
+            error.WriteLine($"Unable to create PR preview: {exception.Message}");
+            return 1;
+        }
+    }
+
+    private static string ResolveRepositoryOutput(string root, string relativePath)
+    {
+        if (Path.IsPathRooted(relativePath)) throw new ArgumentException("Preview output must be a repository-relative path.");
+        var destination = Path.GetFullPath(Path.Combine(root, relativePath));
+        var relative = Path.GetRelativePath(root, destination);
+        if (relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) || Path.IsPathRooted(relative))
+            throw new ArgumentException("Preview output must remain inside the repository.");
+        return destination;
+    }
+
     private static int WriteTopicHelp(string[] topicParts, TextWriter output, TextWriter error)
     {
         var topic = string.Join(' ', topicParts);
@@ -127,6 +376,31 @@ public static class Program
         var frameOperation = topic.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).FirstOrDefault() ?? string.Empty;
 
         if (string.IsNullOrEmpty(command)) { WriteGlobalHelp(output); return 0; }
+        if (command.Equals("devops", StringComparison.OrdinalIgnoreCase))
+        {
+            if (frameOperation.Equals("trace", StringComparison.OrdinalIgnoreCase))
+            {
+                output.WriteLine("Usage: brownpants devops trace <repository> --feature <relative-feature-path> --online [--allow-custom-host] [--config <path>] [--format markdown|json]");
+                output.WriteLine("  --online             Required before credentials are read or HTTP requests are made.");
+                output.WriteLine("  Configure authenticationScheme as entra-browser or use BROWNPANTS_AZURE_DEVOPS_TOKEN for token authentication.");
+                return 0;
+            }
+            if (frameOperation.Equals("pr", StringComparison.OrdinalIgnoreCase))
+            {
+                var prOperation = topic.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(2).FirstOrDefault() ?? string.Empty;
+                if (prOperation.Equals("create", StringComparison.OrdinalIgnoreCase))
+                {
+                    output.WriteLine("Usage: brownpants devops pr create <repository> --preview <file> --online --confirm [--allow-custom-host] [--config <path>]");
+                    output.WriteLine("  --confirm            Required before creating one draft PR from the saved preview.");
+                    output.WriteLine("  --online             Required before credentials are read or HTTP requests are made.");
+                    return 0;
+                }
+                output.WriteLine("Usage: brownpants devops pr preview <repository> --feature <relative-feature-path> --source <branch> --target <branch> [--online] [--output <relative-path>] [--overwrite]");
+                return 0;
+            }
+            output.WriteLine("Usage: brownpants devops <trace|pr> --help");
+            return 0;
+        }
         if (command.Equals("inspect", StringComparison.OrdinalIgnoreCase))
         {
             output.WriteLine("Usage: brownpants inspect [path] [--format markdown|json] [--limit 1..10000] [--semantic]");
@@ -208,6 +482,7 @@ public static class Program
         output.WriteLine("  instructions  Discover instruction files or retrieve a selected section.");
         output.WriteLine("  frame         Create or validate a context frame.");
         output.WriteLine("  placement     Classify whether guidance belongs in a constitution or a spec.");
+        output.WriteLine("  devops        Trace Azure DevOps work items and delivery references.");
         output.WriteLine("Usage: brownpants inspect [path] [--format markdown|json] [--limit 1..10000] [--semantic]");
         output.WriteLine("       brownpants investigate [path] --clue <text> [--clue <text> ...] [--format markdown|json] [--limit 1..10000]");
         output.WriteLine("       brownpants impact <repository> --changed <relative-source-path> [--changed <relative-source-path> ...] [--format markdown|json] [--limit 1..10000]");
@@ -215,6 +490,7 @@ public static class Program
         output.WriteLine("       brownpants frame create <repository> <draft.json> <output.md> [--overwrite]");
         output.WriteLine("       brownpants frame validate <repository> <frame.md>");
         output.WriteLine("       brownpants placement --rule <text> [--scope repository|feature|unknown] [--durability enduring|feature|unknown] [--purpose principle|outcome|agent-workflow|mixed|unknown] [--format markdown|json]");
+        output.WriteLine("       brownpants devops trace <repository> --feature <relative-feature-path> --online [--format markdown|json]");
         output.WriteLine("Run 'brownpants <command> --help' for command options. Use -h as an alias.");
         output.WriteLine("Use 'brownpants inspect --help' to understand syntax-only inventory and semantic target resolution.");
     }

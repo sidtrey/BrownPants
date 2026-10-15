@@ -1,22 +1,316 @@
 {
   "schemaVersion": 1,
   "tasks": [
-    { "taskId": "T001", "criterionIds": ["AC-001", "AC-003", "AC-006", "SC-006"], "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsConfigurationTests", "evidencePaths": ["tests/BrownPants.Tests/AzureDevOpsConfigurationTests.cs"], "result": "planned" },
-    { "taskId": "T002", "criterionIds": ["AC-001", "AC-002", "AC-003", "AC-008", "SC-002", "SC-003", "SC-006"], "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsClientTests", "evidencePaths": ["tests/BrownPants.Tests/AzureDevOpsClientTests.cs"], "result": "planned" },
-    { "taskId": "T003", "criterionIds": ["AC-001", "AC-003", "SC-006"], "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsConfigurationTests", "evidencePaths": ["src/BrownPants.Cli/Analysis/AzureDevOpsConfiguration.cs"], "result": "planned" },
-    { "taskId": "T004", "criterionIds": ["AC-001", "AC-002", "AC-003", "AC-008", "SC-002", "SC-006"], "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsClientTests", "evidencePaths": ["src/BrownPants.Cli/Analysis/AzureDevOpsClient.cs"], "result": "planned" },
-    { "taskId": "T005", "criterionIds": ["AC-001", "AC-002", "AC-003", "SC-001", "SC-002", "SC-003"], "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsClientTests", "evidencePaths": ["src/BrownPants.Cli/Analysis/AzureDevOpsTraceabilityAnalyzer.cs"], "result": "planned" },
-    { "taskId": "T006", "criterionIds": ["AC-001", "AC-002", "AC-003", "AC-004", "SC-003"], "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsClientTests", "evidencePaths": ["src/BrownPants.Cli/Output/AzureDevOpsReportRenderer.cs"], "result": "planned" },
-    { "taskId": "T007", "criterionIds": ["AC-001", "AC-003", "AC-008", "SC-006"], "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsClientTests", "evidencePaths": ["src/BrownPants.Cli/Program.cs"], "result": "planned" },
-    { "taskId": "T008", "criterionIds": ["AC-005", "AC-006", "SC-004", "SC-005"], "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsPullRequestPreviewTests", "evidencePaths": ["tests/BrownPants.Tests/AzureDevOpsPullRequestPreviewTests.cs"], "result": "planned" },
-    { "taskId": "T009", "criterionIds": ["AC-005", "AC-006", "SC-004", "SC-005"], "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsPullRequestPreviewTests", "evidencePaths": ["src/BrownPants.Cli/Analysis/PullRequestPreviewAnalyzer.cs", "src/BrownPants.Cli/Output/PullRequestPreviewRenderer.cs"], "result": "planned" },
-    { "taskId": "T010", "criterionIds": ["AC-005", "AC-006", "AC-008", "SC-004", "SC-006"], "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsPullRequestPreviewTests", "evidencePaths": ["src/BrownPants.Cli/Program.cs"], "result": "planned" },
-    { "taskId": "T011", "criterionIds": ["AC-007", "AC-008", "SC-005"], "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsPullRequestSubmissionTests", "evidencePaths": ["tests/BrownPants.Tests/AzureDevOpsPullRequestSubmissionTests.cs"], "result": "planned" },
-    { "taskId": "T012", "criterionIds": ["AC-007", "AC-008", "SC-005"], "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsPullRequestSubmissionTests", "evidencePaths": ["src/BrownPants.Cli/Analysis/AzureDevOpsPullRequestSubmitter.cs"], "result": "planned" },
-    { "taskId": "T013", "criterionIds": ["AC-007", "AC-008", "SC-005"], "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsPullRequestSubmissionTests", "evidencePaths": ["src/BrownPants.Cli/Program.cs"], "result": "planned" },
-    { "taskId": "T014", "criterionIds": ["AC-001", "AC-002", "AC-003", "AC-007", "AC-008", "SC-001", "SC-002", "SC-006"], "verificationCommand": "pwsh -NoProfile -File tests/AzureDevOpsIntegrationTests.ps1", "evidencePaths": ["integrations/azure-devops/README.md", "integrations/README.md"], "result": "planned" },
-    { "taskId": "T015", "criterionIds": ["AC-005", "AC-007", "AC-008", "SC-004", "SC-005"], "verificationCommand": "pwsh -NoProfile -File tests/AzureDevOpsIntegrationTests.ps1", "evidencePaths": ["README.md"], "result": "planned" },
-    { "taskId": "T016", "criterionIds": ["AC-004", "AC-008", "SC-003", "SC-006"], "verificationCommand": "pwsh -NoProfile -File tests/AzureDevOpsIntegrationTests.ps1", "evidencePaths": [".github/workflows/ci.yml"], "result": "planned" },
-    { "taskId": "T017", "criterionIds": ["AC-001", "AC-002", "AC-003", "AC-004", "AC-005", "AC-006", "AC-007", "AC-008", "SC-001", "SC-002", "SC-003", "SC-004", "SC-005", "SC-006"], "verificationCommand": "dotnet build BrownPants.sln -c Release; dotnet test BrownPants.sln -c Release; pwsh -NoProfile -File tests/AzureDevOpsIntegrationTests.ps1; pwsh -NoProfile -File scripts/acceptance-criteria-hash.ps1 -SpecPath specs/030-azure-devops-bridge/spec.md; pwsh -NoProfile -File scripts/check-acceptance-evidence.ps1 -RepositoryRoot . -SpecPath specs/030-azure-devops-bridge/spec.md -TasksPath specs/030-azure-devops-bridge/tasks.md -EvidencePath specs/030-azure-devops-bridge/acceptance-evidence.json", "evidencePaths": ["specs/030-azure-devops-bridge/verification.md"], "result": "planned" }
+    {
+      "taskId": "T001",
+      "criterionIds": [
+        "AC-001",
+        "AC-003",
+        "AC-006",
+        "SC-006"
+      ],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsConfigurationTests",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/AzureDevOpsConfigurationTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T002",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-008",
+        "SC-002",
+        "SC-003",
+        "SC-006"
+      ],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsClientTests",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/AzureDevOpsClientTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T003",
+      "criterionIds": [
+        "AC-001",
+        "AC-003",
+        "SC-006"
+      ],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsConfigurationTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/AzureDevOpsConfiguration.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T004",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-008",
+        "SC-002",
+        "SC-006"
+      ],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsClientTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/AzureDevOpsClient.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T005",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "SC-001",
+        "SC-002",
+        "SC-003"
+      ],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsClientTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/AzureDevOpsTraceabilityAnalyzer.cs",
+        "tests/BrownPants.Tests/AzureDevOpsTraceabilityTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T006",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-004",
+        "SC-003"
+      ],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsClientTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Output/AzureDevOpsReportRenderer.cs",
+        "tests/BrownPants.Tests/AzureDevOpsTraceabilityTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T007",
+      "criterionIds": [
+        "AC-001",
+        "AC-003",
+        "AC-008",
+        "SC-006"
+      ],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsClientTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Program.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T008",
+      "criterionIds": [
+        "AC-005",
+        "AC-006",
+        "SC-004",
+        "SC-005"
+      ],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsPullRequestPreviewTests",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/AzureDevOpsPullRequestPreviewTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T009",
+      "criterionIds": [
+        "AC-005",
+        "AC-006",
+        "SC-004",
+        "SC-005"
+      ],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsPullRequestPreviewTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/PullRequestPreviewAnalyzer.cs",
+        "src/BrownPants.Cli/Output/PullRequestPreviewRenderer.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T010",
+      "criterionIds": [
+        "AC-005",
+        "AC-006",
+        "AC-008",
+        "SC-004",
+        "SC-006"
+      ],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsPullRequestPreviewTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Program.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T011",
+      "criterionIds": [
+        "AC-007",
+        "AC-008",
+        "SC-005"
+      ],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsPullRequestSubmissionTests",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/AzureDevOpsPullRequestSubmissionTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T012",
+      "criterionIds": [
+        "AC-007",
+        "AC-008",
+        "SC-005"
+      ],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsPullRequestSubmissionTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/AzureDevOpsPullRequestSubmitter.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T013",
+      "criterionIds": [
+        "AC-007",
+        "AC-008",
+        "SC-005"
+      ],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsPullRequestSubmissionTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Program.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T014",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-007",
+        "AC-008",
+        "SC-001",
+        "SC-002",
+        "SC-006"
+      ],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOps",
+      "evidencePaths": [
+        "integrations/azure-devops/README.md",
+        "integrations/README.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T015",
+      "criterionIds": [
+        "AC-005",
+        "AC-007",
+        "AC-008",
+        "SC-004",
+        "SC-005"
+      ],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOps",
+      "evidencePaths": [
+        "README.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T016",
+      "criterionIds": [
+        "AC-004",
+        "AC-008",
+        "SC-003",
+        "SC-006"
+      ],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOps",
+      "evidencePaths": [
+        ".github/workflows/ci.yml"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T017",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-004",
+        "AC-005",
+        "AC-006",
+        "AC-007",
+        "AC-008",
+        "AC-009",
+        "AC-010",
+        "SC-001",
+        "SC-002",
+        "SC-003",
+        "SC-004",
+        "SC-005",
+        "SC-006",
+        "SC-007",
+        "SC-008"
+      ],
+      "verificationCommand": "dotnet build BrownPants.sln -c Release; dotnet test BrownPants.sln -c Release; pwsh -NoProfile -File tests/AzureDevOpsIntegrationTests.ps1; pwsh -NoProfile -File scripts/acceptance-criteria-hash.ps1 -SpecPath specs/030-azure-devops-bridge/spec.md; pwsh -NoProfile -File scripts/check-acceptance-evidence.ps1 -RepositoryRoot . -SpecPath specs/030-azure-devops-bridge/spec.md -TasksPath specs/030-azure-devops-bridge/tasks.md -EvidencePath specs/030-azure-devops-bridge/acceptance-evidence.json",
+      "evidencePaths": [
+        "specs/030-azure-devops-bridge/verification.md"
+      ],
+      "result": "planned"
+    },
+    {
+      "taskId": "T018",
+      "criterionIds": [
+        "AC-005",
+        "AC-006",
+        "AC-009",
+        "SC-004",
+        "SC-005",
+        "SC-007"
+      ],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsPullRequestPreviewTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/PullRequestPreviewAnalyzer.cs",
+        "src/BrownPants.Cli/Output/PullRequestPreviewRenderer.cs",
+        "tests/BrownPants.Tests/AzureDevOpsPullRequestPreviewTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/AzureDevOpsAuthentication.cs",
+        "src/BrownPants.Cli/Program.cs"
+      ],
+      "result": "passed",
+      "taskId": "T019",
+      "criterionIds": [
+        "AC-010",
+        "SC-006",
+        "SC-008"
+      ],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsAuthenticationTests"
+    },
+    {
+      "evidencePaths": [
+        "tests/BrownPants.Tests/AzureDevOpsAuthenticationTests.cs"
+      ],
+      "result": "passed",
+      "taskId": "T020",
+      "criterionIds": [
+        "AC-010",
+        "SC-006",
+        "SC-008"
+      ],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~AzureDevOpsAuthenticationTests"
+    }
   ]
 }

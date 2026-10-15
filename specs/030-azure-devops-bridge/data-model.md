@@ -25,6 +25,6 @@ Configuration validation rejects unknown schema versions, invalid URLs, empty id
 
 ## PR preview and created draft
 
-- `preview`: title, description, repository, source/target branch inputs, mapped work-item IDs, feature digest, task/evidence summary, traceability links, gaps, and a digest of the saved preview content used to detect edits before submission.
+- `preview`: title, description, repository, source/target branch inputs, mapped story/task work-item IDs, feature digest, task/evidence summary, traceability links, a QA handoff mapping each acceptance criterion to documented test guidance and evidence, explicit guidance gaps, and a digest of the saved preview content used to detect edits before submission.
 - `createdPullRequest`: populated only from the successful Azure Repos create response; includes PR ID, URL, and `isDraft` state.
 - A preview can be written locally as Markdown or JSON. Existing output is protected unless the caller explicitly selects overwrite. A preview never contains credentials.
