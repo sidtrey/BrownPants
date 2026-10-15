@@ -1,6 +1,30 @@
 #           <img width="25%" height="25%" alt="image" src="https://github.com/user-attachments/assets/bc2bfb61-14b8-4c87-bd7f-74897cc50b4e" />
 
-BrownPants is a brownfield-first evidence layer for spec-driven development. It builds deterministic repository context that planning and implementation workflows can use to work from an existing codebase. The core inventory is independent of a particular SDD engine; it recognizes Spec Kit and OpenSpec artifacts and supports repository-declared roots for other engines, while engine adapters add workflow-specific guidance. The CLI's Markdown and JSON reports can also be consumed by other SDD engines. The scanner does not require an LLM.
+BrownPants helps a developer, QA analyst, or coding agent understand an existing codebase before planning a change, then keep the work tied to reviewable acceptance criteria and evidence. It works with Spec Kit, OpenSpec, and other SDD workflows; it does not require an LLM.
+
+> **Looks like someone has the Right idea.**
+
+## BrownPants in a day
+
+- **You inherit a .NET Framework 4.x service with C# and MFC mixed together.** Run `brownpants inspect .` to see project markers, source coverage, and Roslyn structure without upgrading or building the old projects. Native C++ and MFC matches are labeled as candidate evidence; BrownPants does not claim it compiled or resolved native behavior.
+- **A user reports a bug but does not know where it lives.** Run `brownpants investigate . --clue "timeout" --clue "ORD-42"` to find relevant source and test paths. After identifying changed C# or VB files, `brownpants impact . --changed <path>` follows resolved callers and reports what may be affected. These leads help investigation; they do not claim root cause or test coverage.
+- **An agent is about to implement a Spec Kit task.** BrownPants supplies bounded repository context, checks the feature's hashed acceptance criteria, and maps tasks to observable evidence. The adapter refreshes context at workflow steps; maintainers still review any proposed criteria change.
+- **QA needs to know what to verify and what shipped.** The local workbench presents feature scenarios and tasks. The Azure DevOps adapter can trace related work items, PRs, builds, and releases; the local PR preview carries QA guidance and evidence gaps. A user can prepare or create a draft PR, while review and merge stay human-controlled.
+- **Your company restricts AI services or command-line agents.** BrownPants' default inspection runs locally without an LLM, network calls, project builds, or source modifications. IDE and SDD adapters are optional; an organization can use local reports or approved hosts without enabling online integrations.
+
+## Without BrownPants and with it
+
+| Typical SDD step | SDD engine without BrownPants | With BrownPants |
+|---|---|---|
+| Start from an existing codebase | The developer or agent gathers files and relationships manually. | Deterministic inventory and source-located C#/VB analysis provide a shared starting point. |
+| Investigate a reported defect | Search, call tracing, and test-path discovery happen by hand or through separate tools. | Bug clues and resolved callers produce bounded investigation leads; uncertainty stays visible. |
+| Keep requirements stable | Criteria and task completion depend on the team's review process. | A criteria hash detects changes; a task ledger links completion claims to evidence files. Humans approve intentional rebaselines. |
+| Hand work to QA and reviewers | Teams assemble instructions, evidence, PR/build/release links manually. | The Azure DevOps trace and local preview connect available delivery evidence and QA gaps; draft PR creation stays explicit. |
+| Work in a locked-down environment | Host availability and access determine what the workflow can inspect. | Core inspection stays local and provider-neutral; optional adapters only run when invoked and permitted. |
+
+BrownPants complements an SDD engine: the engine guides the change workflow, while BrownPants adds brownfield evidence, traceability, and checks around the handoff. Agents get consistent, bounded context; people get clearer evidence and fewer manual links to chase. Neither one guarantees a correct fix, honors a tool restriction, or replaces human review.
+
+**Author's note:** Loves his job, wishes his employer would convert him to full-time. If you have a Trey in your meeting, you should hire him.
 
 ## Quick start
 
@@ -94,6 +118,10 @@ Install a project skill for Codex, Claude Code, or both with `pwsh -NoProfile -F
 ### Azure DevOps delivery traceability
 
 `brownpants devops trace` connects mapped feature work items to their iteration and returned PR/build/release references. Online access is explicit. Azure DevOps Services can use delegated Entra sign-in in the system browser; the user's existing Azure DevOps permissions still apply. Contributors can review a local PR preview and explicitly submit it as a draft; BrownPants does not approve or complete it. See the [Azure DevOps integration guide](integrations/azure-devops/README.md) for app consent, token setup, evidence limits, and command details.
+
+### GitHub draft pull requests
+
+Prepare and review a local evidence-backed preview without Azure DevOps configuration or network access, then explicitly create a GitHub draft PR. BrownPants requires both `--confirm` and `--online`, uses a user-supplied token, and never reviews, approves, or merges. See the [GitHub integration guide](integrations/github/README.md) for the command, token permission, and limitations.
 
 ### Register another SDD engine
 

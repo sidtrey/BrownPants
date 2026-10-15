@@ -49,6 +49,17 @@ public static class Program
         if (string.Equals(args[0], "devops", StringComparison.OrdinalIgnoreCase))
             return RunDevOps(args.Skip(1).ToArray(), output, error);
 
+        if (string.Equals(args[0], "pr", StringComparison.OrdinalIgnoreCase))
+        {
+            var operation = args.Skip(1).FirstOrDefault();
+            if (string.Equals(operation, "preview", StringComparison.OrdinalIgnoreCase))
+                return PullRequestPreviewCommand.Run(args.Skip(2).ToArray(), output, error);
+            if (string.Equals(operation, "create", StringComparison.OrdinalIgnoreCase))
+                return GitHubPullRequestCommand.Run(args.Skip(1).ToArray(), output, error);
+            error.WriteLine("Usage: brownpants pr <preview|create> --help");
+            return 2;
+        }
+
         if (string.Equals(args[0], "diagram", StringComparison.OrdinalIgnoreCase))
             return LocalFlowchartCommand.Run(args.Skip(1).ToArray(), output, error);
 
@@ -410,6 +421,23 @@ public static class Program
             output.WriteLine("Usage: brownpants devops <trace|pr> --help");
             return 0;
         }
+        if (command.Equals("pr", StringComparison.OrdinalIgnoreCase))
+        {
+            if (frameOperation.Equals("preview", StringComparison.OrdinalIgnoreCase))
+            {
+                output.WriteLine("Usage: brownpants pr preview <repository> --feature <relative-feature-path> --repository <provider-repository> --source <branch> --target <branch> [--output <relative-path>] [--overwrite]");
+                output.WriteLine("Creates a provider-independent local preview. It does not read credentials or access the network.");
+                return 0;
+            }
+            if (frameOperation.Equals("create", StringComparison.OrdinalIgnoreCase))
+            {
+                output.WriteLine("Usage: brownpants pr create <repository> --provider github --preview <relative-path> --repository <owner/name> --source <branch> --target <branch> --confirm --online");
+                output.WriteLine("Both --confirm and --online are required before GitHub credentials or the network are used.");
+                return 0;
+            }
+            output.WriteLine("Usage: brownpants pr <preview|create> --help");
+            return 0;
+        }
         if (command.Equals("inspect", StringComparison.OrdinalIgnoreCase))
         {
             output.WriteLine("Usage: brownpants inspect [path] [--format markdown|json] [--limit 1..10000] [--semantic]");
@@ -508,6 +536,7 @@ public static class Program
         output.WriteLine("  frame         Create or validate a context frame.");
         output.WriteLine("  placement     Classify whether guidance belongs in a constitution or a spec.");
         output.WriteLine("  devops        Trace Azure DevOps work items and delivery references.");
+        output.WriteLine("  pr            Prepare local evidence previews and create human-reviewed draft PRs.");
         output.WriteLine("  diagram       Render a local BrownPants flow block as PNG or diagrams.net XML.");
         output.WriteLine("  models        Validate, report, or export task-based model profiles.");
         output.WriteLine("Usage: brownpants inspect [path] [--format markdown|json] [--limit 1..10000] [--semantic]");
@@ -519,6 +548,8 @@ public static class Program
         output.WriteLine("       brownpants frame validate <repository> <frame.md>");
         output.WriteLine("       brownpants placement --rule <text> [--scope repository|feature|unknown] [--durability enduring|feature|unknown] [--purpose principle|outcome|agent-workflow|mixed|unknown] [--format markdown|json]");
         output.WriteLine("       brownpants devops trace <repository> --feature <relative-feature-path> --online [--format markdown|json]");
+        output.WriteLine("       brownpants pr preview <repository> --feature <relative-feature-path> --repository <provider-repository> --source <branch> --target <branch> [--output <relative-path>]");
+        output.WriteLine("       brownpants pr create <repository> --provider github --preview <relative-path> --repository <owner/name> --source <branch> --target <branch> --confirm --online");
         output.WriteLine("       brownpants diagram <repository> <relative-markdown-path> --output <relative-path> [--format png|drawio] [--overwrite]");
         output.WriteLine("       brownpants models <validate|report|export> [repository] [--policy <path>] [--format markdown|json] [--host vscode|claude|codex]");
         output.WriteLine("Run 'brownpants <command> --help' for command options. Use -h as an alias.");

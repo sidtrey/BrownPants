@@ -9,6 +9,7 @@ BrownPants keeps repository scanning and the JSON/Markdown evidence contract ind
 - [`copilot/`](copilot/README.md): User-invoked GitHub Copilot chat prompt for Visual Studio 2022 and VS Code Local harness, plus a route to the agent skill for current Copilot harnesses.
 - [`agent-skills/`](agent-skills/README.md): Shared project-local BrownPants context skill for Codex, Claude Code, and supported Copilot GUI hosts, with a safe offline installer and policy-respecting user-run report fallback.
 - [`azure-devops/`](azure-devops/README.md): Opt-in Azure DevOps Services traceability with system-browser Entra sign-in, plus explicit headless token support and a separate draft PR handoff.
+- [`github/`](github/README.md): Offline evidence preview and explicitly confirmed GitHub.com draft PR creation; review and merge stay human-controlled.
 
 Adapters must state their invocation model, tool prerequisites, supported workflows, and evidence limits. Do not describe a manual skill as an automatic hook or claim analysis that the core report does not provide.
 
