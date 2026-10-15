@@ -39,7 +39,7 @@
 - [x] T005 [P] Document install/use steps, prerequisites, supported Copilot hosts, harness limits, and manual fallback in `integrations/copilot/README.md`
 - [x] T006 [P] Link the adapter from `integrations/README.md` and `README.md`
 - [x] T007 Add the installer/prompt integration check to `.github/workflows/ci.yml`
-- [ ] T008 Run the integration check on Windows, Linux, and macOS, full build and xUnit suite, acceptance digest/evidence checks, and existing adapter checks; record observed results in `specs/026-copilot-gui-context/verification.md`
+- [x] T008 Run the integration check on Windows, Linux, and macOS, full build and xUnit suite, acceptance digest/evidence checks, and existing adapter checks; record observed results in `specs/026-copilot-gui-context/verification.md`
 
 ## Dependencies & Execution Order
 
