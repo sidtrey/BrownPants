@@ -69,7 +69,10 @@ function Assert-ReviewFails {
 function Assert-ReviewPasses {
     param([string] $Repo, [string] $Base, [string] $Head, [bool] $Reviewed, [string] $Name)
     Push-Location $Repo
-    try { & $checker -BaseRef $Base -HeadRef $Head -Reviewed:$Reviewed -RepositoryRoot $Repo | Out-Null }
+    try {
+        & $checker -BaseRef $Base -HeadRef $Head -Reviewed:$Reviewed -RepositoryRoot $Repo | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Successful review validation left native exit code $LASTEXITCODE." }
+    }
     catch { throw "Expected review validation to accept '$Name': $_" }
     finally { Pop-Location }
 }
