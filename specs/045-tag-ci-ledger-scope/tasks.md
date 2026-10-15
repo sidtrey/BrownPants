@@ -12,4 +12,4 @@
 
 - [x] T004 [US1] Record workflow behavior and CI regression evidence in `specs/045-tag-ci-ledger-scope/verification.md`; map all tasks to frozen criteria in the acceptance ledger.
 - [x] T005 [US1] Bump the CLI and Spec Kit extension to 0.2.1, update install/CI smoke versions, and add `docs/releases/0.2.1.md` describing the corrective release.
-- [ ] T006 [US1] Run workflow contract tests, full Release build/tests, package audit, packed-tool smoke, acceptance hash/evidence validation, cross-platform branch CI, then push the v0.2.1 tag and verify its CI and package digest.
+- [x] T006 [US1] Run workflow contract tests, full Release build/tests, package audit, packed-tool smoke, acceptance hash/evidence validation, cross-platform branch CI, then push the v0.2.1 tag and verify its CI and package digest.

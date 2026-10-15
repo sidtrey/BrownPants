@@ -12,4 +12,9 @@ Date: 2026-10-15
 - High-confidence credential-pattern scan of recent source changes and the 0.2.1 package — 0 matches.
 - Acceptance criteria SHA-256 — 9233465fd164d442aa4323e90a9755fd8ba34a8c78f67611d13ae7ecaedad9c9.
 
-Cross-platform branch CI and the corrected v0.2.1 tag CI are pending until the final commit and tag are pushed.
+## Published release
+
+- Branch CI for commit `18644aa4c82640974ab2d553838b9bef759c84fb` — PASS on Windows, Ubuntu, and macOS: https://github.com/sidtrey/BrownPants/actions/runs/38694358975
+- Tag CI for `v0.2.1` — PASS on Windows, Ubuntu, and macOS, including acceptance ledger selection and packed-tool smoke: https://github.com/sidtrey/BrownPants/actions/runs/38694648982
+- GitHub release: https://github.com/sidtrey/BrownPants/releases/tag/v0.2.1
+- Uploaded `BrownPants.Cli.0.2.1.nupkg` digest matches the local package SHA-256 `1130da1fb2bf9287f650f814428f4c735c6b259c76fc6c2da4d9f0fa0793c9ab`.
