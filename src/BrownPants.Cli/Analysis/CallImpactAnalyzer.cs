@@ -152,5 +152,10 @@ public static class CallImpactAnalyzer
             issues.ToArray(), sampleLimit);
     }
 
-    private static string NormalizePath(string path) => path.Replace('\\', '/').TrimStart('.', '/');
+    private static string NormalizePath(string path)
+    {
+        var normalized = path.Replace('\\', '/');
+        while (normalized.StartsWith("./", StringComparison.Ordinal)) normalized = normalized[2..];
+        return normalized;
+    }
 }

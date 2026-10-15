@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json.Serialization;
 
 namespace BrownPants.Cli.Analysis;
 
@@ -9,7 +10,11 @@ public sealed record EvidenceReport(
     EvidenceContext Context,
     IReadOnlyList<EvidenceFinding> Findings,
     EvidenceCompleteness Completeness,
-    IReadOnlyList<string> Limitations);
+    IReadOnlyList<string> Limitations)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public EvidenceFocusSummary? Focus { get; init; }
+}
 
 public sealed record EvidenceContext(
     IReadOnlyList<string> ProjectSystems,
@@ -26,7 +31,34 @@ public sealed record EvidenceFinding(
     int? Line,
     string? CallerSignature,
     string? TargetSignature,
-    string Evidence);
+    string Evidence)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? MatchedBy { get; init; }
+}
+
+public sealed record EvidenceFocusSummary(
+    IReadOnlyList<EvidenceClueFocus> Clues,
+    IReadOnlyList<EvidenceChangedPathFocus> ChangedPaths,
+    bool SemanticImpactAnalyzed,
+    bool ImpactComplete,
+    IReadOnlyList<string> ImpactIssues,
+    int ClueReadIssueCount,
+    bool ClueMatchesTruncated,
+    bool SourceEvidenceTruncated,
+    int TotalMatchedFindingCount,
+    int EmittedFindingCount,
+    int OmittedFindingCount);
+
+public sealed record EvidenceClueFocus(string Clue, int MatchCount, int FindingCount, bool Matched);
+
+public sealed record EvidenceChangedPathFocus(
+    string Path,
+    bool Found,
+    int SourceFindingCount,
+    int CallerImpactCount,
+    int TestImpactCount,
+    bool Matched);
 
 public sealed record EvidenceCompleteness(
     int TotalFindingCount,

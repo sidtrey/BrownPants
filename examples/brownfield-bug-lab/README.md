@@ -30,6 +30,16 @@ dotnet run --project src/BrownPants.Cli -- evidence examples/brownfield-bug-lab 
 
 The handoff is task-neutral, so agents should use the bug report to select relevant findings and verify them against source. Candidates remain candidates. Use the separate semantic `impact` report for resolved managed callers.
 
+For a task-focused handoff, supply the bug clue and changed managed file. Selectors combine as a union; every result includes the selector and reason that brought it into the report:
+
+```powershell
+dotnet run --project src/BrownPants.Cli -- evidence examples/brownfield-bug-lab/managed `
+  --clue "OrderImportWorkflow" --changed Workflows/OrderImportWorkflow.cs `
+  --semantic --format json --limit 1000
+```
+
+This handoff keeps only matching source facts plus resolved direct/transitive callers and related test-path candidates. Check `focus` for unmatched selectors, evidence limits, and omitted counts. Omitting the selectors still produces the complete task-neutral handoff.
+
 The impact report connects `ImportBatch<T>` to the `Save(IEnumerable<T>)` overload and shows how `ImportMapped<TSource>` forwards through `SaveMapped<TSource>`. Inventory also locates factory/DI wiring, MFC message-map and runtime-type markers, a C++/CLI bridge, and NHibernate dependency/session/configuration/mapping evidence. Those native and ORM findings are candidates; this fixture does not prove runtime relationships or database behavior.
 
 ### Trace a generic factory constructor
@@ -47,7 +57,7 @@ The report resolves the target-typed factory expression `new(repository)` to the
 
 `evaluation/` contains the frozen task, seed script, answer key, prompt, and evaluator. `Prepare-Comparison.ps1` creates matched copies in a new output directory, injects the same bug into both, captures the expected failing check, and writes BrownPants reports only into the assisted copy. It invokes this repository's CLI project so an older globally installed command cannot change the evidence.
 
-The measured pair fixed the same bug and passed the same independent checks. It did **not** meet the predeclared overall advantage threshold: recall rose five points while precision fell. BrownPants' direct inventory and call map provide the brownfield evidence this fixture is designed to show; the agent head-to-head is reported with its limitations in [`docs/comparisons/brownfield-bug-lab-2026-10.md`](../../docs/comparisons/brownfield-bug-lab-2026-10.md). Run the evaluator self-check with `-SelfTest` to verify all answer-key facts and ensure both decoys are rejected.
+The initial measured pair fixed the same bug and passed the same independent checks. It did **not** meet the predeclared advantage threshold: recall rose five points while precision fell. A follow-up added the structured evidence handoff and met the frozen threshold on the same task; its results and limits are in [`docs/comparisons/brownfield-evidence-handoff-2026-10.md`](../../docs/comparisons/brownfield-evidence-handoff-2026-10.md). The original comparison remains in [`docs/comparisons/brownfield-bug-lab-2026-10.md`](../../docs/comparisons/brownfield-bug-lab-2026-10.md). Run the original evaluator self-check with `-SelfTest` to verify its answer-key facts and decoys.
 
 ### Constructor injection comparison
 
