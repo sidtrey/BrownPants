@@ -192,7 +192,7 @@ public static class CSharpAnalyzer
     private static string Normalize(string value) =>
         string.Join(" ", value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
-    private static CSharpParseOptions ParseOptionsFor(string sourcePath, IReadOnlyList<DotNetProjectInfo> projects)
+    internal static CSharpParseOptions ParseOptionsFor(string sourcePath, IReadOnlyList<DotNetProjectInfo> projects)
     {
         var project = projects
             .Select(projectInfo => (Project: projectInfo, Directory: Path.GetDirectoryName(projectInfo.Path)?.Replace('\\', '/') ?? string.Empty))

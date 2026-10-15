@@ -66,6 +66,9 @@ public static class Program
         if (string.Equals(args[0], "models", StringComparison.OrdinalIgnoreCase))
             return ModelRoutingCommand.Run(args.Skip(1).ToArray(), output, error);
 
+        if (string.Equals(args[0], "winforms", StringComparison.OrdinalIgnoreCase))
+            return WinFormsCommand.Run(args.Skip(1).ToArray(), output, error);
+
         if (!string.Equals(args[0], "inspect", StringComparison.OrdinalIgnoreCase))
         {
             error.WriteLine($"Unknown command '{args[0]}'. Use --help for usage.");
@@ -496,6 +499,8 @@ public static class Program
             return LocalFlowchartCommand.WriteHelp(output);
         if (command.Equals("models", StringComparison.OrdinalIgnoreCase))
             return ModelRoutingCommand.WriteHelp(output);
+        if (command.Equals("winforms", StringComparison.OrdinalIgnoreCase))
+            return WinFormsCommand.Run(new[] { "--help" }, output, error);
         if (command.Equals("frame", StringComparison.OrdinalIgnoreCase))
         {
             if (frameOperation.Equals("create", StringComparison.OrdinalIgnoreCase))
@@ -538,6 +543,7 @@ public static class Program
         output.WriteLine("  devops        Trace Azure DevOps work items and delivery references.");
         output.WriteLine("  pr            Prepare local evidence previews and create human-reviewed draft PRs.");
         output.WriteLine("  diagram       Render a local BrownPants flow block as PNG or diagrams.net XML.");
+        output.WriteLine("  winforms      Find syntax-based Windows Forms property-write candidates.");
         output.WriteLine("  models        Validate, report, or export task-based model profiles.");
         output.WriteLine("Usage: brownpants inspect [path] [--format markdown|json] [--limit 1..10000] [--semantic]");
         output.WriteLine("       brownpants investigate [path] --clue <text> [--clue <text> ...] [--format markdown|json] [--limit 1..10000]");
