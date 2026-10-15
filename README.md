@@ -157,6 +157,8 @@ Install a project skill for Codex, Claude Code, or both with `pwsh -NoProfile -F
 
 Prepare and review a local evidence-backed preview without Azure DevOps configuration or network access, then explicitly create a GitHub draft PR. BrownPants requires both `--confirm` and `--online`, uses a user-supplied token, and never reviews, approves, or merges. See the [GitHub integration guide](integrations/github/README.md) for the command, token permission, and limitations.
 
+The same preview can be submitted as a draft to [GitLab.com](integrations/gitlab/README.md) or [Bitbucket Cloud](integrations/bitbucket/README.md). Each adapter is pinned to its public service API and requires explicit `--confirm` and `--online`; self-managed GitLab and Bitbucket Data Center are not supported. Review, approval, and merge remain with the team.
+
 ### Register another SDD engine
 
 Add `.brownpants/sdd-workflows.json` to describe an engine that does not have a built-in detector:

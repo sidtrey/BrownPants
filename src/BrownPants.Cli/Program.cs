@@ -55,7 +55,14 @@ public static class Program
             if (string.Equals(operation, "preview", StringComparison.OrdinalIgnoreCase))
                 return PullRequestPreviewCommand.Run(args.Skip(2).ToArray(), output, error);
             if (string.Equals(operation, "create", StringComparison.OrdinalIgnoreCase))
+            {
+                var providerIndex = Array.FindIndex(args, argument => string.Equals(argument, "--provider", StringComparison.OrdinalIgnoreCase));
+                if (providerIndex >= 0 && providerIndex + 1 < args.Length &&
+                    (string.Equals(args[providerIndex + 1], "gitlab", StringComparison.OrdinalIgnoreCase)
+                     || string.Equals(args[providerIndex + 1], "bitbucket", StringComparison.OrdinalIgnoreCase)))
+                    return MultiProviderPullRequestCommand.Run(args.Skip(1).ToArray(), output, error);
                 return GitHubPullRequestCommand.Run(args.Skip(1).ToArray(), output, error);
+            }
             error.WriteLine("Usage: brownpants pr <preview|create> --help");
             return 2;
         }
@@ -434,8 +441,8 @@ public static class Program
             }
             if (frameOperation.Equals("create", StringComparison.OrdinalIgnoreCase))
             {
-                output.WriteLine("Usage: brownpants pr create <repository> --provider github --preview <relative-path> --repository <owner/name> --source <branch> --target <branch> --confirm --online");
-                output.WriteLine("Both --confirm and --online are required before GitHub credentials or the network are used.");
+                output.WriteLine("Usage: brownpants pr create <repository> --provider github|gitlab|bitbucket --preview <relative-path> --repository <provider-repository> --source <branch> --target <branch> --confirm --online");
+                output.WriteLine("Both --confirm and --online are required before provider credentials or the network are used.");
                 return 0;
             }
             output.WriteLine("Usage: brownpants pr <preview|create> --help");
@@ -555,7 +562,7 @@ public static class Program
         output.WriteLine("       brownpants placement --rule <text> [--scope repository|feature|unknown] [--durability enduring|feature|unknown] [--purpose principle|outcome|agent-workflow|mixed|unknown] [--format markdown|json]");
         output.WriteLine("       brownpants devops trace <repository> --feature <relative-feature-path> --online [--format markdown|json]");
         output.WriteLine("       brownpants pr preview <repository> --feature <relative-feature-path> --repository <provider-repository> --source <branch> --target <branch> [--output <relative-path>]");
-        output.WriteLine("       brownpants pr create <repository> --provider github --preview <relative-path> --repository <owner/name> --source <branch> --target <branch> --confirm --online");
+        output.WriteLine("       brownpants pr create <repository> --provider github|gitlab|bitbucket --preview <relative-path> --repository <provider-repository> --source <branch> --target <branch> --confirm --online");
         output.WriteLine("       brownpants diagram <repository> <relative-markdown-path> --output <relative-path> [--format png|drawio] [--overwrite]");
         output.WriteLine("       brownpants models <validate|report|export> [repository] [--policy <path>] [--format markdown|json] [--host vscode|claude|codex]");
         output.WriteLine("Run 'brownpants <command> --help' for command options. Use -h as an alias.");
