@@ -1846,6 +1846,78 @@ public sealed class RepositoryScannerTests : IDisposable
     }
 
     [Fact]
+    public void SemanticAnalyzer_ExcludesExternalTreesAndTargetLocationsFromRepositoryFindings()
+    {
+        var repositoryRoot = Path.Combine(_root, "repository");
+        Write("repository/src/Entry.cs", """
+            namespace Local;
+            public class Entry
+            {
+                public void Run() { new External.Remote().Execute(); }
+            }
+            """);
+        Write("repository/obj/Generated.cs", """
+            namespace Local.Generated;
+            public class Generated { public void Keep() { } }
+            """);
+        Write("external/Outside.cs", """
+            namespace External;
+            public class Remote
+            {
+                public void Execute() { }
+                public void ExternalCaller() { Execute(); }
+            }
+            """);
+
+        var trees = new[]
+        {
+            CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(repositoryRoot, "src", "Entry.cs")),
+                path: Path.Combine(repositoryRoot, "src", "Entry.cs")),
+            CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(repositoryRoot, "obj", "Generated.cs")),
+                path: Path.Combine(repositoryRoot, "obj", "Generated.cs")),
+            CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(_root, "external", "Outside.cs")),
+                path: Path.Combine(_root, "external", "Outside.cs"))
+        };
+        var references = new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) };
+        var compilation = CSharpCompilation.Create("PathBoundaryFixture", trees, references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var analysis = CSharpSemanticAnalyzer.AnalyzeCompilations(
+            new[] { ("Fixture.csproj", (Compilation)compilation) }, 1, 100, repositoryRoot);
+
+        Assert.Equal(2, analysis.DeclarationCount);
+        Assert.Equal(1, analysis.ResolvedInvocationCount);
+        Assert.Equal(0, analysis.UnresolvedInvocationCount);
+        var declarations = Assert.IsAssignableFrom<IReadOnlyList<CSharpSemanticDeclaration>>(analysis.Declarations);
+        Assert.Equal(2, declarations.Count);
+        Assert.Contains(declarations, declaration => declaration.Path == "obj/Generated.cs");
+        var call = Assert.Single(analysis.ResolvedCalls);
+        Assert.Contains("External.Remote.Execute", call.Target, StringComparison.Ordinal);
+        Assert.Null(call.TargetPath);
+        Assert.Null(call.TargetLine);
+
+        var reportedPaths = declarations.Select(declaration => declaration.Project)
+            .Concat(declarations.Select(declaration => declaration.Path))
+            .Append(call.Project)
+            .Append(call.Path)
+            .Where(path => path is not null)
+            .ToArray();
+        Assert.All(reportedPaths, path =>
+        {
+            Assert.False(Path.IsPathRooted(path));
+            Assert.DoesNotContain('\\', path);
+            Assert.DoesNotContain(path.Split('/'), segment => segment == "..");
+        });
+
+        var externalProjectAnalysis = CSharpSemanticAnalyzer.AnalyzeCompilations(
+            new[] { (Path.Combine(_root, "external", "Outside.csproj"), (Compilation)compilation) },
+            1, 100, repositoryRoot);
+        Assert.Equal(0, externalProjectAnalysis.ProjectsLoaded);
+        Assert.Empty(externalProjectAnalysis.Declarations!);
+        Assert.Empty(externalProjectAnalysis.ResolvedCalls);
+    }
+
+    [Fact]
     public void SemanticAnalyzer_ResolvesVisualBasicInvocationTargets()
     {
         var tree = Microsoft.CodeAnalysis.VisualBasic.VisualBasicSyntaxTree.ParseText("""

@@ -89,12 +89,19 @@ public static class CSharpSemanticAnalyzer
         var resolvedInvocationCount = 0;
         var unresolvedInvocationCount = 0;
         var declarationCount = 0;
+        var repositoryRoot = Path.GetFullPath(root);
 
         foreach (var (projectPath, compilation) in compilations)
         {
+            if (!TryGetRepositoryRelativePath(repositoryRoot, projectPath, out var relativeProjectPath))
+                continue;
+
             projectsLoaded++;
             foreach (var syntaxTree in compilation.SyntaxTrees)
             {
+                if (!TryGetRepositoryRelativePath(repositoryRoot, syntaxTree.FilePath, out var relativeSourcePath))
+                    continue;
+
                 var semanticModel = compilation.GetSemanticModel(syntaxTree);
                 var syntaxRoot = syntaxTree.GetRoot();
                 foreach (var declarationNode in syntaxRoot.DescendantNodes()
@@ -106,8 +113,8 @@ public static class CSharpSemanticAnalyzer
                         continue;
                     declarationCount++;
                     AddSample(declarations, new CSharpSemanticDeclaration(
-                        RelativePath(root, projectPath),
-                        RelativePath(root, syntaxTree.FilePath),
+                        relativeProjectPath,
+                        relativeSourcePath,
                         declarationNode.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
                         ResolvedTarget(method)), sampleLimit);
                 }
@@ -130,26 +137,27 @@ public static class CSharpSemanticAnalyzer
                         resolvedInvocationCount++;
                         var sourceLocation = method.Locations
                             .Where(location => location.IsInSource && location.SourceTree is not null)
-                            .OrderBy(location => location.SourceTree!.FilePath, StringComparer.Ordinal)
+                            .Select(location => TryGetRepositoryRelativePath(repositoryRoot, location.SourceTree!.FilePath,
+                                out var targetPath) ? (Location: location, Path: targetPath) : default)
+                            .Where(candidate => candidate.Location is not null)
+                            .OrderBy(candidate => candidate.Path, StringComparer.Ordinal)
                             .FirstOrDefault();
                         AddSample(resolvedCalls, new CSharpResolvedCall(
-                            RelativePath(root, projectPath),
-                            RelativePath(root, syntaxTree.FilePath),
+                            relativeProjectPath,
+                            relativeSourcePath,
                             invocationNode.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
                             Normalize(expressionText),
                             EnclosingMethod(semanticModel.GetEnclosingSymbol(invocationNode.SpanStart)),
                             ResolvedTarget(method),
-                            sourceLocation?.SourceTree is { } targetTree
-                                ? RelativePath(root, targetTree.FilePath)
-                                : null,
-                            sourceLocation?.GetLineSpan().StartLinePosition.Line + 1), sampleLimit);
+                            sourceLocation.Location is not null ? sourceLocation.Path : null,
+                            sourceLocation.Location?.GetLineSpan().StartLinePosition.Line + 1), sampleLimit);
                     }
                     else
                     {
                         unresolvedInvocationCount++;
                         AddSample(unresolvedCalls, new CSharpUnresolvedCall(
-                            RelativePath(root, projectPath),
-                            RelativePath(root, syntaxTree.FilePath),
+                            relativeProjectPath,
+                            relativeSourcePath,
                             invocationNode.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
                             Normalize(expressionText),
                             symbolInfo.CandidateReason.ToString(),
@@ -199,9 +207,28 @@ public static class CSharpSemanticAnalyzer
         ? ResolvedTarget(method)
         : symbol?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ?? "<unknown>";
 
-    private static string RelativePath(string root, string path) => Path.IsPathRooted(path)
-        ? Path.GetRelativePath(root, path).Replace('\\', '/')
-        : path.Replace('\\', '/');
+    private static bool TryGetRepositoryRelativePath(string root, string path, out string relativePath)
+    {
+        relativePath = string.Empty;
+        if (string.IsNullOrWhiteSpace(path))
+            return false;
+
+        try
+        {
+            var fullPath = Path.IsPathRooted(path) ? Path.GetFullPath(path) : Path.GetFullPath(path, root);
+            var relative = Path.GetRelativePath(root, fullPath).Replace('\\', '/');
+            if (Path.IsPathRooted(relative) || relative == "." || relative == ".."
+                || relative.StartsWith("../", StringComparison.Ordinal))
+                return false;
+
+            relativePath = relative;
+            return true;
+        }
+        catch (Exception exception) when (exception is ArgumentException or IOException or NotSupportedException)
+        {
+            return false;
+        }
+    }
 
     private static void AddSample<T>(List<T> values, T value, int limit)
     {

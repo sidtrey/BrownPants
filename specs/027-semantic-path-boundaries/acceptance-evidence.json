@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    {
+      "taskId": "T001",
+      "criterionIds": ["AC-001", "AC-002", "AC-003", "SC-001", "SC-002", "SC-003"],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --filter FullyQualifiedName~SemanticAnalyzer",
+      "evidencePaths": ["tests/BrownPants.Tests/RepositoryScannerTests.cs"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T002",
+      "criterionIds": ["AC-001", "AC-002", "AC-003", "SC-001", "SC-002", "SC-003"],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --filter FullyQualifiedName~SemanticAnalyzer",
+      "evidencePaths": ["src/BrownPants.Cli/Analysis/CSharpSemanticAnalyzer.cs"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T003",
+      "criterionIds": ["AC-004", "SC-004"],
+      "verificationCommand": "dotnet build BrownPants.sln -c Release; dotnet test BrownPants.sln -c Release; dotnet run --configuration Release --no-build --project src/BrownPants.Cli -- inspect . --semantic --format json --limit 10000; dotnet run --configuration Release --no-build --project src/BrownPants.Cli -- inspect . --semantic --format markdown --limit 10000",
+      "evidencePaths": ["specs/027-semantic-path-boundaries/verification.md"],
+      "result": "passed"
+    }
+  ]
+}
