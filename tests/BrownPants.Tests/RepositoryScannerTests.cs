@@ -1858,6 +1858,113 @@ public sealed class RepositoryScannerTests : IDisposable
     }
 
     [Fact]
+    public void Scan_ExcludesAttributedTestMethodsAndLocatesFactorySignaturesInCSharpAndVisualBasic()
+    {
+        Write("client/AttributedFactories.cs", """
+            public class Product { }
+            public class TestMethods
+            {
+                [System.Obsolete]
+                [Xunit.Fact]
+                public Product CreateXunitFact() => new Product();
+                [Xunit.Theory]
+                public Product BuildXunitTheory() => new Product();
+                [NUnit.Framework.Test]
+                public Product ResolveNUnitTest() => new Product();
+                [NUnit.Framework.TestCase("case")]
+                public Product CreateNUnitCase() => new Product();
+                [NUnit.Framework.TestCaseSource("Cases")]
+                public Product BuildNUnitSource() => new Product();
+                [Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute]
+                public Product ResolveMSTestMethod() => new Product();
+                [Microsoft.VisualStudio.TestTools.UnitTesting.DataTestMethod]
+                public Product CreateMSTestData() => new Product();
+
+                /// <summary>Production factory.</summary>
+                [System.Obsolete]
+                public Product CreateProductionProduct() => new Product();
+            }
+            """);
+        Write("client/AttributedFactories.vb", """
+            Public Class Product
+            End Class
+            Public Class TestMethods
+                <System.Obsolete, Xunit.Fact>
+                Public Function CreateXunitFact() As Product
+                    Return New Product()
+                End Function
+                <Xunit.TheoryAttribute>
+                Public Function BuildXunitTheory() As Product
+                    Return New Product()
+                End Function
+                <NUnit.Framework.Test>
+                Public Function ResolveNUnitTest() As Product
+                    Return New Product()
+                End Function
+                <NUnit.Framework.TestCase("case")>
+                Public Function CreateNUnitCase() As Product
+                    Return New Product()
+                End Function
+                <NUnit.Framework.TestCaseSourceAttribute("Cases")>
+                Public Function BuildNUnitSource() As Product
+                    Return New Product()
+                End Function
+                <Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute>
+                Public Function ResolveMSTestMethod() As Product
+                    Return New Product()
+                End Function
+                <Microsoft.VisualStudio.TestTools.UnitTesting.DataTestMethod>
+                Public Function CreateMSTestData() As Product
+                    Return New Product()
+                End Function
+
+                ''' <summary>Production factory.</summary>
+                <System.Obsolete>
+                Public Function CreateProductionProduct() As Product
+                    Return New Product()
+                End Function
+            End Class
+            """);
+
+        using var jsonOutput = new StringWriter();
+        using var error = new StringWriter();
+        Assert.Equal(0, Program.Run(new[] { "inspect", _root, "--format", "json" }, jsonOutput, error));
+        using var report = System.Text.Json.JsonDocument.Parse(jsonOutput.ToString());
+        var signals = report.RootElement.GetProperty("ArchitecturePatterns").GetProperty("Signals")
+            .EnumerateArray()
+            .Where(signal => signal.GetProperty("Category").GetString() == "Factory method")
+            .ToArray();
+        var excludedNames = new[]
+        {
+            "CreateXunitFact", "BuildXunitTheory", "ResolveNUnitTest", "CreateNUnitCase",
+            "BuildNUnitSource", "ResolveMSTestMethod", "CreateMSTestData"
+        };
+        foreach (var name in excludedNames)
+            Assert.DoesNotContain(signals, signal => signal.GetProperty("Evidence").GetString()!.Contains(name, StringComparison.Ordinal));
+
+        var csharpFactory = Assert.Single(signals, signal => signal.GetProperty("Path").GetString() == "client/AttributedFactories.cs");
+        Assert.Equal(22, csharpFactory.GetProperty("Line").GetInt32());
+        Assert.Contains("CreateProductionProduct", csharpFactory.GetProperty("Evidence").GetString());
+        Assert.DoesNotContain("Obsolete", csharpFactory.GetProperty("Evidence").GetString());
+        var visualBasicFactory = Assert.Single(signals, signal => signal.GetProperty("Path").GetString() == "client/AttributedFactories.vb");
+        Assert.Equal(35, visualBasicFactory.GetProperty("Line").GetInt32());
+        Assert.Contains("CreateProductionProduct", visualBasicFactory.GetProperty("Evidence").GetString());
+        Assert.DoesNotContain("Obsolete", visualBasicFactory.GetProperty("Evidence").GetString());
+
+        using var markdownOutput = new StringWriter();
+        Assert.Equal(0, Program.Run(new[] { "inspect", _root }, markdownOutput, error));
+        var factoryLines = markdownOutput.ToString().Split('\n')
+            .Where(line => line.Contains("Factory method [Candidate]", StringComparison.Ordinal))
+            .ToArray();
+        foreach (var name in excludedNames)
+            Assert.DoesNotContain(factoryLines, line => line.Contains(name, StringComparison.Ordinal));
+        Assert.Contains(factoryLines, line => line.Contains("AttributedFactories.cs:22", StringComparison.Ordinal)
+            && line.Contains("CreateProductionProduct", StringComparison.Ordinal));
+        Assert.Contains(factoryLines, line => line.Contains("AttributedFactories.vb:35", StringComparison.Ordinal)
+            && line.Contains("CreateProductionProduct", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void SemanticAnalyzer_ResolvesInvocationTargetsFromCompilationSymbols()
     {
         var tree = CSharpSyntaxTree.ParseText("""

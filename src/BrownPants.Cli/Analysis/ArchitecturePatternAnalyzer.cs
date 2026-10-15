@@ -152,8 +152,13 @@ public static class ArchitecturePatternAnalyzer
 
         foreach (var method in root.DescendantNodes().OfType<MethodDeclarationSyntax>())
         {
-            if (IsFactoryMethod(method))
-                AddSignal("Factory method", "C#", path, method, source, signals, sampleLimit, ref signalCount);
+            if (!HasTestAttribute(method.AttributeLists.SelectMany(list => list.Attributes)
+                    .Select(attribute => attribute.Name.ToString()))
+                && IsFactoryMethod(method))
+                AddMethodSignal("Factory method", "C#", path,
+                    (method.Modifiers.Count > 0 ? method.Modifiers[0] : method.ReturnType.GetFirstToken()).GetLocation(),
+                    method.WithAttributeLists(default).WithBody(null).WithExpressionBody(null)
+                        .WithSemicolonToken(default).WithoutTrivia().ToString(), signals, sampleLimit, ref signalCount);
         }
 
         foreach (var constructor in root.DescendantNodes().OfType<ConstructorDeclarationSyntax>())
@@ -212,8 +217,12 @@ public static class ArchitecturePatternAnalyzer
 
         foreach (var method in root.DescendantNodes().OfType<VisualBasicMethodStatement>())
         {
-            if (IsFactoryMethod(method))
-                AddSignal("Factory method", "VB.NET", path, method, source, signals, sampleLimit, ref signalCount);
+            if (!HasTestAttribute(method.AttributeLists.SelectMany(list => list.Attributes)
+                    .Select(attribute => attribute.Name.ToString()))
+                && IsFactoryMethod(method))
+                AddMethodSignal("Factory method", "VB.NET", path,
+                    (method.Modifiers.Count > 0 ? method.Modifiers[0] : method.SubOrFunctionKeyword).GetLocation(),
+                    method.WithAttributeLists(default).WithoutTrivia().ToString(), signals, sampleLimit, ref signalCount);
         }
 
         foreach (var constructor in root.DescendantNodes().OfType<VisualBasicConstructorStatement>())
@@ -942,6 +951,20 @@ public static class ArchitecturePatternAnalyzer
         && !IsStringReturnType(method.AsClause?.Type().ToString() ?? string.Empty)
         && IsFactoryMethod(method.Identifier.ValueText, StringComparison.OrdinalIgnoreCase);
 
+    private static bool HasTestAttribute(IEnumerable<string> attributeNames) =>
+        attributeNames.Any(IsTestAttributeName);
+
+    private static bool IsTestAttributeName(string attributeName)
+    {
+        var separator = Math.Max(attributeName.LastIndexOf('.'), attributeName.LastIndexOf(':'));
+        var simpleName = attributeName[(separator + 1)..];
+        if (simpleName.EndsWith("Attribute", StringComparison.OrdinalIgnoreCase))
+            simpleName = simpleName[..^"Attribute".Length];
+
+        return IsOneOf(simpleName, "Fact", "Theory", "Test", "TestCase", "TestCaseSource",
+            "TestMethod", "DataTestMethod");
+    }
+
     private static bool IsStringReturnType(string typeName)
     {
         var normalized = typeName
@@ -977,6 +1000,13 @@ public static class ArchitecturePatternAnalyzer
         var span = node.GetLocation().GetLineSpan().StartLinePosition;
         var line = source.Split('\n').ElementAtOrDefault(span.Line)?.Trim() ?? node.ToString();
         AddLineSignal(category, language, path, span.Line + 1, line, signals, sampleLimit, ref signalCount);
+    }
+
+    private static void AddMethodSignal(string category, string language, string path, Location location,
+        string signature, List<ArchitecturePatternSignal> signals, int sampleLimit, ref int signalCount)
+    {
+        var line = location.GetLineSpan().StartLinePosition.Line + 1;
+        AddLineSignal(category, language, path, line, signature, signals, sampleLimit, ref signalCount);
     }
 
     private static void AddLineSignal(string category, string language, string path, int lineNumber, string evidence,
