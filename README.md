@@ -1,8 +1,14 @@
 #           <img width="25%" height="25%" alt="image" src="https://github.com/user-attachments/assets/bc2bfb61-14b8-4c87-bd7f-74897cc50b4e" />
 
-**Plain English:** BrownPants helps people understand an existing codebase before changing it. It shows what the repository contains, where a bug may affect the system, and whether the agreed work was actually checked. It works alongside Spec Kit, OpenSpec, and other spec-driven workflows, and its core inspection does not need AI.
+**Plain English:** BrownPants helps teams understand an existing system before they change it. It maps the code and project evidence already in the repository, gives developers and agents leads into unfamiliar behavior, and helps QA see what a change may touch and what was checked. Its core inspection runs locally without AI, builds, or source changes.
 
 > **Looks like someone has the Right idea.**
+
+## Start with the brownfield system
+
+BrownPants is built for the code that teams already have: old frameworks, mixed languages, undocumented boundaries, and project files nobody wants to upgrade just to inspect. Run the .NET 10 tool against legacy .NET Framework 4.x source; Roslyn reads C# and Visual Basic without building those projects. It also inventories C/C++, MFC and C++/CLI markers, and reports candidate evidence for factories, dependency injection, interop, and framework-specific patterns. Where the compiler context is available, semantic mode can resolve calls to target methods and show caller impact.
+
+That gives a team a reviewable starting point before it writes a spec or edits code: what languages and projects are present, which files contain relevant patterns, where calls lead, and what test paths may deserve attention. Candidate matches and incomplete analysis are labeled as such; BrownPants does not pretend to understand behavior it could not resolve.
 
 ## BrownPants in a day
 
@@ -12,29 +18,31 @@
 - **QA needs to know what to verify and what shipped.** The local workbench presents feature scenarios and tasks. The Azure DevOps adapter can trace related work items, PRs, builds, and releases; the local PR preview carries QA guidance and evidence gaps. A user can prepare or create a draft PR, while review and merge stay human-controlled.
 - **Your company restricts AI services or command-line agents.** BrownPants' default inspection runs locally without an LLM, network calls, project builds, or source modifications. IDE and SDD adapters are optional; an organization can use local reports or approved hosts without enabling online integrations.
 
-## Without BrownPants and with it
+## Spec Kit + BrownPants: same workflow, more system evidence
 
-| Typical SDD step | SDD engine without BrownPants | With BrownPants |
-|---|---|---|
-| Start from an existing codebase | The developer or agent gathers files and relationships manually. | Deterministic inventory and source-located C#/VB analysis provide a shared starting point. |
-| Investigate a reported defect | Search, call tracing, and test-path discovery happen by hand or through separate tools. | Bug clues and resolved callers produce bounded investigation leads; uncertainty stays visible. |
-| Keep requirements stable | Criteria and task completion depend on the team's review process. | A criteria hash detects changes; a task ledger links completion claims to evidence files. Humans approve intentional rebaselines. |
-| Hand work to QA and reviewers | Teams assemble instructions, evidence, PR/build/release links manually. | The Azure DevOps trace and local preview connect available delivery evidence and QA gaps; draft PR creation stays explicit. |
-| Work in a locked-down environment | Host availability and access determine what the workflow can inspect. | Core inspection stays local and provider-neutral; optional adapters only run when invoked and permitted. |
+**With Spec Kit, you get** a structured path from feature intent through specifications, plans, tasks, implementation, and review.
 
-BrownPants complements an SDD engine: the engine guides the change workflow, while BrownPants adds brownfield evidence, traceability, and checks around the handoff. Agents get consistent, bounded context; people get clearer evidence and fewer manual links to chase. Neither one guarantees a correct fix, honors a tool restriction, or replaces human review.
+**With Spec Kit + BrownPants, you keep that workflow and add** a deterministic view of the existing codebase, source-located analysis for brownfield code, impact leads for changed methods, and acceptance-criteria and task-evidence checks. The Spec Kit adapter can refresh repository context as work moves through its phases. These additions help the team decide where to look, what may be affected, and what evidence supports completion.
 
-## Same bug, same task: a BrownPants comparison
+### Face-off: the same repository and bug
 
-We ran the same controlled `ContestController.cs` test-path bug through vanilla SDD and a BrownPants-assisted Codex run on this repository. Both found the substring-matching defect, added regression coverage, and passed the same focused and full test suites when independently validated. The assisted run received BrownPants' repository inventory as additional context.
+We ran a controlled SDD comparison on this repository. The task was to fix a bug in how `ContestController.cs` was recognized as test code. Both runs used the same source snapshot, task, acceptance hash, Codex CLI version, model, and independent test commands. The planned difference was that the BrownPants-assisted run also received a bounded inventory from `brownpants inspect`.
 
-| One successful matched pair | Vanilla SDD | With BrownPants |
-|---|---:|---:|
-| Input tokens | 336,632 | 260,164 |
-| Output tokens | 2,688 | 2,234 |
-| Full Release tests | 229 passed | 229 passed |
+**SDD run without BrownPants:** The agent found the filename-matching bug, changed the scanner, and added regression coverage. Independent validation passed 75 focused tests and 229 full Release tests.
 
-These are provider-reported counts from Codex CLI JSONL, not estimates. The one successful pair used Codex CLI 0.162.1 with `gpt-6-luna` on Windows. It does not establish token savings or general code-quality results. Human review caught a false positive in both proposed filename rules, which we fixed and tested before release. See the [full task, commit, method, and attempt record](docs/comparisons/brownpants-vs-vanilla-sdd-2026-10.md).
+**Same task with BrownPants inventory:** The assisted agent changed the scanner and added regression coverage; independent validation passed the same 75 focused and 229 full Release tests.
+
+### What this run measured
+
+- **Vanilla Spec Kit run:** 336,632 input tokens and 2,688 output tokens.
+- **Spec Kit + BrownPants run:** 260,164 input tokens and 2,234 output tokens.
+- **Both runs:** 229 full Release tests passed.
+
+Token counts are provider-reported Codex CLI usage, not estimates. This is one successful pair, so it does not establish reliable token savings or better code quality. Human review found a false positive in both proposed filename rules; that review caught a problem the passing tests did not. The [full comparison record](docs/comparisons/brownpants-vs-vanilla-sdd-2026-10.md) includes the setup, failed attempts, findings, and limits.
+
+The measured pair isolates the effect of adding repository inventory context to an SDD task; it is not a benchmark of every Spec Kit feature or BrownPants check.
+
+BrownPants complements Spec Kit: Spec Kit structures the work; BrownPants supplies brownfield evidence and checks that link agreed criteria to verifiable artifacts. Neither guarantees a correct fix or replaces human review.
 
 A SHA-256 acceptance hash is a fingerprint of the agreed pass/fail conditions. If the criteria change during a task, the fingerprint changes and asks a maintainer to review the change. It keeps the goalposts visible; it does not prove the implementation is correct.
 
