@@ -23,6 +23,11 @@
 
 The three counterbalanced baseline/assisted Codex pairs met the frozen gate: pooled recall was 50% versus 100%, precision was 100% in both conditions, all 3 pairs favored BrownPants, and all 6 post-fix checks passed. The result is specific to the delegate persistence fixture. Raw input snapshots, model outputs, JSONL events, token usage, post-fix source files, and check logs are archived under `examples/brownfield-bug-lab/evaluation/delegate-impact/runs/codex-cli-0.162.1-gpt-6.1-sol-20261015/`.
 
-## Remaining review gate
+## PR and CI status
 
-The maintainer approved the changed acceptance criteria in chat. The `acceptance-criteria-reviewed` PR label remains to be applied after a review PR is opened, as recorded in `acceptance-criteria-review.md`.
+- The maintainer approved the changed acceptance criteria in chat, and PR #1 carries the `acceptance-criteria-reviewed` label.
+- PR #1 is open as a draft: https://github.com/sidtrey/BrownPants/pull/1. It has not been merged or approved by the author.
+- GitHub Actions run 105 passed on Windows, Ubuntu, and macOS for head commit `b8831f8c09dc1ac9c9429df53681da9c3c48c0dd`.
+- The first CI run exposed a PowerShell native exit-code leak in the acceptance-review checker. Commit `b8831f8` resets the exit code after successful validation; the policy regression test and all 299 .NET tests pass locally, and the subsequent three-platform CI run passed.
+
+Human PR review and merge remain outstanding release gates.
