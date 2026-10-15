@@ -319,6 +319,28 @@ public sealed class RepositoryScannerTests : IDisposable
     }
 
     [Fact]
+    public void Scan_ClassifiesTestPathsWithoutSubstringFilenameFalsePositives()
+    {
+        Write("src/ContestController.cs", "public sealed class ContestController { }");
+        Write("src/Latest.cs", "public sealed class Latest { }");
+        Write("src/Testimonial.cs", "public sealed class Testimonial { }");
+        Write("src/ContestTests.cs", "public sealed class ContestTests { }");
+        Write("src/TestWidget.cs", "public sealed class TestWidget { }");
+        Write("src/test_widget.py", "class TestWidget: pass");
+        Write("tests/RepositoryScannerTests.cs", "public sealed class RepositoryScannerTests { }");
+
+        var inventory = RepositoryScanner.Scan(_root, sampleLimit: 2);
+
+        Assert.DoesNotContain("src/ContestController.cs", inventory.TestPaths);
+        Assert.DoesNotContain("src/Latest.cs", inventory.TestPaths);
+        Assert.DoesNotContain("src/Testimonial.cs", inventory.TestPaths);
+        Assert.Contains("src/ContestTests.cs", inventory.TestPaths);
+        Assert.Contains("src/TestWidget.cs", inventory.TestPaths);
+        Assert.Contains("src/test_widget.py", inventory.TestPaths);
+        Assert.Contains("tests/RepositoryScannerTests.cs", inventory.TestPaths);
+    }
+
+    [Fact]
     public void Scan_DetectsOpenSpecWithoutSpecKit()
     {
         Write("openspec/config.yaml", "schema: spec-driven");

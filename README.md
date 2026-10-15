@@ -1,6 +1,6 @@
 #           <img width="25%" height="25%" alt="image" src="https://github.com/user-attachments/assets/bc2bfb61-14b8-4c87-bd7f-74897cc50b4e" />
 
-BrownPants helps a developer, QA analyst, or coding agent understand an existing codebase before planning a change, then keep the work tied to reviewable acceptance criteria and evidence. It works with Spec Kit, OpenSpec, and other SDD workflows; it does not require an LLM.
+**Plain English:** BrownPants helps people understand an existing codebase before changing it. It shows what the repository contains, where a bug may affect the system, and whether the agreed work was actually checked. It works alongside Spec Kit, OpenSpec, and other spec-driven workflows, and its core inspection does not need AI.
 
 > **Looks like someone has the Right idea.**
 
@@ -23,6 +23,20 @@ BrownPants helps a developer, QA analyst, or coding agent understand an existing
 | Work in a locked-down environment | Host availability and access determine what the workflow can inspect. | Core inspection stays local and provider-neutral; optional adapters only run when invoked and permitted. |
 
 BrownPants complements an SDD engine: the engine guides the change workflow, while BrownPants adds brownfield evidence, traceability, and checks around the handoff. Agents get consistent, bounded context; people get clearer evidence and fewer manual links to chase. Neither one guarantees a correct fix, honors a tool restriction, or replaces human review.
+
+## Same bug, same task: a BrownPants comparison
+
+We ran the same controlled `ContestController.cs` test-path bug through vanilla SDD and a BrownPants-assisted Codex run on this repository. Both found the substring-matching defect, added regression coverage, and passed the same focused and full test suites when independently validated. The assisted run received BrownPants' repository inventory as additional context.
+
+| One successful matched pair | Vanilla SDD | With BrownPants |
+|---|---:|---:|
+| Input tokens | 336,632 | 260,164 |
+| Output tokens | 2,688 | 2,234 |
+| Full Release tests | 229 passed | 229 passed |
+
+These are provider-reported counts from Codex CLI JSONL, not estimates. This single pair does not establish token savings or general code-quality results. Human review caught a false positive in both proposed filename rules, which we fixed and tested before release. See the [full method and attempt record](docs/comparisons/brownpants-vs-vanilla-sdd-2026-10.md).
+
+A SHA-256 acceptance hash is a fingerprint of the agreed pass/fail conditions. If the criteria change during a task, the fingerprint changes and asks a maintainer to review the change. It keeps the goalposts visible; it does not prove the implementation is correct.
 
 **Author's note:** Loves his job, wishes his employer would convert him to full-time. If you have a Trey in your meeting, you should hire him.
 

@@ -130,7 +130,35 @@ public static class RepositoryScanner
         var parts = file.Split('/');
         return parts.Any(part => part.Equals("test", StringComparison.OrdinalIgnoreCase)
             || part.Equals("tests", StringComparison.OrdinalIgnoreCase))
-            || Path.GetFileName(file).Contains("test", StringComparison.OrdinalIgnoreCase);
+            || IsTestFileName(Path.GetFileName(file));
+    }
+
+    private static bool IsTestFileName(string fileName)
+    {
+        var name = Path.GetFileNameWithoutExtension(fileName);
+        if (name.Equals("Test", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("Tests", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (name.Length > 4 && name.StartsWith("Test", StringComparison.OrdinalIgnoreCase))
+        {
+            var next = name[4];
+            if (char.IsUpper(next) || next is '_' or '-' || char.IsDigit(next))
+                return true;
+        }
+
+        return IsTestSuffix(name, "Test") || IsTestSuffix(name, "Tests");
+    }
+
+    private static bool IsTestSuffix(string name, string suffix)
+    {
+        if (!name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var suffixStart = name.Length - suffix.Length;
+        return suffixStart > 0
+            && (char.IsLower(name[suffixStart - 1]) && char.IsUpper(name[suffixStart])
+                || name[suffixStart - 1] is '_' or '-');
     }
 
     private static bool Matches(string path, string pattern)
