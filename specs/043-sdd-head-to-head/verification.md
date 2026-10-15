@@ -38,5 +38,4 @@ The first vanilla attempt completed with 646,942 input / 4,409 output tokens. It
 - `dotnet run --project src/BrownPants.Cli --no-build -c Release -- inspect . --format json --limit 10` — 555 files, 67 C# source files, 0 C# parse errors; generated `TestResults` is absent from top-level inventory.
 - `pwsh -NoProfile -File scripts/acceptance-criteria-hash.ps1 -SpecPath specs/043-sdd-head-to-head/spec.md` — verified the feature hash above.
 - GitHub Actions on base commit `7a3950825dce2db0b88b951480942d6c52485813` — Windows, macOS, and Ubuntu CI all passed.
-
-The remaining release check is CI for the final implementation commit.
+- GitHub Actions on final implementation commit `53209e6effb9338f2045f586162cf8da6a1dccaa` — Windows, macOS, and Ubuntu CI all passed, including packed-tool smoke checks: [run 38689984876](https://github.com/sidtrey/BrownPants/actions/runs/38689984876).
