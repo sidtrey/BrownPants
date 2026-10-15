@@ -1,0 +1,23 @@
+# Research: Azure DevOps Sprint and Delivery Traceability
+
+## Provider behavior
+
+- Azure DevOps REST APIs use explicit API versions and JSON responses. Use the stable `7.1` endpoints in the first implementation and surface HTTP errors, throttling, and pagination rather than silently truncating findings. [REST API guide](https://learn.microsoft.com/en-us/azure/devops/integrate/how-to/call-rest-api?view=azure-devops)
+- The Work Item Tracking API can read work items and their relations. Iteration path and state are work-item fields, while links and identity of related items depend on project configuration and permissions. [Work Item API](https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/work-items?view=azure-devops-rest-7.1), [Get Work Item](https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/work-items/get-work-item?view=azure-devops-rest-7.1)
+- Azure DevOps exposes build-to-work-item references and release listing by build artifact version. Only same-project work items are returned by the build association API, and release visibility is permission and retention dependent. [Build work items](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/builds/get-build-work-items-refs?view=azure-devops-rest-7.1), [Release list](https://learn.microsoft.com/en-us/rest/api/azure/devops/release/releases/list?view=azure-devops-rest-7.1)
+- Azure Repos provides a versioned pull-request creation API with `isDraft` and `workItemRefs` fields, allowing the create request to associate mapped work items. Creation requires Git contribution capability; the documented API security scope `vso.code_write` also grants broader code and PR management capability, so BrownPants must constrain its own request behavior and document the external permission boundary. [Create PR](https://learn.microsoft.com/en-us/rest/api/azure/devops/git/pull-requests/create?view=azure-devops-rest-7.1), [Git permissions](https://learn.microsoft.com/en-us/azure/devops/organizations/security/default-git-permissions?view=azure-devops)
+- Azure Boards links can transition work items when PR descriptions use terms such as “fixes” or “closed”. Generated descriptions must use neutral “Related work items” text and the explicit link field, never transition language. [Azure Repos PR linking](https://learn.microsoft.com/en-us/azure/devops/repos/git/pull-requests)
+
+## Authentication and safety
+
+- Microsoft recommends Microsoft Entra authentication for new Azure DevOps Services integrations and limits PAT use to short-lived, personal, or legacy scenarios. Credentials must be external to project config, scoped to read operations for traceability, and never written to reports. [Authentication guidance](https://learn.microsoft.com/en-us/azure/devops/integrate/get-started/authentication/authentication-guidance?view=azure-devops), [Entra authentication](https://learn.microsoft.com/azure/devops/integrate/get-started/authentication/entra)
+- The CLI will not implement identity sign-in in this feature. It will read a caller-supplied token from the fixed `BROWNPANTS_AZURE_DEVOPS_TOKEN` environment variable, allowing approved Entra token providers and short-lived PATs for legacy/server environments without storing credentials. Online calls require an explicit command and PR creation requires separate confirmation. Read-only credentials suffice for traceability; draft PR creation needs repository PR contribution permission.
+- Tests should inject `HttpMessageHandler` fixtures. They must verify request methods, destinations, API versions, response handling, secret redaction, and that only the explicitly confirmed PR endpoint is a write.
+- A repository-provided base URL and API-returned links are untrusted input. Azure DevOps Services requests must use expected service hosts; custom Server URLs require a dedicated user-supplied flag and HTTPS. Never follow response links with authorization headers. Render server-provided titles as escaped text.
+
+## Product decisions
+
+- Start with Azure DevOps Services and Azure Repos Git. Model custom Azure DevOps Server URLs in connection configuration where the same supported API contract applies; do not claim untested server-version compatibility.
+- Keep feature-to-work-item mappings in a reviewable repository file. Read credentials only from `BROWNPANTS_AZURE_DEVOPS_TOKEN` after opt-in; do not let repository config select an environment variable.
+- Produce a local preview first. Creating a remote PR is a separate explicit operation that submits a draft and reports the resulting URL; BrownPants does not approve or complete it.
+- Do not create/update boards items, add reviewers, queue builds, or create releases. Human-owned team processes remain authoritative.
