@@ -82,9 +82,12 @@ try {
     finally { Pop-Location }
 }
 finally {
-    $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\') + '\'
+    $separator = [System.IO.Path]::DirectorySeparatorChar
+    $alternateSeparator = [System.IO.Path]::AltDirectorySeparatorChar
+    $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd([char[]]@($separator, $alternateSeparator)) + $separator
     $resolvedFixture = [System.IO.Path]::GetFullPath($fixture)
-    if (-not $resolvedFixture.StartsWith($tempRoot, [System.StringComparison]::OrdinalIgnoreCase) -or
+    $comparison = if ([System.IO.Path]::DirectorySeparatorChar -eq '\') { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }
+    if (-not $resolvedFixture.StartsWith($tempRoot, $comparison) -or
         -not (Split-Path -Leaf $resolvedFixture).StartsWith('brownpants-git-range-test-', [System.StringComparison]::Ordinal)) {
         throw 'Refusing to remove the Git test fixture outside its designated temporary directory.'
     }
