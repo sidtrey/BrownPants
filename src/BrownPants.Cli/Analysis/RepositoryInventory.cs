@@ -106,8 +106,31 @@ public sealed record VisualBasicInvocationInfo(string Path, int Line, string Exp
 public sealed record VisualBasicParseIssue(string Path, int Line, string Code, string Message);
 
 public sealed record ArchitecturePatternAnalysis(int SignalCount, IReadOnlyList<ArchitecturePatternSignal> Signals,
-    string EvidenceLimits = "");
+    string EvidenceLimits = "", NativeFlowAnalysis? NativeFlow = null);
 public sealed record ArchitecturePatternSignal(string Category, string EvidenceKind, string Language, string Path, int Line, string Evidence);
+
+public sealed record NativeFlowAnalysis(
+    int ScannedFileCount,
+    int RelationCount,
+    int UnresolvedCount,
+    int AmbiguousCount,
+    int OmittedCount,
+    IReadOnlyList<NativeFlowRelation> Relations,
+    IReadOnlyList<string> EvidenceLimits);
+
+public sealed record NativeFlowRelation(
+    string Id,
+    string Kind,
+    string Status,
+    string SourcePath,
+    int SourceLine,
+    string SourceSymbol,
+    string? TargetPath,
+    int? TargetLine,
+    string TargetSymbol,
+    string? CommandId,
+    int CandidateTargetCount,
+    string Evidence);
 
 public sealed record NativeProjectInfo(
     string Path,

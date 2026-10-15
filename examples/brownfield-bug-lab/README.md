@@ -40,7 +40,7 @@ dotnet run --project src/BrownPants.Cli -- evidence examples/brownfield-bug-lab/
 
 This handoff keeps only matching source facts plus resolved direct/transitive callers and related test-path candidates. Check `focus` for unmatched selectors, evidence limits, and omitted counts. Omitting the selectors still produces the complete task-neutral handoff.
 
-The impact report connects `ImportBatch<T>` to the `Save(IEnumerable<T>)` overload and shows how `ImportMapped<TSource>` forwards through `SaveMapped<TSource>`. Inventory also locates factory/DI wiring, MFC message-map and runtime-type markers, a C++/CLI bridge, and NHibernate dependency/session/configuration/mapping evidence. Those native and ORM findings are candidates; this fixture does not prove runtime relationships or database behavior.
+The impact report connects `ImportBatch<T>` to the `Save(IEnumerable<T>)` overload and shows how `ImportMapped<TSource>` forwards through `SaveMapped<TSource>`. Inventory also links the MFC `ID_ORDER_IMPORT_BATCH` message-map entry to `COrderMfcView::OnImportBatch`, then links that handler's qualified call to the inline `COrderManagedBridge::ImportSelectedOrders` definition. These native links remain lexical candidates: BrownPants does not expand macros, select overloads, prove runtime dispatch, or infer a C# edge. Inventory also locates factory/DI wiring and NHibernate dependency/session/configuration/mapping evidence; ORM candidates do not prove database behavior.
 
 ### Trace a generic factory constructor
 

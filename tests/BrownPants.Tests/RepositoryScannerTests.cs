@@ -1242,6 +1242,108 @@ public sealed class RepositoryScannerTests : IDisposable
     }
 
     [Fact]
+    public void Scan_TracesMfcMessageHandlersAndQualifiedCallsAsBoundedNativeCandidates()
+    {
+        Write("native/View.cpp", """
+            BEGIN_MESSAGE_MAP(CView, CFormView)
+                ON_COMMAND(ID_RUN, &CView::OnRun)
+                ON_COMMAND(ID_MISSING, &CView::OnMissing)
+                ON_COMMAND(ID_DUPLICATE, &CView::OnDuplicate)
+            END_MESSAGE_MAP()
+
+            void CView::OnRun()
+            {
+                CBridge::Invoke(); CInlineBridge::Invoke();
+                // CNoise::Fake();
+                const char* text = "CNoise::AlsoFake()";
+                const char* raw = R"tag(CNoise::RawFake())tag";
+            }
+
+            void CView::OnDuplicate() {}
+            """);
+        Write("native/Bridge.cpp", """
+            public ref class CInlineBridge
+            {
+            public:
+                static void Invoke() {}
+            };
+            void CBridge::Invoke() {}
+            """);
+        Write("native/Bridge2.cpp", "void CBridge::Invoke(int mode) {}\n");
+        Write("native/ViewDuplicate.cpp", "void CView::OnDuplicate(int mode) {}\n");
+        var filesBefore = Directory.GetFiles(_root, "*", SearchOption.AllDirectories).OrderBy(path => path).ToArray();
+
+        var inventory = RepositoryScanner.Scan(_root, sampleLimit: 50);
+        var flow = inventory.ArchitecturePatterns.NativeFlow ?? throw new InvalidOperationException("Native flow analysis was absent.");
+        var repeated = RepositoryScanner.Scan(_root, sampleLimit: 50).ArchitecturePatterns.NativeFlow
+            ?? throw new InvalidOperationException("Repeated native flow analysis was absent.");
+        var bounded = RepositoryScanner.Scan(_root, sampleLimit: 1).ArchitecturePatterns.NativeFlow
+            ?? throw new InvalidOperationException("Bounded native flow analysis was absent.");
+        var dispatch = flow.Relations.Where(item => item.Kind == "mfc-dispatch").ToArray();
+        var calls = flow.Relations.Where(item => item.Kind == "qualified-native-call").ToArray();
+
+        Assert.Equal(3, dispatch.Length);
+        Assert.Contains(dispatch, item => item.CommandId == "ID_RUN" && item.Status == "candidate"
+            && item.SourcePath == "native/View.cpp" && item.SourceLine == 2
+            && item.TargetPath == "native/View.cpp" && item.TargetLine == 7
+            && item.TargetSymbol == "CView::OnRun");
+        Assert.Contains(dispatch, item => item.CommandId == "ID_MISSING" && item.Status == "unresolved"
+            && item.TargetPath is null && item.CandidateTargetCount == 0);
+        Assert.Contains(dispatch, item => item.CommandId == "ID_DUPLICATE" && item.Status == "ambiguous"
+            && item.TargetPath is null && item.CandidateTargetCount == 2);
+        Assert.Contains(calls, item => item.Status == "ambiguous" && item.SourceLine == 9
+            && item.TargetSymbol == "CBridge::Invoke" && item.CandidateTargetCount == 2);
+        Assert.Contains(calls, item => item.Status == "candidate" && item.SourceLine == 9
+            && item.TargetSymbol == "CInlineBridge::Invoke" && item.TargetPath == "native/Bridge.cpp"
+            && item.TargetLine == 4);
+        Assert.DoesNotContain(flow.Relations, item => item.TargetSymbol.Contains("Fake", StringComparison.Ordinal));
+        Assert.Equal(flow.Relations.Select(item => item.Id), repeated.Relations.Select(item => item.Id));
+        Assert.Equal(flow.AmbiguousCount, repeated.AmbiguousCount);
+        Assert.Equal(flow.UnresolvedCount, repeated.UnresolvedCount);
+        Assert.Equal(flow.RelationCount - 1, bounded.OmittedCount);
+        Assert.Single(bounded.Relations);
+        Assert.Equal(filesBefore, Directory.GetFiles(_root, "*", SearchOption.AllDirectories).OrderBy(path => path).ToArray());
+
+        var markdown = MarkdownReport.Render(inventory);
+        Assert.Contains("Native flow candidates", markdown);
+        Assert.Contains("ID_RUN", markdown);
+        Assert.Contains("ambiguous", markdown, StringComparison.OrdinalIgnoreCase);
+
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        Assert.Equal(0, Program.Run(["evidence", _root, "--limit", "50"], output, error));
+        using var json = System.Text.Json.JsonDocument.Parse(output.ToString());
+        var evidence = json.RootElement.GetProperty("findings").EnumerateArray().ToArray();
+        Assert.Contains(evidence, item => item.GetProperty("category").GetString() == "native-flow-candidate"
+            && item.GetProperty("targetPath").GetString() == "native/View.cpp"
+            && item.GetProperty("targetLine").GetInt32() == 7);
+        Assert.Contains(evidence, item => item.GetProperty("category").GetString() == "native-flow-candidate"
+            && item.GetProperty("targetSymbol").GetString() == "CBridge::Invoke");
+        Assert.Contains(evidence, item => item.GetProperty("category").GetString() == "native-flow-candidate"
+            && item.GetProperty("targetSymbol").GetString() == "CInlineBridge::Invoke");
+        Assert.DoesNotContain(evidence, item => item.GetProperty("status").GetString() == "resolved"
+            && item.GetProperty("category").GetString() == "native-flow-candidate");
+
+        using var inventoryOutput = new StringWriter();
+        Assert.Equal(0, Program.Run(["inspect", _root, "--format", "json", "--limit", "50"], inventoryOutput, error));
+        using var inventoryJson = System.Text.Json.JsonDocument.Parse(inventoryOutput.ToString());
+        Assert.Contains(inventoryJson.RootElement.GetProperty("ArchitecturePatterns").GetProperty("NativeFlow")
+            .GetProperty("Relations").EnumerateArray(), item => item.GetProperty("TargetSymbol").GetString() == "CInlineBridge::Invoke"
+                && item.GetProperty("Status").GetString() == "candidate");
+    }
+
+    [Fact]
+    public void Scan_OmitsNativeFlowSectionWhenRepositoryHasNoNativeSources()
+    {
+        Write("src/Program.cs", "internal static class Program { }");
+
+        var inventory = RepositoryScanner.Scan(_root);
+
+        Assert.Equal(0, inventory.ArchitecturePatterns.NativeFlow?.ScannedFileCount);
+        Assert.DoesNotContain("Native flow candidates", MarkdownReport.Render(inventory), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Scan_ReportsPythonFactoryAndDependencyCandidatesAndFiltersNoise()
     {
         var pythonSource = """

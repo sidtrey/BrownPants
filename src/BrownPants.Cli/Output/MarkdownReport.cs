@@ -322,6 +322,27 @@ public static class MarkdownReport
             report.AppendLine("No matching pattern signals found.");
         else if (analysis.SignalCount > analysis.Signals.Count)
             report.AppendLine($"- {analysis.SignalCount - analysis.Signals.Count} additional matches omitted by the sample limit.");
+        if (analysis.NativeFlow is { ScannedFileCount: > 0 } nativeFlow)
+        {
+            report.AppendLine();
+            report.AppendLine("### Native flow candidates");
+            report.AppendLine();
+            report.AppendLine($"- Relations: {nativeFlow.RelationCount}; unresolved: {nativeFlow.UnresolvedCount}; ambiguous: {nativeFlow.AmbiguousCount}; omitted: {nativeFlow.OmittedCount}");
+            foreach (var limit in nativeFlow.EvidenceLimits)
+                report.AppendLine($"- Evidence limit: {Escape(limit)}");
+            foreach (var relation in nativeFlow.Relations)
+            {
+                var target = relation.TargetPath is null
+                    ? $"`{Escape(relation.TargetSymbol)}` ({relation.Status}, {relation.CandidateTargetCount} definitions)"
+                    : $"`{Escape(relation.TargetPath)}:{relation.TargetLine}` `{Escape(relation.TargetSymbol)}`";
+                var command = relation.CommandId is null ? string.Empty : $" command `{Escape(relation.CommandId)}`";
+                report.AppendLine($"- {Escape(relation.Kind)} [{Escape(relation.Status)}]{command}: `{Escape(relation.SourcePath)}:{relation.SourceLine}` `{Escape(relation.SourceSymbol)}` → {target}");
+            }
+            if (nativeFlow.RelationCount == 0)
+                report.AppendLine("No supported MFC message paths found.");
+            else if (nativeFlow.OmittedCount > 0)
+                report.AppendLine($"- {nativeFlow.OmittedCount} additional native flow relations omitted by the sample limit.");
+        }
         report.AppendLine();
     }
 

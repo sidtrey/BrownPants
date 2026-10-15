@@ -143,7 +143,8 @@ public static class ArchitecturePatternAnalyzer
         var limits = nhibernateObserved
             ? "NHibernate candidates do not prove transitive package resolution, runtime configuration or mapping activation, session lifetime, or database behavior."
             : string.Empty;
-        return new ArchitecturePatternAnalysis(signalCount, signals, limits);
+        return new ArchitecturePatternAnalysis(signalCount, signals, limits,
+            NativeFlowAnalyzer.Analyze(root, sourcePaths, sampleLimit));
     }
 
     private static void AnalyzeCSharp(string source, string path, List<ArchitecturePatternSignal> signals,
@@ -992,7 +993,7 @@ public static class ArchitecturePatternAnalyzer
         return -1;
     }
 
-    private static string RemoveCommentsAndStrings(string line, ref bool inBlockComment, ref char quote,
+    internal static string RemoveCommentsAndStrings(string line, ref bool inBlockComment, ref char quote,
         ref bool escaped, ref string? rawStringTerminator)
     {
         var result = new StringBuilder(line.Length);

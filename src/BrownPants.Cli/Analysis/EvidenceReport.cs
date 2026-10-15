@@ -31,7 +31,14 @@ public sealed record EvidenceFinding(
     int? Line,
     string? CallerSignature,
     string? TargetSignature,
-    string Evidence)
+    string Evidence,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? TargetPath = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? TargetLine = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? RelationKind = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? SourceSymbol = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? TargetSymbol = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? CommandId = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? CandidateTargetCount = null)
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<string>? MatchedBy { get; init; }
@@ -84,6 +91,19 @@ public static class EvidenceReportAnalyzer
                 null, null, signal.Evidence));
         }
 
+        var nativeFlow = inventory.ArchitecturePatterns.NativeFlow;
+        if (nativeFlow is { ScannedFileCount: > 0 })
+        {
+            foreach (var relation in nativeFlow.Relations)
+            {
+                var signal = relation.Kind == "mfc-dispatch" ? "MFC message dispatch" : "Qualified native call";
+                findings.Add(CreateFinding("native-flow-candidate", relation.Status, signal,
+                    relation.SourcePath, relation.SourceLine, null, null, relation.Evidence,
+                    relation.TargetPath, relation.TargetLine, relation.Kind, relation.SourceSymbol,
+                    relation.TargetSymbol, relation.CommandId, relation.CandidateTargetCount));
+            }
+        }
+
         if (semanticRequested && semantic is not null)
         {
             foreach (var call in semantic.ResolvedCalls)
@@ -114,7 +134,7 @@ public static class EvidenceReportAnalyzer
             ? semantic.ResolvedInvocationCount + semantic.ResolvedConstructorCount
             : 0;
         var knownTotal = inventory.ArchitecturePatterns.SignalCount + semanticTotal
-            + inventory.TestPaths.Count(IsSourceTestPath);
+            + inventory.TestPaths.Count(IsSourceTestPath) + (nativeFlow?.RelationCount ?? 0);
 
         var limitations = new SortedSet<string>(StringComparer.Ordinal)
         {
@@ -135,6 +155,10 @@ public static class EvidenceReportAnalyzer
         }
         if (inventory.ArchitecturePatterns.SignalCount > inventory.ArchitecturePatterns.Signals.Count)
             limitations.Add($"Architecture signals were sampled: {inventory.ArchitecturePatterns.Signals.Count} of {inventory.ArchitecturePatterns.SignalCount} retained.");
+        if (nativeFlow is not null)
+            foreach (var limit in nativeFlow.EvidenceLimits) limitations.Add(limit);
+        if (nativeFlow is { OmittedCount: > 0 })
+            limitations.Add($"Native-flow relations were sampled: {nativeFlow.Relations.Count} of {nativeFlow.RelationCount} retained.");
 
         return new EvidenceReport(
             1,
@@ -149,6 +173,7 @@ public static class EvidenceReportAnalyzer
                 ordered.Length,
                 ordered.Length < Math.Max(knownTotal, allOrdered.Length)
                     || inventory.ArchitecturePatterns.SignalCount > inventory.ArchitecturePatterns.Signals.Count
+                    || nativeFlow is { OmittedCount: > 0 }
                     || (semanticRequested && semantic is not null
                         && semantic.ResolvedInvocationCount + semantic.ResolvedConstructorCount > semantic.ResolvedCalls.Count),
                 semanticRequested,
@@ -160,13 +185,21 @@ public static class EvidenceReportAnalyzer
     }
 
     private static EvidenceFinding CreateFinding(string category, string status, string signal, string path, int? line,
-        string? caller, string? target, string evidence)
+        string? caller, string? target, string evidence, string? targetPath = null, int? targetLine = null,
+        string? relationKind = null, string? sourceSymbol = null, string? targetSymbol = null,
+        string? commandId = null, int? candidateTargetCount = null)
     {
         var normalizedPath = path.Replace('\\', '/');
-        var identity = string.Join("\n", category, status, signal, normalizedPath, line?.ToString() ?? "",
-            caller ?? "", target ?? "");
+        var identity = relationKind is null
+            ? string.Join("\n", category, status, signal, normalizedPath, line?.ToString() ?? "",
+                caller ?? "", target ?? "")
+            : string.Join("\n", category, status, signal, normalizedPath, line?.ToString() ?? "",
+                relationKind, sourceSymbol ?? "", targetSymbol ?? "", targetPath ?? "", targetLine?.ToString() ?? "",
+                commandId ?? "", candidateTargetCount?.ToString() ?? "");
         var id = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)))[..16].ToLowerInvariant();
-        return new EvidenceFinding(id, category, status, signal, normalizedPath, line, caller, target, evidence);
+        return new EvidenceFinding(id, category, status, signal, normalizedPath, line, caller, target, evidence,
+            targetPath?.Replace('\\', '/'), targetLine, relationKind, sourceSymbol, targetSymbol, commandId,
+            candidateTargetCount);
     }
 
     private static bool IsSourceTestPath(string path) =>
