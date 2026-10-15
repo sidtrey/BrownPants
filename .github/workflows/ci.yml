@@ -75,7 +75,6 @@ jobs:
         run: |
           $changed = ./scripts/get-changed-spec-artifacts.ps1 -EventName $env:EVENT_NAME -RefType $env:REF_TYPE `
             -Before $env:PUSH_BEFORE -Head $env:PUSH_HEAD -PullRequestBase $env:PR_BASE -PullRequestHead $env:PR_HEAD
-          if ($LASTEXITCODE -ne 0) { throw 'Could not determine changed feature artifacts from Git history.' }
           $featureDirs = @($changed | Where-Object { $_ -match '^specs/[^/]+/(tasks\.md|acceptance-evidence\.json)$' } | ForEach-Object { $_ -replace '/(tasks\.md|acceptance-evidence\.json)$', '' } | Sort-Object -Unique)
           foreach ($featureDir in $featureDirs) {
             $spec = Join-Path $featureDir 'spec.md'

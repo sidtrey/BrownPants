@@ -54,8 +54,7 @@ try {
         $tagPush = @(& $selector -EventName push -RefType tag -Before ('0' * 40) -Head $headCommit)
         if ($LASTEXITCODE -ne 0 -or (Compare-Object @('specs/feature/tasks.md') $tagPush)) { throw 'A new tag must select changes from its parent, not every historical task.' }
         $firstBranchPush = @(& $selector -EventName push -RefType branch -Before ('0' * 40) -Head $headCommit)
-        $allTasks = @('specs/feature/tasks.md', 'specs/legacy/tasks.md')
-        if ($LASTEXITCODE -ne 0 -or (Compare-Object $allTasks $firstBranchPush)) { throw 'An initial branch push must select the complete tree.' }
+        if ($LASTEXITCODE -ne 0 -or $firstBranchPush.Count -ne 0) { throw 'An initial branch push must defer changed-feature ledger checks to the pull-request diff.' }
         $pullRequest = @(& $selector -EventName pull_request -RefType branch -Before ('0' * 40) -Head $headCommit -PullRequestBase $rootCommit -PullRequestHead $headCommit)
         if ($LASTEXITCODE -ne 0 -or (Compare-Object @('specs/feature/tasks.md') $pullRequest)) { throw 'Pull requests must retain their base/head comparison.' }
         $manualRun = @(& $selector -EventName workflow_dispatch -RefType branch -Head $headCommit)
