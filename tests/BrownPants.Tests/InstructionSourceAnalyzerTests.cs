@@ -69,6 +69,157 @@ public sealed class InstructionSourceAnalyzerTests : IDisposable
     }
 
     [Fact]
+    public void InstructionsCommand_ExtractsOneSectionWithNestedContentAndStableMetadata()
+    {
+        Write("AGENTS.md", "# Root\nintro\n\n## Rules\nA\n\n### Detail\nB\n\n## Other\nSECRET\n");
+        using var markdown = new StringWriter();
+        using var markdownError = new StringWriter();
+
+        Assert.Equal(0, Program.Run(new[] { "instructions", _root, "--source", "AGENTS.md", "--section", "rules" }, markdown, markdownError));
+        Assert.Empty(markdownError.ToString());
+        Assert.Contains("AGENTS.md", markdown.ToString());
+        Assert.Contains("Anchor: `rules`", markdown.ToString());
+        Assert.Contains("Lines: 4-9", markdown.ToString());
+        Assert.Contains("### Detail", markdown.ToString());
+        Assert.DoesNotContain("SECRET", markdown.ToString());
+
+        using var repeatedMarkdown = new StringWriter();
+        using var repeatedMarkdownError = new StringWriter();
+        Assert.Equal(0, Program.Run(new[] { "instructions", _root, "--source", "AGENTS.md", "--section", "rules" }, repeatedMarkdown, repeatedMarkdownError));
+        Assert.Equal(markdown.ToString(), repeatedMarkdown.ToString());
+
+        using var json = new StringWriter();
+        using var jsonError = new StringWriter();
+        Assert.Equal(0, Program.Run(new[] { "instructions", _root, "--source", "AGENTS.md", "--section", "rules", "--format", "json" }, json, jsonError));
+        Assert.Empty(jsonError.ToString());
+        using var document = System.Text.Json.JsonDocument.Parse(json.ToString());
+        var result = document.RootElement;
+        Assert.Equal(1, result.GetProperty("SchemaVersion").GetInt32());
+        Assert.Equal("AGENTS.md", result.GetProperty("SourcePath").GetString());
+        Assert.Equal("rules", result.GetProperty("Anchor").GetString());
+        Assert.Equal(4, result.GetProperty("StartLine").GetInt32());
+        Assert.Equal(9, result.GetProperty("EndLine").GetInt32());
+        Assert.Contains("### Detail", result.GetProperty("Content").GetString());
+        Assert.DoesNotContain("SECRET", result.GetProperty("Content").GetString());
+
+        using var repeatedJson = new StringWriter();
+        using var repeatedJsonError = new StringWriter();
+        Assert.Equal(0, Program.Run(new[] { "instructions", _root, "--source", "AGENTS.md", "--section", "rules", "--format", "json" }, repeatedJson, repeatedJsonError));
+        Assert.Equal(json.ToString(), repeatedJson.ToString());
+    }
+
+    [Fact]
+    public void Help_ListsInstructionSectionRetrieval()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        Assert.Equal(0, Program.Run(new[] { "help" }, output, error));
+
+        Assert.Contains("--section <anchor>", output.ToString());
+    }
+
+    [Fact]
+    public void Analyze_IgnoresHeadingsInsideBacktickAndTildeFences()
+    {
+        Write("AGENTS.md", "# Root\n\n```markdown\n## Fake backtick\n```\n~~~markdown\n## Fake tilde\n~~~\n## Real\nText.\n");
+
+        var report = InstructionSourceAnalyzer.Analyze(_root);
+
+        Assert.Equal(new[] { "root", "real" }, Assert.Single(report.Sources).Sections.Select(section => section.Anchor));
+    }
+
+    [Fact]
+    public void InstructionsCommand_UsesInventoryDuplicateAnchorsToSelectOccurrence()
+    {
+        Write("AGENTS.md", "# Repeated\nfirst occurrence\n\n# Repeated\nsecond occurrence\n");
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        Assert.Equal(0, Program.Run(new[] { "instructions", _root, "--source", "AGENTS.md", "--section", "repeated-1" }, output, error));
+
+        Assert.Empty(error.ToString());
+        Assert.Contains("second occurrence", output.ToString());
+        Assert.DoesNotContain("first occurrence", output.ToString());
+    }
+
+    [Fact]
+    public void InstructionsCommand_RejectsMissingAndUnsafeSectionsWithoutFallbackContent()
+    {
+        Write("AGENTS.md", "# Private\nDO NOT RETURN THIS\n");
+        using var missingOutput = new StringWriter();
+        using var missingError = new StringWriter();
+
+        Assert.Equal(1, Program.Run(new[] { "instructions", _root, "--source", "AGENTS.md", "--section", "missing" }, missingOutput, missingError));
+        Assert.Empty(missingOutput.ToString());
+        Assert.Contains("section", missingError.ToString(), StringComparison.OrdinalIgnoreCase);
+
+        using var unsafeOutput = new StringWriter();
+        using var unsafeError = new StringWriter();
+        Assert.Equal(1, Program.Run(new[] { "instructions", _root, "--source", "../outside.md", "--section", "private" }, unsafeOutput, unsafeError));
+        Assert.Empty(unsafeOutput.ToString());
+        Assert.DoesNotContain("DO NOT RETURN THIS", unsafeError.ToString());
+    }
+
+    [Fact]
+    public void InstructionsCommand_RequiresOneSourceAndValidFormatForSectionRequests()
+    {
+        Write("AGENTS.md", "# Rules\nBody.\n");
+        using var missingSourceOutput = new StringWriter();
+        using var missingSourceError = new StringWriter();
+        Assert.Equal(2, Program.Run(new[] { "instructions", _root, "--section", "rules" }, missingSourceOutput, missingSourceError));
+
+        using var multipleSourceOutput = new StringWriter();
+        using var multipleSourceError = new StringWriter();
+        Assert.Equal(2, Program.Run(new[] { "instructions", _root, "--source", "AGENTS.md", "--source", "AGENTS.md", "--section", "rules" }, multipleSourceOutput, multipleSourceError));
+
+        using var formatOutput = new StringWriter();
+        using var formatError = new StringWriter();
+        Assert.Equal(2, Program.Run(new[] { "instructions", _root, "--source", "AGENTS.md", "--section", "rules", "--format", "xml" }, formatOutput, formatError));
+    }
+
+    [Fact]
+    public void InstructionsCommand_RejectsUnsupportedEncodingAndOversizedSectionsWithoutContent()
+    {
+        Directory.CreateDirectory(Path.Combine(_root, ".claude"));
+        File.WriteAllBytes(Path.Combine(_root, ".claude", "invalid.md"), new byte[] { 0xC3, 0x28 });
+        Write(".claude/large.md", new string('x', 1_048_577));
+
+        using var encodingOutput = new StringWriter();
+        using var encodingError = new StringWriter();
+        Assert.Equal(1, Program.Run(new[] { "instructions", _root, "--source", ".claude/invalid.md", "--section", "rules" }, encodingOutput, encodingError));
+        Assert.Empty(encodingOutput.ToString());
+        Assert.Contains("UnsupportedEncoding", encodingError.ToString());
+
+        using var sizeOutput = new StringWriter();
+        using var sizeError = new StringWriter();
+        Assert.Equal(1, Program.Run(new[] { "instructions", _root, "--source", ".claude/large.md", "--section", "rules" }, sizeOutput, sizeError));
+        Assert.Empty(sizeOutput.ToString());
+        Assert.Contains("TooLarge", sizeError.ToString());
+    }
+
+    [Fact]
+    public void InstructionsCommand_RejectsSourceThroughSymbolicLinkWhenSupported()
+    {
+        Write("target.md", "# Rules\nSECRET\n");
+        try
+        {
+            File.CreateSymbolicLink(Path.Combine(_root, "linked.md"), Path.Combine(_root, "target.md"));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+            or PlatformNotSupportedException or ArgumentException)
+        {
+            return;
+        }
+
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        Assert.Equal(1, Program.Run(new[] { "instructions", _root, "--source", "linked.md", "--section", "rules" }, output, error));
+        Assert.Empty(output.ToString());
+        Assert.DoesNotContain("SECRET", error.ToString());
+    }
+
+    [Fact]
     public void FrameCreate_ValidatesReferencesAndRefusesOverwriteByDefault()
     {
         Write("AGENTS.md", "# Repository\n\n## Safety\nPreserve canonical instructions.");

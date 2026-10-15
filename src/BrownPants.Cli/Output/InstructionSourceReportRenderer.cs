@@ -1,10 +1,34 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using BrownPants.Cli.Analysis;
 
 namespace BrownPants.Cli.Output;
 
 public static class InstructionSourceReportRenderer
 {
+    public static string RenderSection(InstructionSectionResult section)
+    {
+        var longestFence = Regex.Matches(section.Content, @"`+")
+            .Select(match => match.Length)
+            .DefaultIfEmpty(0)
+            .Max();
+        var fence = new string('`', Math.Max(3, longestFence + 1));
+        var text = new StringBuilder();
+        text.AppendLine($"# Instruction section: {section.Heading}");
+        text.AppendLine();
+        text.AppendLine($"- Source: `{section.SourcePath}`");
+        text.AppendLine($"- Anchor: `{section.Anchor}`");
+        text.AppendLine($"- Lines: {section.StartLine}-{section.EndLine}");
+        text.AppendLine();
+        text.AppendLine(fence);
+        text.Append(section.Content);
+        if (!section.Content.EndsWith('\n')) text.AppendLine();
+        text.AppendLine(fence);
+        text.AppendLine();
+        text.AppendLine("The host may continue loading other instruction files; this result does not guarantee context-window or token-cost savings.");
+        return text.ToString().TrimEnd();
+    }
+
     public static string Render(InstructionSourceReport report)
     {
         var text = new StringBuilder();

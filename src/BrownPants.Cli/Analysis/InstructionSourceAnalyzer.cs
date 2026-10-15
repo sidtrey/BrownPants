@@ -11,6 +11,9 @@ public static partial class InstructionSourceAnalyzer
     {
         "AGENTS.md", "CLAUDE.md", "GEMINI.md", "copilot-instructions.md", "CONTRIBUTING.md"
     };
+    private static readonly Regex HeadingPattern = new(@"^ {0,3}(?<marks>#{1,6})[ \t]+(?<title>.+?)[ \t]*#*[ \t]*$", RegexOptions.CultureInvariant);
+    private static readonly Regex FenceStartPattern = new(@"^ {0,3}(?<fence>`{3,}|~{3,})(?<info>.*)$", RegexOptions.CultureInvariant);
+    private static readonly Regex FenceEndPattern = new(@"^ {0,3}(?<fence>`{3,}|~{3,})[ \t]*$", RegexOptions.CultureInvariant);
 
     public static InstructionSourceReport Analyze(string repository, IEnumerable<string>? explicitSources = null)
     {
@@ -33,14 +36,8 @@ public static partial class InstructionSourceAnalyzer
 
         foreach (var source in explicitSources ?? Array.Empty<string>())
         {
-            var full = Path.GetFullPath(Path.Combine(root, source));
-            var relative = Path.GetRelativePath(root, full).Replace('\\', '/');
-            if (relative == ".." || relative.StartsWith("../", StringComparison.Ordinal) || Path.IsPathRooted(relative))
-                throw new ArgumentException($"Instruction source '{source}' must be inside the repository.");
-            if (!File.Exists(full)) throw new FileNotFoundException($"Instruction source '{source}' was not found.", full);
-            if (HasReparsePoint(full, root))
-                throw new ArgumentException($"Instruction source '{source}' passes through a symbolic link or reparse point.");
-            selected[relative] = "Explicit";
+            var resolved = ValidateSourcePath(root, source);
+            selected[resolved.RelativePath] = "Explicit";
         }
 
         var sources = new List<InstructionSourceInfo>();
@@ -73,13 +70,88 @@ public static partial class InstructionSourceAnalyzer
         return new(root, sources);
     }
 
+    public static InstructionSectionResult ReadSection(string repository, string sourcePath, string anchor)
+    {
+        if (string.IsNullOrWhiteSpace(anchor)) throw new ArgumentException("A section anchor is required.", nameof(anchor));
+        var root = Path.GetFullPath(repository);
+        if (!Directory.Exists(root)) throw new DirectoryNotFoundException($"Directory '{root}' does not exist.");
+        var resolved = ValidateSourcePath(root, sourcePath);
+        var fullPath = resolved.FullPath;
+        if (new FileInfo(fullPath).Length > MaximumSourceBytes)
+            throw new IOException($"Instruction source '{sourcePath}' is not readable (TooLarge; maximum {MaximumSourceBytes} bytes).");
+
+        string content;
+        try
+        {
+            var bytes = File.ReadAllBytes(fullPath);
+            if (bytes.Length > MaximumSourceBytes)
+                throw new IOException($"Instruction source '{sourcePath}' is not readable (TooLarge; maximum {MaximumSourceBytes} bytes).");
+            content = new UTF8Encoding(false, true).GetString(bytes);
+        }
+        catch (DecoderFallbackException exception)
+        {
+            throw new IOException($"Instruction source '{sourcePath}' is not readable (UnsupportedEncoding; expected UTF-8).", exception);
+        }
+
+        var sections = ParseSections(content);
+        var section = sections.SingleOrDefault(item => item.Anchor.Equals(anchor, StringComparison.OrdinalIgnoreCase));
+        if (section is null) throw new ArgumentException($"Section anchor '{anchor}' was not found in '{sourcePath}'.");
+        var lines = NormalizeLineEndings(content).Split('\n');
+        var selected = string.Join('\n', lines[(section.StartLine - 1)..section.EndLine]);
+        var normalizedContent = NormalizeLineEndings(content);
+        var nextHeading = sections.Any(item => item.StartLine == section.EndLine + 1 && item.Level <= section.Level);
+        if (nextHeading || normalizedContent.EndsWith('\n')) selected += "\n";
+
+        return new(1, resolved.RelativePath, section.Heading, section.Anchor, section.StartLine, section.EndLine, selected);
+    }
+
+    private static (string RelativePath, string FullPath) ValidateSourcePath(string root, string source)
+    {
+        var fullPath = Path.GetFullPath(Path.Combine(root, source));
+        var relativePath = Path.GetRelativePath(root, fullPath).Replace('\\', '/');
+        if (relativePath == ".." || relativePath.StartsWith("../", StringComparison.Ordinal) || Path.IsPathRooted(relativePath))
+            throw new ArgumentException($"Instruction source '{source}' must be inside the repository.");
+        if (!File.Exists(fullPath)) throw new FileNotFoundException($"Instruction source '{source}' was not found.", fullPath);
+        if (HasReparsePoint(fullPath, root))
+            throw new ArgumentException($"Instruction source '{source}' passes through a symbolic link or reparse point.");
+        return (relativePath, fullPath);
+    }
+
     private static IReadOnlyList<InstructionSection> ParseSections(string content)
     {
         var result = new List<InstructionSection>();
         var anchorCounts = new Dictionary<string, int>(StringComparer.Ordinal);
-        foreach (Match match in HeadingRegex().Matches(content))
+        var lines = NormalizeLineEndings(content).Split('\n');
+        var physicalLineCount = lines.Length - (lines.Length > 1 && lines[^1].Length == 0 ? 1 : 0);
+        var headings = new List<(string Heading, string Anchor, int Level, int Line)>();
+        char fenceMarker = '\0';
+        var fenceLength = 0;
+        for (var index = 0; index < lines.Length; index++)
         {
-            var title = match.Groups[2].Value.Trim();
+            var line = lines[index];
+            if (fenceMarker != '\0')
+            {
+                var fenceEnd = FenceEndPattern.Match(line);
+                if (fenceEnd.Success && fenceEnd.Groups["fence"].Value[0] == fenceMarker
+                    && fenceEnd.Groups["fence"].Value.Length >= fenceLength)
+                {
+                    fenceMarker = '\0';
+                    fenceLength = 0;
+                }
+                continue;
+            }
+
+            var fenceStart = FenceStartPattern.Match(line);
+            if (fenceStart.Success && !(fenceStart.Groups["fence"].Value[0] == '`' && fenceStart.Groups["info"].Value.Contains('`')))
+            {
+                fenceMarker = fenceStart.Groups["fence"].Value[0];
+                fenceLength = fenceStart.Groups["fence"].Value.Length;
+                continue;
+            }
+
+            var match = HeadingPattern.Match(line);
+            if (!match.Success) continue;
+            var title = match.Groups["title"].Value.Trim();
             var anchor = Regex.Replace(title.ToLowerInvariant(), @"[^a-z0-9\s-]", string.Empty).Trim().Replace(' ', '-');
             if (anchorCounts.TryGetValue(anchor, out var count))
             {
@@ -87,10 +159,27 @@ public static partial class InstructionSourceAnalyzer
                 anchor = $"{anchor}-{count}";
             }
             else anchorCounts.Add(anchor, 1);
-            result.Add(new(title, anchor, match.Groups[1].Value.Length));
+            headings.Add((title, anchor, match.Groups["marks"].Value.Length, index + 1));
+        }
+
+        for (var index = 0; index < headings.Count; index++)
+        {
+            var heading = headings[index];
+            var endLine = physicalLineCount;
+            for (var next = index + 1; next < headings.Count; next++)
+            {
+                if (headings[next].Level <= heading.Level)
+                {
+                    endLine = headings[next].Line - 1;
+                    break;
+                }
+            }
+            result.Add(new(heading.Heading, heading.Anchor, heading.Level, heading.Line, Math.Max(heading.Line, endLine)));
         }
         return result;
     }
+
+    private static string NormalizeLineEndings(string content) => content.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
 
     private static string InferScope(string path, string content)
     {
@@ -109,9 +198,6 @@ public static partial class InstructionSourceAnalyzer
         }
         return false;
     }
-
-    [GeneratedRegex("^(#{1,6})\\s+(.+?)\\s*#*\\s*$", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
-    private static partial Regex HeadingRegex();
 }
 
 public sealed record InstructionSourceReport(string Root, IReadOnlyList<InstructionSourceInfo> Sources)
@@ -121,4 +207,6 @@ public sealed record InstructionSourceReport(string Root, IReadOnlyList<Instruct
 }
 public sealed record InstructionSourceInfo(string Path, string Recognition, string Scope, IReadOnlyList<InstructionSection> Sections,
     long? ByteCount, int? ApproximateTokenCount, string? ContentDigest, string Status);
-public sealed record InstructionSection(string Heading, string Anchor, int Level);
+public sealed record InstructionSection(string Heading, string Anchor, int Level, int StartLine, int EndLine);
+public sealed record InstructionSectionResult(int SchemaVersion, string SourcePath, string Heading, string Anchor,
+    int StartLine, int EndLine, string Content);

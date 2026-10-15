@@ -19,7 +19,7 @@ public static class Program
             output.WriteLine("Usage: brownpants inspect [path] [--format markdown|json] [--limit 1..10000] [--semantic]");
             output.WriteLine("       brownpants investigate [path] --clue <text> [--clue <text> ...] [--format markdown|json] [--limit 1..10000]");
             output.WriteLine("       brownpants impact <repository> --changed <relative-source-path> [--changed <relative-source-path> ...] [--format markdown|json] [--limit 1..10000]");
-            output.WriteLine("       brownpants instructions [path] [--source <relative-path>] [--format markdown|json]");
+            output.WriteLine("       brownpants instructions [path] [--source <relative-path>] [--section <anchor>] [--format markdown|json]");
             output.WriteLine("       brownpants frame create <repository> <draft.json> <output.md> [--overwrite]");
             output.WriteLine("       brownpants frame validate <repository> <frame.md>");
             output.WriteLine("       brownpants placement --rule <text> [--scope repository|feature|unknown] [--durability enduring|feature|unknown] [--purpose principle|outcome|agent-workflow|mixed|unknown] [--format markdown|json]");
@@ -266,6 +266,7 @@ public static class Program
         var pathProvided = false;
         var format = "markdown";
         var sources = new List<string>();
+        string? sectionAnchor = null;
         for (var index = 0; index < args.Length; index++)
         {
             if (args[index] == "--format")
@@ -286,6 +287,16 @@ public static class Program
                 }
                 sources.Add(args[index]);
             }
+            else if (args[index] == "--section")
+            {
+                if (sectionAnchor is not null || ++index >= args.Length || args[index].StartsWith("--", StringComparison.Ordinal)
+                    || string.IsNullOrWhiteSpace(args[index]))
+                {
+                    error.WriteLine("Missing or repeated value for --section. Provide one section anchor.");
+                    return 2;
+                }
+                sectionAnchor = args[index];
+            }
             else if (args[index].StartsWith("-", StringComparison.Ordinal))
             {
                 error.WriteLine($"Unknown or incomplete option '{args[index]}'.");
@@ -299,8 +310,22 @@ public static class Program
             error.WriteLine($"Unsupported format '{format}'. Expected markdown or json.");
             return 2;
         }
+        if (sectionAnchor is not null && sources.Count != 1)
+        {
+            error.WriteLine("A section request requires exactly one --source <relative-path>.");
+            return 2;
+        }
         try
         {
+            if (sectionAnchor is not null)
+            {
+                var section = InstructionSourceAnalyzer.ReadSection(path, sources[0], sectionAnchor);
+                output.WriteLine(format == "json"
+                    ? JsonSerializer.Serialize(section, new JsonSerializerOptions { WriteIndented = true })
+                    : InstructionSourceReportRenderer.RenderSection(section));
+                return 0;
+            }
+
             var report = InstructionSourceAnalyzer.Analyze(path, sources);
             output.WriteLine(format == "json"
                 ? JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true })
@@ -309,7 +334,7 @@ public static class Program
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
         {
-            error.WriteLine($"Unable to map instruction sources: {exception.Message}");
+            error.WriteLine($"Unable to retrieve instruction source or section: {exception.Message}");
             return 1;
         }
     }

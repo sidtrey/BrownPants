@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    {
+      "taskId": "T001",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-004",
+        "SC-001",
+        "SC-002"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~InstructionSourceAnalyzerTests",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/InstructionSourceAnalyzerTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T002",
+      "criterionIds": [
+        "AC-003",
+        "AC-004",
+        "SC-002"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~InstructionSourceAnalyzerTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/InstructionSourceAnalyzer.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T003",
+      "criterionIds": [
+        "AC-001",
+        "SC-001"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~InstructionSourceAnalyzerTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/InstructionSourceAnalyzer.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T004",
+      "criterionIds": [
+        "AC-002",
+        "SC-002",
+        "SC-004"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~InstructionSourceAnalyzerTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Output/InstructionSourceReportRenderer.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T005",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "AC-004"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~InstructionSourceAnalyzerTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Program.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T006",
+      "criterionIds": [
+        "AC-005",
+        "AC-006",
+        "AC-007",
+        "SC-003"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~InstructionSourceAnalyzerTests",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/InstructionSourceAnalyzerTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T007",
+      "criterionIds": [
+        "AC-005",
+        "AC-006",
+        "SC-003"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~InstructionSourceAnalyzerTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/InstructionSourceAnalyzer.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T008",
+      "criterionIds": [
+        "AC-005",
+        "AC-007",
+        "SC-003"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~InstructionSourceAnalyzerTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Program.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T009",
+      "criterionIds": [
+        "SC-005"
+      ],
+      "verificationCommand": "rg -n -- \"--section|host|token\" src/BrownPants.Cli/Program.cs .specify/extensions/brownpants/commands/context.md",
+      "evidencePaths": [
+        "README.md",
+        "integrations/speckit/commands/context.md",
+        ".specify/extensions/brownpants/commands/context.md",
+        ".agents/skills/speckit-brownpants-context/SKILL.md",
+        "src/BrownPants.Cli/Program.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T010",
+      "criterionIds": [
+        "SC-004",
+        "SC-005"
+      ],
+      "verificationCommand": "dotnet run --project src/BrownPants.Cli -- instructions . --source AGENTS.md --section repository-guidelines --format json",
+      "evidencePaths": [
+        "specs/024-lazy-load-context/quickstart.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T011",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-004",
+        "AC-005",
+        "AC-006",
+        "AC-007",
+        "SC-001",
+        "SC-002",
+        "SC-003",
+        "SC-004",
+        "SC-005"
+      ],
+      "verificationCommand": "dotnet build BrownPants.sln; dotnet test BrownPants.sln; pwsh -NoProfile -File scripts/acceptance-criteria-hash.ps1 -SpecPath specs/024-lazy-load-context/spec.md; pwsh -NoProfile -File scripts/check-acceptance-evidence.ps1 -RepositoryRoot . -SpecPath specs/024-lazy-load-context/spec.md -TasksPath specs/024-lazy-load-context/tasks.md -EvidencePath specs/024-lazy-load-context/acceptance-evidence.json",
+      "evidencePaths": [
+        "specs/024-lazy-load-context/verification.md"
+      ],
+      "result": "passed"
+    }
+  ]
+}
