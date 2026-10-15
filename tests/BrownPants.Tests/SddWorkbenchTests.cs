@@ -110,6 +110,118 @@ public sealed class SddWorkbenchTests : IDisposable
         Assert.False(File.Exists(Path.Combine(_root, "TestResults", "brownpants-workbench.html")));
     }
 
+    [Fact]
+    public void WorkbenchCommand_RendersUniqueOpenSpecChangeAndPreservesInputs()
+    {
+        CreateOpenSpecChange("openspec/changes/add-checkout", "checkout");
+        var sourceSnapshot = SnapshotSourceFiles();
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var exitCode = Program.Run(new[] { "workbench", _root, "--engine", "openspec" }, output, error);
+
+        Assert.Equal(0, exitCode);
+        Assert.Empty(error.ToString());
+        var report = File.ReadAllText(Path.Combine(_root, "TestResults", "brownpants-workbench.html"));
+        Assert.Contains("OpenSpec Change: add-checkout", report);
+        Assert.Contains("Why this is changing", report);
+        Assert.Contains("Source: <code>openspec/changes/add-checkout/proposal.md</code>", report);
+        Assert.Contains("Refund checkout", report);
+        Assert.Contains("Successful refund", report);
+        Assert.Contains("openspec/changes/add-checkout/specs/checkout/spec.md#requirement-001", report);
+        Assert.Contains("openspec/changes/add-checkout/specs/shared/spec.md#requirement-001", report);
+        Assert.Contains("data-note-kind=\"requirement\" data-note-id=\"openspec/changes/add-checkout/specs/shared/spec.md#requirement-001\"", report);
+        var noteIds = report.Split("data-note-id=\"", StringSplitOptions.None).Skip(1).Select(value => value.Split('"')[0]).ToArray();
+        Assert.Equal(noteIds.Length, noteIds.Distinct(StringComparer.Ordinal).Count());
+        Assert.Contains("1 of 3", report);
+        Assert.Contains("1.1", report);
+        Assert.Contains("Source: <code>openspec/changes/add-checkout/tasks.md</code>", report);
+        Assert.Contains("openspec/changes/add-checkout/design.md", report);
+        Assert.Contains("&lt;script&gt;alert", report);
+        Assert.DoesNotContain("<script>alert('x')</script>", report);
+        Assert.DoesNotContain("<script src=", report, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("fetch(", report, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(sourceSnapshot, SnapshotSourceFiles());
+    }
+
+    [Fact]
+    public void WorkbenchCommand_RequiresSelectionForMultipleOpenSpecChangesAndIgnoresArchive()
+    {
+        CreateOpenSpecChange("openspec/changes/add-checkout", "checkout");
+        CreateOpenSpecChange("openspec/changes/change-tax", "tax");
+        CreateOpenSpecChange("openspec/changes/archive/2026-10-01-old-change", "old");
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var exitCode = Program.Run(new[] { "workbench", _root, "--engine", "openspec" }, output, error);
+
+        Assert.NotEqual(0, exitCode);
+        Assert.Contains("--feature", error.ToString());
+        Assert.False(File.Exists(Path.Combine(_root, "TestResults", "brownpants-workbench.html")));
+    }
+
+    [Fact]
+    public void WorkbenchCommand_ExplicitOpenSpecChangeHasUniquePathQualifiedReviewReferences()
+    {
+        CreateOpenSpecChange("openspec/changes/add-checkout", "checkout");
+        CreateOpenSpecChange("openspec/changes/change-tax", "tax");
+        var proposalPath = Path.Combine(_root, "openspec", "changes", "change-tax", "proposal.md");
+        var originalProposal = File.ReadAllText(proposalPath);
+        using var protectedOutput = new StringWriter();
+        using var protectedError = new StringWriter();
+        var sourceOverwrite = Program.Run(new[] { "workbench", _root, "--engine", "openspec", "--feature", "openspec/changes/change-tax", "--output", "openspec/changes/change-tax/proposal.md", "--overwrite" }, protectedOutput, protectedError);
+        Assert.NotEqual(0, sourceOverwrite);
+        Assert.Equal(originalProposal, File.ReadAllText(proposalPath));
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var exitCode = Program.Run(new[] { "workbench", _root, "--engine", "openspec", "--feature", "openspec/changes/change-tax", "--output", "review.html" }, output, error);
+
+        Assert.Equal(0, exitCode);
+        Assert.Empty(error.ToString());
+        var report = File.ReadAllText(Path.Combine(_root, "review.html"));
+        Assert.Contains("OpenSpec Change: change-tax", report);
+        Assert.Contains("openspec/changes/change-tax/specs/tax/spec.md#requirement-001", report);
+        Assert.DoesNotContain("openspec/changes/add-checkout/specs/checkout/spec.md", report);
+    }
+
+    [Fact]
+    public void WorkbenchCommand_RejectsMissingArchivedAndOutsideOpenSpecChanges()
+    {
+        using var malformedOutput = new StringWriter();
+        using var malformedError = new StringWriter();
+        var malformed = Program.Run(new[] { "workbench", _root, "--engine", "open-spec" }, malformedOutput, malformedError);
+        Assert.Equal(2, malformed);
+        Assert.Contains("speckit", malformedError.ToString(), StringComparison.OrdinalIgnoreCase);
+
+        CreateOpenSpecChange("openspec/changes/archive/2026-10-01-old-change", "old");
+        using var archivedOutput = new StringWriter();
+        using var archivedError = new StringWriter();
+        var archivedOnly = Program.Run(new[] { "workbench", _root, "--engine", "openspec" }, archivedOutput, archivedError);
+        Assert.NotEqual(0, archivedOnly);
+        Assert.Contains("active", archivedError.ToString(), StringComparison.OrdinalIgnoreCase);
+
+        using var missingOutput = new StringWriter();
+        using var missingError = new StringWriter();
+        var missing = Program.Run(new[] { "workbench", _root, "--engine", "openspec", "--feature", "openspec/changes/missing" }, missingOutput, missingError);
+        Assert.NotEqual(0, missing);
+        Assert.Contains("change", missingError.ToString(), StringComparison.OrdinalIgnoreCase);
+
+        Directory.CreateDirectory(Path.Combine(_root, "openspec", "changes", "missing-proposal"));
+        using var noProposalOutput = new StringWriter();
+        using var noProposalError = new StringWriter();
+        var noProposal = Program.Run(new[] { "workbench", _root, "--engine", "openspec", "--feature", "openspec/changes/missing-proposal" }, noProposalOutput, noProposalError);
+        Assert.NotEqual(0, noProposal);
+        Assert.Contains("proposal.md", noProposalError.ToString(), StringComparison.OrdinalIgnoreCase);
+
+        using var outsideOutput = new StringWriter();
+        using var outsideError = new StringWriter();
+        var outside = Program.Run(new[] { "workbench", _root, "--engine", "openspec", "--feature", "../outside" }, outsideOutput, outsideError);
+        Assert.NotEqual(0, outside);
+        Assert.Contains("openspec/changes", outsideError.ToString(), StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(Path.Combine(_root, "TestResults", "brownpants-workbench.html")));
+    }
+
     private void CreateFeature(string featurePath = "specs/current")
     {
         var feature = Path.Combine(_root, featurePath.Replace('/', Path.DirectorySeparatorChar));
@@ -151,6 +263,43 @@ public sealed class SddWorkbenchTests : IDisposable
             """);
         File.WriteAllText(Path.Combine(feature, "verification.md"), "# Verification\n\nManual QA evidence pending.");
         File.WriteAllText(Path.Combine(feature, "acceptance-criteria.sha256"), "missing baseline for fixture");
+    }
+
+    private void CreateOpenSpecChange(string changePath, string capability)
+    {
+        var change = Path.Combine(_root, changePath.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(change);
+        Directory.CreateDirectory(Path.Combine(change, "specs", capability));
+        File.WriteAllText(Path.Combine(change, "proposal.md"), """
+            # Proposal
+
+            ## Why
+            This improves checkout reliability.
+
+            ## What Changes
+            Refunds can be retried safely.
+            """);
+        File.WriteAllText(Path.Combine(change, "design.md"), "# Design\nUse an idempotency key.");
+        File.WriteAllText(Path.Combine(change, "tasks.md"), "- [x] 1. Add retry handling\n  - [ ] 1.1 Add an edge-case test\n- [ ] 2. Verify recovery\n");
+        File.WriteAllText(Path.Combine(change, "specs", capability, "spec.md"), """
+            # Payments
+
+            ### Requirement: Refund checkout
+
+            #### Scenario: Successful refund
+            * WHEN a refund is retried
+            * THEN charge the customer once
+
+            <script>alert('x')</script>
+            """);
+        Directory.CreateDirectory(Path.Combine(change, "specs", "shared"));
+        File.WriteAllText(Path.Combine(change, "specs", "shared", "spec.md"), """
+            ### Requirement: Refund checkout
+
+            #### Scenario: Shared capability review
+            * WHEN a shared policy is loaded
+            * THEN apply it to this capability
+            """);
     }
 
     private string SnapshotSourceFiles()

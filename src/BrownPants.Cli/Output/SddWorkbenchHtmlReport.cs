@@ -22,16 +22,17 @@ public static class SddWorkbenchHtmlReport
         html.AppendLine("<meta name=\"color-scheme\" content=\"light\"><title>SDD review — " + E(data.FeatureTitle) + "</title>");
         html.AppendLine("<style>"); html.AppendLine(Styles); html.AppendLine("</style></head>");
         html.AppendLine("<body data-feature-path=\"" + E(data.FeaturePath) + "\"><a class=\"skip\" href=\"#main\">Skip to feature review</a>");
-        html.AppendLine("<header><div class=\"shell\"><div class=\"eyebrow\">BrownPants · Local SDD Review Workbench</div><h1>" + E(data.FeatureTitle) + "</h1>");
+        html.AppendLine("<header><div class=\"shell\"><div class=\"eyebrow\">BrownPants · " + E(data.Engine) + " · Local SDD Review Workbench</div><h1>" + E(data.FeatureTitle) + "</h1>");
         html.AppendLine("<p>A plain-language view of what the team plans to deliver, what has been checked off, and what verification was recorded. Add feedback and send the downloaded notes to the feature owner.</p>");
         html.AppendLine("<p>Feature: <code>" + E(data.FeaturePath) + "</code></p></div></header><main id=\"main\" class=\"shell\">");
         AppendSummary(html, data);
-        AppendStories(html, data.Stories);
+        if (data.Engine == "OpenSpec") AppendProposalSummary(html, data.ProposalSummary, data.FeaturePath);
+        else AppendStories(html, data.Stories);
         AppendCriteria(html, data.Criteria);
         AppendTasks(html, data.Tasks);
-        AppendEvidence(html, data.Evidence, data.EvidenceIssues);
+        if (data.Engine == "Spec Kit") AppendEvidence(html, data.Evidence, data.EvidenceIssues);
         AppendArtifacts(html, data.Artifacts);
-        html.AppendLine("<footer>These are the values currently written in the feature files. A completed checkbox or recorded evidence entry is a review aid; it does not independently prove that the behavior passed or is accepted. This page is read-only and works as a local file.</footer>");
+        html.AppendLine("<footer>These are the values currently written in the selected change files. A completed checkbox or recorded evidence entry is a review aid; it does not independently prove that behavior passed or was accepted. This page is read-only and works as a local file.</footer>");
         html.AppendLine("</main><div class=\"actions\"><button type=\"button\" id=\"export-notes\">Download review notes</button><span id=\"note-status\" role=\"status\" aria-live=\"polite\">Notes stay in this browser until you download them.</span></div>");
         html.AppendLine("<script>"); html.AppendLine(Script); html.AppendLine("</script></body></html>");
         return html.ToString();
@@ -40,13 +41,23 @@ public static class SddWorkbenchHtmlReport
     private static void AppendSummary(StringBuilder html, SddWorkbenchData data)
     {
         var complete = data.Tasks.Count(task => task.IsComplete);
-        var baselineClass = data.AcceptanceBaselineStatus.Contains("match", StringComparison.OrdinalIgnoreCase) ? "status" : "status todo";
+        var baselineClass = data.Engine == "OpenSpec" || data.AcceptanceBaselineStatus.Contains("match", StringComparison.OrdinalIgnoreCase) ? "status" : "status todo";
         html.AppendLine("<section aria-labelledby=\"overview-title\"><h2 id=\"overview-title\">At a glance</h2><div class=\"summary-grid\">");
-        Metric(html, "Stories", data.Stories.Count.ToString());
-        Metric(html, "Review points", data.Criteria.Count.ToString());
+        Metric(html, data.Engine == "OpenSpec" ? "Requirement and scenario headings" : "Stories", data.Engine == "OpenSpec" ? data.Criteria.Count.ToString() : data.Stories.Count.ToString());
+        Metric(html, data.Engine == "OpenSpec" ? "Delta spec files" : "Review points", data.Engine == "OpenSpec" ? data.Artifacts.Count(artifact => artifact.Path.Contains("/specs/", StringComparison.Ordinal) && artifact.Path.EndsWith("/spec.md", StringComparison.Ordinal)).ToString() : data.Criteria.Count.ToString());
         Metric(html, "Tasks recorded complete", $"{complete} of {data.Tasks.Count}");
-        html.AppendLine("<div class=\"card\"><strong>Acceptance criteria</strong><p><span class=\"" + baselineClass + "\">" + E(data.AcceptanceBaselineStatus) + "</span></p></div>");
+        html.AppendLine("<div class=\"card\"><strong>Acceptance baseline</strong><p><span class=\"" + baselineClass + "\">" + E(data.AcceptanceBaselineStatus) + "</span></p></div>");
         html.AppendLine("</div></section>");
+    }
+
+    private static void AppendProposalSummary(StringBuilder html, string summary, string featurePath)
+    {
+        html.AppendLine("<section aria-labelledby=\"proposal-summary-title\"><h2 id=\"proposal-summary-title\">Why this is changing</h2>");
+        html.AppendLine("<p class=\"muted\">Source: <code>" + E(featurePath + "/proposal.md") + "</code></p>");
+        if (string.IsNullOrWhiteSpace(summary)) html.AppendLine("<p class=\"empty\">No Why or What Changes summary was recognized. Read the original proposal below.</p>");
+        else html.AppendLine("<p>" + E(summary).Replace("\n", "<br>", StringComparison.Ordinal) + "</p>");
+        AppendFeedback(html, "proposal", "proposal.md", "Feedback for the proposal");
+        html.AppendLine("</section>");
     }
 
     private static void Metric(StringBuilder html, string label, string value) =>
@@ -69,13 +80,17 @@ public static class SddWorkbenchHtmlReport
 
     private static void AppendCriteria(StringBuilder html, IReadOnlyList<SddWorkbenchCriterion> criteria)
     {
-        html.AppendLine("<section aria-labelledby=\"criteria-title\"><h2 id=\"criteria-title\">How the team will know</h2>");
-        if (criteria.Count == 0) { html.AppendLine("<p class=\"empty\">No acceptance or success criteria were recognized. Read the original specification below.</p></section>"); return; }
+        var openSpec = criteria.Any(item => item.Kind is "Requirement" or "Scenario");
+        html.AppendLine("<section aria-labelledby=\"criteria-title\"><h2 id=\"criteria-title\">" + (openSpec ? "Requirements and scenarios" : "How the team will know") + "</h2>");
+        if (criteria.Count == 0) { html.AppendLine("<p class=\"empty\">No review points were recognized. Read the original specification below.</p></section>"); return; }
         html.AppendLine("<div class=\"criteria-list\">");
         foreach (var item in criteria)
         {
-            html.AppendLine("<article class=\"criterion-card\"><div class=\"story-head\"><h3>" + E(item.Id) + "</h3><span class=\"muted\">" + E(item.Kind) + "</span></div><p>" + E(item.Text) + "</p>");
-            AppendFeedback(html, "criterion", item.Id, "Feedback for " + item.Id);
+            var heading = string.IsNullOrWhiteSpace(item.SourcePath) ? item.Id : item.Text;
+            html.AppendLine("<article class=\"criterion-card\"><div class=\"story-head\"><h3>" + E(heading) + "</h3><span class=\"muted\">" + E(item.Kind) + "</span></div>");
+            if (!string.IsNullOrWhiteSpace(item.SourcePath)) html.AppendLine("<p class=\"muted\">Source: <code>" + E(item.SourcePath) + "</code> · Reference: <code>" + E(item.Id) + "</code></p>");
+            else html.AppendLine("<p>" + E(item.Text) + "</p>");
+            AppendFeedback(html, openSpec ? item.Kind.ToLowerInvariant() : "criterion", item.Id, "Feedback for " + item.Kind + " " + item.Id);
             html.AppendLine("</article>");
         }
         html.AppendLine("</div></section>");
@@ -90,7 +105,7 @@ public static class SddWorkbenchHtmlReport
         {
             var status = task.IsComplete ? "Recorded complete" : "Not marked complete";
             var className = task.IsComplete ? "status" : "status todo";
-            html.AppendLine("<article class=\"task-card\"><span class=\"" + className + "\">" + status + "</span><div><strong>" + E(task.Id) + "</strong><p>" + E(task.Text) + "</p></div>");
+            html.AppendLine("<article class=\"task-card\"><span class=\"" + className + "\">" + status + "</span><div><strong>" + E(task.Id) + "</strong><p>" + E(task.Text) + "</p>" + (string.IsNullOrWhiteSpace(task.SourcePath) ? string.Empty : "<p class=\"muted\">Source: <code>" + E(task.SourcePath) + "</code></p>") + "</div>");
             AppendFeedback(html, "task", task.Id, "Feedback for " + task.Id);
             html.AppendLine("</article>");
         }

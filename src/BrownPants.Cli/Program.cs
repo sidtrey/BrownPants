@@ -445,8 +445,9 @@ public static class Program
         }
         if (command.Equals("workbench", StringComparison.OrdinalIgnoreCase))
         {
-            output.WriteLine("Usage: brownpants workbench [repository] [--feature <relative-feature-directory>] [--output <relative-html-path>] [--overwrite]");
-            output.WriteLine("  --feature           Spec Kit feature directory; defaults to .specify/feature.json.");
+            output.WriteLine("Usage: brownpants workbench [repository] [--engine speckit|openspec] [--feature <relative-feature-directory>] [--output <relative-html-path>] [--overwrite]");
+            output.WriteLine("  --engine            Workflow format (default: speckit; OpenSpec supports openspec/changes/<name>).");
+            output.WriteLine("  --feature           Feature/change directory for the selected --engine; OpenSpec paths use openspec/changes/<name>.");
             output.WriteLine("  --output            HTML path under the repository (default: TestResults/brownpants-workbench.html).");
             output.WriteLine("  --overwrite         Replace an existing report; feature artifacts remain protected.");
             output.WriteLine("The report opens directly from disk, makes no network requests, and exports review notes without changing feature files.");
@@ -507,7 +508,7 @@ public static class Program
         output.WriteLine("       brownpants investigate [path] --clue <text> [--clue <text> ...] [--format markdown|json] [--limit 1..10000]");
         output.WriteLine("       brownpants impact <repository> --changed <relative-source-path> [--changed <relative-source-path> ...] [--format markdown|json] [--limit 1..10000]");
         output.WriteLine("       brownpants instructions [path] [--source <relative-path>] [--section <anchor>] [--format markdown|json]");
-        output.WriteLine("       brownpants workbench [repository] [--feature <relative-feature-directory>] [--output <relative-html-path>] [--overwrite]");
+        output.WriteLine("       brownpants workbench [repository] [--engine speckit|openspec] [--feature <relative-feature-directory>] [--output <relative-html-path>] [--overwrite]");
         output.WriteLine("       brownpants frame create <repository> <draft.json> <output.md> [--overwrite]");
         output.WriteLine("       brownpants frame validate <repository> <frame.md>");
         output.WriteLine("       brownpants placement --rule <text> [--scope repository|feature|unknown] [--durability enduring|feature|unknown] [--purpose principle|outcome|agent-workflow|mixed|unknown] [--format markdown|json]");
@@ -521,6 +522,8 @@ public static class Program
     {
         var repository = Directory.GetCurrentDirectory();
         var repositoryProvided = false;
+        var engine = "speckit";
+        var engineProvided = false;
         string? feature = null;
         var outputPath = "TestResults/brownpants-workbench.html";
         var outputProvided = false;
@@ -529,14 +532,25 @@ public static class Program
         for (var index = 0; index < args.Length; index++)
         {
             var argument = args[index];
-            if (argument == "--feature" || argument == "--output")
+            if (argument is "--engine" or "--feature" or "--output")
             {
                 if (++index >= args.Length || args[index].StartsWith("--", StringComparison.Ordinal))
                 {
                     error.WriteLine($"Missing value for {argument}.");
                     return 2;
                 }
-                if (argument == "--feature")
+                if (argument == "--engine")
+                {
+                    if (engineProvided) { error.WriteLine("--engine may be supplied only once."); return 2; }
+                    engine = args[index].ToLowerInvariant();
+                    if (engine is not ("speckit" or "openspec"))
+                    {
+                        error.WriteLine($"Unknown workbench engine '{args[index]}'. Choose 'speckit' or 'openspec'.");
+                        return 2;
+                    }
+                    engineProvided = true;
+                }
+                else if (argument == "--feature")
                 {
                     if (feature is not null) { error.WriteLine("--feature may be supplied only once."); return 2; }
                     feature = args[index];
@@ -568,7 +582,7 @@ public static class Program
         try
         {
             var root = Path.GetFullPath(repository);
-            var data = SddWorkbenchAnalyzer.Analyze(root, feature);
+            var data = SddWorkbenchAnalyzer.Analyze(root, feature, engine);
             var destination = SddWorkbenchAnalyzer.ResolveOutputPath(root, outputPath);
             var protectedPaths = data.Artifacts.Select(artifact => artifact.Path)
                 .Append($"{data.FeaturePath}/acceptance-criteria.sha256")

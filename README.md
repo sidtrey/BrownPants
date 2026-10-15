@@ -16,6 +16,7 @@ dotnet run --project src/BrownPants.Cli -- investigate . --clue "TimeoutExceptio
 dotnet run --project src/BrownPants.Cli -- investigate . --clue "TimeoutException" --format json
 dotnet run --project src/BrownPants.Cli -- impact . --changed src/OrderService.cs
 dotnet run --project src/BrownPants.Cli -- workbench .
+dotnet run --project src/BrownPants.Cli -- workbench . --engine openspec
 dotnet run --project src/BrownPants.Cli -- instructions . --format markdown
 dotnet run --project src/BrownPants.Cli -- instructions . --source .agents/custom-guidance.md --format json
 dotnet run --project src/BrownPants.Cli -- instructions . --source AGENTS.md --section repository-guidelines --format markdown
@@ -46,7 +47,7 @@ Pass `--semantic` to opt in to MSBuildWorkspace project loading. When the requir
 
 `impact` accepts one or more changed C# or Visual Basic source paths and follows resolved method calls backward to direct and transitive callers. It summarizes affected files, projects, test-path candidates, and observed caller depth in deterministic Markdown or JSON. For machine-readable output, add `--format json`; use `--limit` (1–10000) to bound graph samples and findings. Partial project loads, unresolved calls, unsupported or unmapped paths, and truncation are shown as completeness limitations. Candidate test paths do not prove coverage, and graph size is not an effort estimate. The command explicitly loads projects through MSBuildWorkspace, which may evaluate project imports and design-time targets. See the [impact report contract](specs/023-call-impact-report/contracts/impact-report.md).
 
-`workbench` creates a self-contained HTML review page for the active Spec Kit feature, or a feature selected with `--feature specs/<name>`. Open the generated `TestResults/brownpants-workbench.html` in a browser to review stories, acceptance criteria, task status, and recorded evidence. Reviewers can attach notes and download a JSON handoff; this does not edit feature files or send data over the network. See the [workbench quickstart](specs/035-sdd-workbench/quickstart.md) and [CLI contract](specs/035-sdd-workbench/contracts/workbench-cli.md).
+`workbench` creates a self-contained HTML review page. By default it uses the active Spec Kit feature; add `--engine openspec` to review the unique active OpenSpec change, or select one with `--feature openspec/changes/<name>`. Open the generated `TestResults/brownpants-workbench.html` in a browser to review the proposal, requirements/scenarios, task status, and design. Reviewers can attach notes and download a JSON handoff; this does not edit feature files or send data over the network. See the [Spec Kit quickstart](specs/035-sdd-workbench/quickstart.md), [OpenSpec quickstart](specs/036-openspec-workbench/quickstart.md), and [OpenSpec contract](specs/036-openspec-workbench/contracts/workbench-openspec.md).
 
 `diagram` renders a repository-local `brownpants-flow` Markdown block as a deterministic PNG, or as editable native diagrams.net XML with `--format drawio`. It uses a BrownPants-owned grammar rather than Mermaid, packages no graphics engine, and makes no network requests. Both source and output paths must stay inside the selected repository; output is preserved unless `--overwrite` is explicit. For example:
 

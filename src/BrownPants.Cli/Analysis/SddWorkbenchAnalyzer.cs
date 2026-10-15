@@ -10,11 +10,16 @@ public static partial class SddWorkbenchAnalyzer
     private const long MaximumTotalBytes = 8 * 1024 * 1024;
     private static readonly string[] ArtifactNames = { "spec.md", "plan.md", "tasks.md", "acceptance-evidence.json", "verification.md" };
 
-    public static SddWorkbenchData Analyze(string repositoryRoot, string? featurePath)
+    public static SddWorkbenchData Analyze(string repositoryRoot, string? featurePath, string engine = "speckit")
     {
         var root = Path.GetFullPath(repositoryRoot);
         if (!Directory.Exists(root))
             throw new DirectoryNotFoundException($"Repository directory was not found: '{repositoryRoot}'.");
+
+        if (engine.Equals("openspec", StringComparison.OrdinalIgnoreCase))
+            return AnalyzeOpenSpec(root, featurePath);
+        if (!engine.Equals("speckit", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException($"Unknown workbench engine '{engine}'. Use 'speckit' or 'openspec'.");
 
         var relativeFeature = featurePath is null
             ? ReadActiveFeature(root)
@@ -57,15 +62,205 @@ public static partial class SddWorkbenchAnalyzer
         var spec = contents["spec.md"];
         var stories = ParseStories(spec);
         var criteria = ParseCriteria(spec);
-        var tasks = contents.TryGetValue("tasks.md", out var taskText) ? ParseTasks(taskText) : Array.Empty<SddWorkbenchTask>();
+        var tasks = contents.TryGetValue("tasks.md", out var taskText) ? ParseTasks(taskText, $"{relativeFeature}/tasks.md") : Array.Empty<SddWorkbenchTask>();
         var evidence = ParseEvidence(contents, relativeFeature);
         var baseline = GetBaselineStatus(root, featureDirectory, spec);
         var artifacts = contents.OrderBy(pair => Array.IndexOf(ArtifactNames, pair.Key))
             .Select(pair => new SddWorkbenchArtifact(pair.Key, $"{relativeFeature}/{pair.Key}".Replace('\\', '/'), pair.Value))
             .ToArray();
 
-        return new SddWorkbenchData(relativeFeature, FeatureTitle(spec, relativeFeature), stories, criteria, tasks,
-            evidence.Entries, evidence.Issues, baseline, artifacts);
+        return new SddWorkbenchData("Spec Kit", relativeFeature, FeatureTitle(spec, relativeFeature), string.Empty,
+            stories, criteria, tasks, evidence.Entries, evidence.Issues, baseline, artifacts);
+    }
+
+    private static SddWorkbenchData AnalyzeOpenSpec(string root, string? featurePath)
+    {
+        var relativeChange = featurePath is null ? SelectOpenSpecChange(root) : NormalizeOpenSpecChange(featurePath);
+        var changeDirectory = ResolveInside(root, relativeChange, "OpenSpec change");
+        if (!Directory.Exists(changeDirectory))
+            throw new DirectoryNotFoundException($"OpenSpec change was not found: '{relativeChange}'. Supply --feature openspec/changes/<change-name>.");
+        EnsureNoReparsePoints(root, changeDirectory);
+        relativeChange = Path.GetRelativePath(root, changeDirectory).Replace('\\', '/');
+
+        var paths = new List<string>();
+        foreach (var fileName in new[] { "proposal.md", "design.md", "tasks.md" })
+        {
+            var path = Path.Combine(changeDirectory, fileName);
+            if (File.Exists(path)) paths.Add(path);
+        }
+        var proposalPath = Path.Combine(changeDirectory, "proposal.md");
+        if (!File.Exists(proposalPath))
+            throw new FileNotFoundException($"Required OpenSpec proposal was not found: '{relativeChange}/proposal.md'.", proposalPath);
+
+        var deltaRoot = Path.Combine(changeDirectory, "specs");
+        if (Directory.Exists(deltaRoot))
+            CollectOpenSpecDeltaFiles(root, deltaRoot, paths);
+
+        paths = paths.Distinct(PathComparer()).OrderBy(path => Path.GetRelativePath(root, path), StringComparer.Ordinal).ToList();
+        if (paths.Count > 1000)
+            throw new InvalidDataException("OpenSpec change contains more than 1000 workbench artifacts.");
+
+        var contents = new Dictionary<string, string>(StringComparer.Ordinal);
+        long totalBytes = 0;
+        foreach (var path in paths)
+        {
+            EnsureNoReparsePoints(root, path);
+            var bytes = new FileInfo(path).Length;
+            var relativePath = Path.GetRelativePath(root, path).Replace('\\', '/');
+            if (bytes > MaximumArtifactBytes)
+                throw new InvalidDataException($"OpenSpec artifact '{relativePath}' exceeds the 2 MiB workbench limit.");
+            totalBytes += bytes;
+            if (totalBytes > MaximumTotalBytes)
+                throw new InvalidDataException("OpenSpec change artifacts exceed the 8 MiB total workbench limit.");
+            try
+            {
+                contents[relativePath] = new UTF8Encoding(false, true).GetString(File.ReadAllBytes(path));
+            }
+            catch (DecoderFallbackException exception)
+            {
+                throw new InvalidDataException($"OpenSpec artifact '{relativePath}' is not valid UTF-8.", exception);
+            }
+        }
+
+        var proposal = contents[Path.Combine(relativeChange, "proposal.md").Replace('\\', '/')];
+        var title = $"OpenSpec Change: {Path.GetFileName(relativeChange)}";
+        var changePrefix = relativeChange.Replace('\\', '/') + "/";
+        var deltaSpecs = contents.Where(pair => pair.Key.StartsWith(changePrefix + "specs/", StringComparison.Ordinal)
+                && pair.Key.EndsWith("/spec.md", StringComparison.Ordinal))
+            .OrderBy(pair => pair.Key, StringComparer.Ordinal)
+            .ToArray();
+        var criteria = ParseOpenSpecReviewPoints(deltaSpecs);
+        var tasksPath = Path.Combine(relativeChange, "tasks.md").Replace('\\', '/');
+        var tasks = contents.TryGetValue(tasksPath, out var taskText) ? ParseOpenSpecTasks(taskText, tasksPath) : Array.Empty<SddWorkbenchTask>();
+        var proposalSummary = string.Join("\n\n", new[] { ExtractMarkdownSection(proposal, "Why"), ExtractMarkdownSection(proposal, "What Changes") }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+        var artifacts = contents.OrderBy(pair => pair.Key, StringComparer.Ordinal)
+            .Select(pair => new SddWorkbenchArtifact(Path.GetFileName(pair.Key), pair.Key, pair.Value))
+            .ToArray();
+
+        return new SddWorkbenchData("OpenSpec", relativeChange.Replace('\\', '/'), title, proposalSummary,
+            Array.Empty<SddWorkbenchStory>(), criteria, tasks, Array.Empty<SddWorkbenchEvidence>(), Array.Empty<string>(),
+            "OpenSpec changes use delta specifications; no Spec Kit acceptance baseline is read.", artifacts);
+    }
+
+    private static string SelectOpenSpecChange(string root)
+    {
+        var changesRoot = Path.Combine(root, "openspec", "changes");
+        if (!Directory.Exists(changesRoot))
+            throw new InvalidDataException("No OpenSpec changes directory was found. Supply --feature openspec/changes/<change-name>.");
+        EnsureNoReparsePoints(root, changesRoot);
+        var candidates = Directory.EnumerateDirectories(changesRoot)
+            .Take(1001)
+            .Where(path => !Path.GetFileName(path).Equals("archive", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(path => Path.GetFileName(path), StringComparer.Ordinal)
+            .ToArray();
+        if (candidates.Length > 1000)
+            throw new InvalidDataException("OpenSpec has more than 1000 candidate changes; select one explicitly with --feature.");
+        if (candidates.Length == 0)
+            throw new InvalidDataException("No active OpenSpec change was found outside openspec/changes/archive. Supply --feature openspec/changes/<change-name>.");
+        if (candidates.Length > 1)
+        {
+            var sample = string.Join(", ", candidates.Take(5).Select(path => Path.GetRelativePath(root, path).Replace('\\', '/')));
+            throw new InvalidDataException($"Multiple OpenSpec changes are available ({sample}). Select one with --feature openspec/changes/<change-name>.");
+        }
+        EnsureNoReparsePoints(root, candidates[0]);
+        return Path.GetRelativePath(root, candidates[0]).Replace('\\', '/');
+    }
+
+    private static string NormalizeOpenSpecChange(string path)
+    {
+        var normalized = NormalizeRelativePath(path, "OpenSpec change");
+        const string prefix = "openspec/changes/";
+        if (!normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("OpenSpec --feature must be openspec/changes/<change-name>.");
+        var name = normalized[prefix.Length..];
+        if (string.IsNullOrWhiteSpace(name) || name.Contains('/') || name.Equals("archive", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("OpenSpec --feature must select one non-archived directory directly under openspec/changes.");
+        return normalized;
+    }
+
+    private static void CollectOpenSpecDeltaFiles(string root, string directory, List<string> paths)
+    {
+        var pending = new Stack<string>();
+        pending.Push(directory);
+        var visitedDirectories = 0;
+        var visitedEntries = 0;
+        while (pending.Count > 0)
+        {
+            var current = pending.Pop();
+            if (++visitedDirectories > 1000)
+                throw new InvalidDataException("OpenSpec delta specs contain more than 1000 directories.");
+            EnsureNoReparsePoints(root, current);
+            foreach (var file in Directory.EnumerateFiles(current).OrderBy(value => value, StringComparer.Ordinal))
+            {
+                if (++visitedEntries > 10_000)
+                    throw new InvalidDataException("OpenSpec delta spec traversal exceeds the 10000-entry limit.");
+                EnsureNoReparsePoints(root, file);
+                if (Path.GetFileName(file).Equals("spec.md", StringComparison.OrdinalIgnoreCase)) paths.Add(file);
+            }
+            foreach (var child in Directory.EnumerateDirectories(current).OrderByDescending(value => value, StringComparer.Ordinal))
+            {
+                if (++visitedEntries > 10_000)
+                    throw new InvalidDataException("OpenSpec delta spec traversal exceeds the 10000-entry limit.");
+                EnsureNoReparsePoints(root, child);
+                pending.Push(child);
+            }
+            if (paths.Count > 1000)
+                throw new InvalidDataException("OpenSpec change contains more than 1000 workbench artifacts.");
+        }
+    }
+
+    private static StringComparer PathComparer() => OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+
+    private static SddWorkbenchCriterion[] ParseOpenSpecReviewPoints(IReadOnlyList<KeyValuePair<string, string>> deltaSpecs)
+    {
+        var result = new List<SddWorkbenchCriterion>();
+        foreach (var (path, content) in deltaSpecs)
+        {
+            var requirementIndex = 0;
+            var scenarioIndex = 0;
+            foreach (var line in content.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+            {
+                var requirement = OpenSpecRequirementRegex().Match(line);
+                if (requirement.Success)
+                {
+                    requirementIndex++;
+                    result.Add(new SddWorkbenchCriterion($"{path}#requirement-{requirementIndex:D3}", "Requirement", requirement.Groups["text"].Value.Trim(), path));
+                    continue;
+                }
+                var scenario = OpenSpecScenarioRegex().Match(line);
+                if (scenario.Success)
+                {
+                    scenarioIndex++;
+                    result.Add(new SddWorkbenchCriterion($"{path}#scenario-{scenarioIndex:D3}", "Scenario", scenario.Groups["text"].Value.Trim(), path));
+                }
+            }
+        }
+        return result.ToArray();
+    }
+
+    private static SddWorkbenchTask[] ParseOpenSpecTasks(string text, string sourcePath)
+    {
+        var index = 0;
+        return OpenSpecTaskRegex().Matches(text).Select(match =>
+        {
+            index++;
+            var body = match.Groups["body"].Value.Trim();
+            var numberedTask = OpenSpecTaskNumberRegex().Match(body);
+            var taskId = numberedTask.Success ? numberedTask.Groups["id"].Value : $"task-{index:D3}";
+            var taskText = numberedTask.Success ? numberedTask.Groups["text"].Value.Trim() : body;
+            return new SddWorkbenchTask(taskId, taskText, match.Groups["checked"].Value is "x" or "X", sourcePath);
+        }).ToArray();
+    }
+
+    private static string ExtractMarkdownSection(string markdown, string heading)
+    {
+        var lines = markdown.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+        var start = Array.FindIndex(lines, line => line.Equals($"## {heading}", StringComparison.OrdinalIgnoreCase));
+        if (start < 0) return string.Empty;
+        var end = start + 1;
+        while (end < lines.Length && !lines[end].StartsWith("## ", StringComparison.Ordinal)) end++;
+        return string.Join("\n", lines[(start + 1)..end]).Trim();
     }
 
     public static string ResolveOutputPath(string repositoryRoot, string outputPath)
@@ -181,12 +376,12 @@ public static partial class SddWorkbenchAnalyzer
         return criteria;
     }
 
-    private static SddWorkbenchTask[] ParseTasks(string text)
+    private static SddWorkbenchTask[] ParseTasks(string text, string sourcePath)
     {
         return TaskRegex().Matches(text).Select(match => new SddWorkbenchTask(
             match.Groups["id"].Success ? match.Groups["id"].Value : $"task-{match.Index}",
             match.Groups["body"].Value.Trim(),
-            match.Groups["checked"].Value is "x" or "X"))
+            match.Groups["checked"].Value is "x" or "X", sourcePath))
             .ToArray();
     }
 
@@ -269,11 +464,25 @@ public static partial class SddWorkbenchAnalyzer
 
     [GeneratedRegex("(?m)^\\s*-\\s+\\[(?<checked>[ xX])\\]\\s+(?<body>(?<id>T\\d{3,})\\s+.*)$", RegexOptions.CultureInvariant)]
     private static partial Regex TaskRegex();
+
+    [GeneratedRegex("^\\s*#{3,6}\\s+Requirement:\\s*(?<text>.+?)\\s*$", RegexOptions.CultureInvariant)]
+    private static partial Regex OpenSpecRequirementRegex();
+
+    [GeneratedRegex("^\\s*#{4,6}\\s+Scenario:\\s*(?<text>.+?)\\s*$", RegexOptions.CultureInvariant)]
+    private static partial Regex OpenSpecScenarioRegex();
+
+    [GeneratedRegex("(?m)^\\s*-\\s+\\[(?<checked>[ xX])\\]\\s+(?<body>.+?)\\s*$", RegexOptions.CultureInvariant)]
+    private static partial Regex OpenSpecTaskRegex();
+
+    [GeneratedRegex("^(?<id>\\d+(?:\\.\\d+)*)(?:[.)])\\s+(?<text>.+)$", RegexOptions.CultureInvariant)]
+    private static partial Regex OpenSpecTaskNumberRegex();
 }
 
 public sealed record SddWorkbenchData(
+    string Engine,
     string FeaturePath,
     string FeatureTitle,
+    string ProposalSummary,
     IReadOnlyList<SddWorkbenchStory> Stories,
     IReadOnlyList<SddWorkbenchCriterion> Criteria,
     IReadOnlyList<SddWorkbenchTask> Tasks,
@@ -283,7 +492,7 @@ public sealed record SddWorkbenchData(
     IReadOnlyList<SddWorkbenchArtifact> Artifacts);
 
 public sealed record SddWorkbenchStory(string Id, string Title, string Priority, string Description);
-public sealed record SddWorkbenchCriterion(string Id, string Kind, string Text);
-public sealed record SddWorkbenchTask(string Id, string Text, bool IsComplete);
+public sealed record SddWorkbenchCriterion(string Id, string Kind, string Text, string? SourcePath = null);
+public sealed record SddWorkbenchTask(string Id, string Text, bool IsComplete, string? SourcePath = null);
 public sealed record SddWorkbenchEvidence(string TaskId, string Result, IReadOnlyList<string> CriterionIds, IReadOnlyList<string> EvidencePaths);
 public sealed record SddWorkbenchArtifact(string Name, string Path, string Content);
