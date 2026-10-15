@@ -42,7 +42,7 @@
 - [X] T014 [P] Document Azure DevOps Services/Server boundaries, Entra/PAT environment setup, least permission, privacy, and all command paths in `integrations/azure-devops/README.md` and `integrations/README.md`.
 - [X] T015 [P] Link the integration and explain read-only traceability and explicit draft PR creation in `README.md`.
 - [X] T016 [P] Add the offline mocked Azure DevOps contract suite to `.github/workflows/ci.yml`.
-- [ ] T017 Run focused integration and xUnit tests, Release build, package smoke, acceptance hash/evidence checks, and cross-platform CI; record actual results in `specs/030-azure-devops-bridge/verification.md`.
+- [X] T017 Run focused integration and xUnit tests, Release build, package smoke, acceptance hash/evidence checks, and cross-platform CI; record actual results in `specs/030-azure-devops-bridge/verification.md`.
 - [X] T018 [US2] Add QA handoff tests and render each acceptance criterion with only documented test guidance, evidence, delivery links, and explicit gaps in the PR preview; update the integration quickstart and README.
 - [X] T019 [US1] Add MSAL system-browser delegated auth for Azure DevOps Services, explicit tenant/client configuration, token-provider injection, cancellation handling, and a testable headless token mode in `src/BrownPants.Cli/Analysis/AzureDevOpsAuthentication.cs` and `Program.cs`.
 - [X] T020 [US1] Add mocked auth-provider tests for online gating, cancellation, auth failure, token redaction, and no persistence in `tests/BrownPants.Tests/AzureDevOpsAuthenticationTests.cs`.

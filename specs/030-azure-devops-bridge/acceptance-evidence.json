@@ -261,11 +261,11 @@
         "SC-007",
         "SC-008"
       ],
-      "verificationCommand": "dotnet build BrownPants.sln -c Release; dotnet test BrownPants.sln -c Release; pwsh -NoProfile -File tests/AzureDevOpsIntegrationTests.ps1; pwsh -NoProfile -File scripts/acceptance-criteria-hash.ps1 -SpecPath specs/030-azure-devops-bridge/spec.md; pwsh -NoProfile -File scripts/check-acceptance-evidence.ps1 -RepositoryRoot . -SpecPath specs/030-azure-devops-bridge/spec.md -TasksPath specs/030-azure-devops-bridge/tasks.md -EvidencePath specs/030-azure-devops-bridge/acceptance-evidence.json",
+      "verificationCommand": "dotnet build BrownPants.sln -c Release; dotnet test BrownPants.sln -c Release; dotnet pack smoke; GitHub Actions run #55 (Windows, Ubuntu, macOS); acceptance hash/evidence scripts",
       "evidencePaths": [
         "specs/030-azure-devops-bridge/verification.md"
       ],
-      "result": "planned"
+      "result": "passed"
     },
     {
       "taskId": "T018",

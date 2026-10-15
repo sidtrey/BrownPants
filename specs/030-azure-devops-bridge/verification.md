@@ -11,9 +11,9 @@ Environment: Windows, .NET 10, 2026-10-14.
 - `scripts/check-acceptance-evidence.ps1` — passed structurally: 20 tasks and 18 criteria.
 - BrownPants self-inspection — `dotnet run --project src/BrownPants.Cli -- inspect . --format markdown --limit 10` completed and found no Roslyn parse errors.
 
-## CI follow-up
+## CI
 
-The repository CI matrix runs the xUnit suite on Windows, Ubuntu, and macOS. Cross-platform results are pending the push that triggers CI; keep task T017 open until those runs finish successfully.
+GitHub Actions run [#55](https://github.com/sidtrey/BrownPants/actions/runs/38671984230) passed on Windows, Ubuntu, and macOS for commit `52fb370`.
 
 ## Live-service limits
 
