@@ -81,7 +81,12 @@ jobs:
             if (-not (Test-Path -LiteralPath $spec -PathType Leaf)) { throw "Changed feature artifacts require a spec: $featureDir" }
             $specText = Get-Content -LiteralPath $spec -Raw
             $closedStatus = 'Won' + [char]39 + 't do'
-            $statusMatch = [regex]::Match($specText, '(?im)^\*\*Status\*\*:\s*(?<status>.+?)\s*
+            $statusPattern = '(?im)^\*\*Status\*\*:\s*(?<status>.+?)\s*' + [char]36
+            $statusMatch = [regex]::Match($specText, $statusPattern)
+            if ($statusMatch.Success -and $statusMatch.Groups['status'].Value -eq $closedStatus) {
+              Write-Host "Skipping acceptance evidence for closed feature: $featureDir"
+              continue
+            }
             $tasks = Join-Path $featureDir 'tasks.md'
             $ledger = Join-Path $featureDir 'acceptance-evidence.json'
             if (-not (Test-Path -LiteralPath $ledger -PathType Leaf)) { throw "Changed feature tasks require an acceptance evidence ledger: $featureDir" }
