@@ -132,15 +132,17 @@ public static class CallImpactAnalyzer
                 issues.Add($"{semantic.UnresolvedConstructorCount} constructor relationship(s) were unresolved.");
             var resolvedTotal = semantic.ResolvedInvocationCount + semantic.ResolvedConstructorCount;
             var unresolvedTotal = semantic.UnresolvedInvocationCount + semantic.UnresolvedConstructorCount;
-            if (semantic.ResolvedCalls.Count < resolvedTotal)
+            if (semantic.ImpactGraphCalls is null && semantic.ResolvedCalls.Count < resolvedTotal)
                 issues.Add($"Resolved relationship edges were sampled: {semantic.ResolvedCalls.Count} of {resolvedTotal} retained.");
+            if (semantic.ImpactGraphCalls is not null && semantic.ImpactGraphOmittedCount > 0)
+                issues.Add($"Impact graph edges were sampled: {semantic.ImpactGraphCalls.Count} retained and {semantic.ImpactGraphOmittedCount} omitted.");
             if (semantic.UnresolvedCalls.Count < unresolvedTotal)
                 issues.Add($"Unresolved relationship details were sampled: {semantic.UnresolvedCalls.Count} of {unresolvedTotal} retained.");
             if (declarations.Count < semantic.DeclarationCount)
                 issues.Add($"Method declarations were sampled: {declarations.Count} of {semantic.DeclarationCount} retained.");
         }
 
-        var calls = semantic.ResolvedCalls;
+        var calls = semantic.ImpactGraphCalls ?? semantic.ResolvedCalls;
         var impacts = new Dictionary<string, CallImpact>(StringComparer.Ordinal);
         foreach (var changed in normalizedChanged)
         {

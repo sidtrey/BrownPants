@@ -179,7 +179,11 @@ public sealed record CSharpSemanticAnalysis(
     IReadOnlyList<SemanticCompilerDiagnostic>? CompilerDiagnostics = null,
     int ConstructorSyntaxCount = 0,
     int ResolvedConstructorCount = 0,
-    int UnresolvedConstructorCount = 0);
+    int UnresolvedConstructorCount = 0)
+{
+    internal IReadOnlyList<CSharpResolvedCall>? ImpactGraphCalls { get; init; }
+    internal int ImpactGraphOmittedCount { get; init; }
+}
 
 public sealed record SemanticReasonCount(string Reason, int Count);
 public sealed record SemanticCompilerDiagnostic(string Project, string? Path, int? Line, string Code, string Message);

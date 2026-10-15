@@ -9,9 +9,10 @@
 - When a changed path is C# or Visual Basic, loads managed projects through MSBuildWorkspace. Native-only requests do not load managed projects.
 - Changed paths must remain within the repository and refer to discovered C#, Visual Basic, or C/C++ source files.
 - Direct and transitive resolved callers are reported once at shortest depth with call-site path/line and project.
+- The public semantic `ResolvedCalls` sample remains bounded by `--limit`. Impact traversal uses a separate in-memory graph capped at 100,000 resolved method and constructor edges; the internal graph is not serialized in inventory JSON.
 - Test paths are labeled candidates using repository heuristics.
 - JSON begins with `SchemaVersion: 1`; Markdown and JSON contain equivalent findings.
-- `IsComplete` and issues communicate partial project loading, unresolved edges, bounded samples, unsupported inputs, and missing source mappings.
+- `IsComplete` and issues communicate partial project loading, unresolved edges, declaration/finding samples, internal impact-graph truncation (including exact retained and omitted edge counts), unsupported inputs, and missing source mappings. Omissions from the public semantic call sample alone do not indicate internal impact-graph truncation.
 - Native changed paths use a separate candidate collection for supported lexical MFC dispatch and qualified native-call relations. These candidates are not compiler-resolved edges.
 - JSON impact entries identify their evidence kind (`managed-compiler-resolved` or `native-lexical`) and keep native relation status separate (`candidate`, `unresolved`, or `ambiguous`).
 - The command does not run tests, builds, or arbitrary commands and does not modify the repository. MSBuild workspace loading may evaluate imports or design-time targets.

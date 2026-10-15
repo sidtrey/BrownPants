@@ -14,6 +14,8 @@ namespace BrownPants.Cli.Analysis;
 
 public static class CSharpSemanticAnalyzer
 {
+    private const int ImpactGraphEdgeLimit = 100_000;
+
     public static CSharpSemanticAnalysis AnalyzeRepository(string root, IReadOnlyList<string> projectPaths,
         IReadOnlyList<string> solutionPaths, int sampleLimit)
     {
@@ -90,8 +92,21 @@ public static class CSharpSemanticAnalyzer
         int projectsDiscovered,
         int sampleLimit,
         string root)
+        => AnalyzeCompilations(compilations, projectsDiscovered, sampleLimit, root, ImpactGraphEdgeLimit);
+
+    internal static CSharpSemanticAnalysis AnalyzeCompilations(
+        IEnumerable<(string Project, Compilation Compilation)> compilations,
+        int projectsDiscovered,
+        int sampleLimit,
+        string root,
+        int impactGraphEdgeLimit)
     {
+        if (impactGraphEdgeLimit is < 0 or > ImpactGraphEdgeLimit)
+            throw new ArgumentOutOfRangeException(nameof(impactGraphEdgeLimit));
+
         var resolvedCalls = new List<CSharpResolvedCall>();
+        var impactGraphCalls = new List<CSharpResolvedCall>(Math.Min(impactGraphEdgeLimit, 4096));
+        var impactGraphOmittedCount = 0;
         var unresolvedCalls = new List<CSharpUnresolvedCall>();
         var declarations = new List<CSharpSemanticDeclaration>();
         var issues = new List<string>();
@@ -109,6 +124,15 @@ public static class CSharpSemanticAnalyzer
         var compilerErrorCount = 0;
         var seenProjects = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var repositoryRoot = Path.GetFullPath(root);
+
+        void AddResolvedCall(CSharpResolvedCall call)
+        {
+            AddSample(resolvedCalls, call, sampleLimit);
+            if (impactGraphCalls.Count < impactGraphEdgeLimit)
+                impactGraphCalls.Add(call);
+            else
+                impactGraphOmittedCount++;
+        }
 
         foreach (var (projectPath, compilation) in compilations)
         {
@@ -180,7 +204,7 @@ public static class CSharpSemanticAnalyzer
                             .Where(candidate => candidate.Location is not null)
                             .OrderBy(candidate => candidate.Path, StringComparer.Ordinal)
                             .FirstOrDefault();
-                        AddSample(resolvedCalls, new CSharpResolvedCall(
+                        AddResolvedCall(new CSharpResolvedCall(
                             relativeProjectPath,
                             relativeSourcePath,
                             invocationNode.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
@@ -189,7 +213,7 @@ public static class CSharpSemanticAnalyzer
                             ResolvedTarget(method),
                             sourceLocation.Location is not null ? sourceLocation.Path : null,
                             sourceLocation.Location?.GetLineSpan().StartLinePosition.Line + 1, "method",
-                            ResolvedTarget(method.OriginalDefinition)), sampleLimit);
+                            ResolvedTarget(method.OriginalDefinition)));
                     }
                     else
                     {
@@ -225,13 +249,13 @@ public static class CSharpSemanticAnalyzer
                             .Where(candidate => candidate.Location is not null)
                             .OrderBy(candidate => candidate.Path, StringComparer.Ordinal)
                             .FirstOrDefault();
-                        AddSample(resolvedCalls, new CSharpResolvedCall(relativeProjectPath, relativeSourcePath,
+                        AddResolvedCall(new CSharpResolvedCall(relativeProjectPath, relativeSourcePath,
                             constructionNode.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
                             Normalize(expression),
                             EnclosingMethod(semanticModel.GetEnclosingSymbol(constructionNode.SpanStart)),
                             ResolvedTarget(method), sourceLocation.Location is not null ? sourceLocation.Path : null,
                             sourceLocation.Location?.GetLineSpan().StartLinePosition.Line + 1, "constructor",
-                            ResolvedTarget(method.OriginalDefinition)), sampleLimit);
+                            ResolvedTarget(method.OriginalDefinition)));
                     }
                     else
                     {
@@ -255,7 +279,11 @@ public static class CSharpSemanticAnalyzer
             reasonCounts.OrderBy(pair => pair.Key, StringComparer.Ordinal).Select(pair => new SemanticReasonCount(pair.Key, pair.Value)).ToArray(),
             Math.Max(0, projectsDiscovered - projectsLoaded), projectsDiscovered == projectsLoaded, 0, 0,
             compilerErrorCount, Math.Max(0, compilerErrorCount - compilerDiagnostics.Count), compilerDiagnostics,
-            constructorSyntaxCount, resolvedConstructorCount, unresolvedConstructorCount);
+            constructorSyntaxCount, resolvedConstructorCount, unresolvedConstructorCount)
+        {
+            ImpactGraphCalls = impactGraphCalls,
+            ImpactGraphOmittedCount = impactGraphOmittedCount
+        };
     }
 
     private static void AddProjectOnce(Project project, List<(string Project, Compilation Compilation)> compilations,

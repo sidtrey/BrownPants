@@ -9,6 +9,74 @@ namespace BrownPants.Tests;
 public sealed class CallImpactAnalyzerTests
 {
     [Fact]
+    public void ImpactRetainsRelevantEdgesBeyondPublicSemanticSample()
+    {
+        var trees = new[]
+        {
+            CSharpSyntaxTree.ParseText("namespace Demo; public class Changed { public void Save() { } }",
+                path: "src/Changed.cs", cancellationToken: TestContext.Current.CancellationToken),
+            CSharpSyntaxTree.ParseText("namespace Demo; public class Noise { public void Ping() { } } public class NoiseCaller { public void Run(Noise noise) => noise.Ping(); }",
+                path: "src/AUnrelatedCaller.cs", cancellationToken: TestContext.Current.CancellationToken),
+            CSharpSyntaxTree.ParseText("namespace Demo; public class ChangedCaller { public void Run(Changed changed) => changed.Save(); }",
+                path: "src/ZChangedCaller.cs", cancellationToken: TestContext.Current.CancellationToken)
+        };
+        var compilation = CSharpCompilation.Create("ImpactSampleFixture", trees,
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var project = ("fixture.csproj", (Compilation)compilation);
+        var semantic = CSharpSemanticAnalyzer.AnalyzeCompilations(new[] { project }, 1, 1, ".");
+        var allDeclarations = CSharpSemanticAnalyzer.AnalyzeCompilations(new[] { project }, 1, 100, ".").Declarations;
+        semantic = semantic with { Declarations = allDeclarations };
+
+        Assert.Single(semantic.ResolvedCalls);
+        Assert.DoesNotContain(semantic.ResolvedCalls, call => call.TargetPath == "src/Changed.cs");
+        var report = CallImpactAnalyzer.Analyze(".", new[] { "src/Changed.cs" },
+            new[] { "src/Changed.cs", "src/AUnrelatedCaller.cs", "src/ZChangedCaller.cs" }, semantic, 100);
+
+        Assert.True(report.IsComplete);
+        var impact = Assert.Single(report.Impacts);
+        Assert.Equal("src/ZChangedCaller.cs", impact.Path);
+        Assert.Equal(1, impact.Line);
+        Assert.Equal(1, impact.Depth);
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(semantic));
+        Assert.False(json.RootElement.TryGetProperty("ImpactGraphCalls", out _));
+        Assert.False(json.RootElement.TryGetProperty("ImpactGraphOmittedCount", out _));
+    }
+
+    [Fact]
+    public void ImpactReportsExactOmissionWhenInternalGraphReachesItsBound()
+    {
+        var trees = new[]
+        {
+            CSharpSyntaxTree.ParseText("namespace Demo; public class Changed { public void Save() { } }",
+                path: "src/Changed.cs", cancellationToken: TestContext.Current.CancellationToken),
+            CSharpSyntaxTree.ParseText("namespace Demo; public class Noise { public void Ping() { } } public class NoiseCaller { public void Run(Noise noise) => noise.Ping(); }",
+                path: "src/AUnrelatedCaller.cs", cancellationToken: TestContext.Current.CancellationToken),
+            CSharpSyntaxTree.ParseText("namespace Demo; public class ChangedCaller { public void Run(Changed changed) => changed.Save(); }",
+                path: "src/ZChangedCaller.cs", cancellationToken: TestContext.Current.CancellationToken)
+        };
+        var compilation = CSharpCompilation.Create("ImpactGraphBoundFixture", trees,
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var semantic = CSharpSemanticAnalyzer.AnalyzeCompilations(
+            new[] { ("fixture.csproj", (Compilation)compilation) }, 1, 1, ".", 1);
+        semantic = semantic with
+        {
+            Declarations = CSharpSemanticAnalyzer.AnalyzeCompilations(
+                new[] { ("fixture.csproj", (Compilation)compilation) }, 1, 100, ".").Declarations
+        };
+
+        Assert.Single(semantic.ImpactGraphCalls!);
+        Assert.Equal(1, semantic.ImpactGraphOmittedCount);
+        var report = CallImpactAnalyzer.Analyze(".", new[] { "src/Changed.cs" },
+            new[] { "src/Changed.cs", "src/AUnrelatedCaller.cs", "src/ZChangedCaller.cs" }, semantic, 100);
+
+        Assert.False(report.IsComplete);
+        Assert.Empty(report.Impacts);
+        Assert.Contains(report.Issues, issue => issue.Contains("1 retained and 1 omitted", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Analyze_TracesChangedNativeBridgeBackToMfcDispatchAsCandidates()
     {
         var semantic = new CSharpSemanticAnalysis(1, 0, 5, 3, Array.Empty<CSharpResolvedCall>(),
@@ -257,6 +325,11 @@ public sealed class CallImpactAnalyzerTests
         semantic = semantic with
         {
             ResolvedCalls = semantic.ResolvedCalls.Concat(new[]
+            {
+                originalEdge,
+                new CSharpResolvedCall("fixture.csproj", "src/Core.cs", 1, "recursive", core, service)
+            }).ToArray(),
+            ImpactGraphCalls = semantic.ImpactGraphCalls!.Concat(new[]
             {
                 originalEdge,
                 new CSharpResolvedCall("fixture.csproj", "src/Core.cs", 1, "recursive", core, service)

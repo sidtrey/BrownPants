@@ -2458,6 +2458,10 @@ public sealed class RepositoryScannerTests : IDisposable
         Assert.Contains(analysis.ResolvedCalls, call => call.RelationshipKind == "constructor"
             && call.Target.Contains("Legacy.App.Store..ctor()", StringComparison.Ordinal));
         Assert.Contains(analysis.ResolvedCalls, call => call.Caller.Contains("Legacy.App.Controller.Run", StringComparison.Ordinal));
+        Assert.Equal(2, analysis.ImpactGraphCalls!.Count);
+        using var semanticJson = System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(analysis));
+        Assert.False(semanticJson.RootElement.TryGetProperty("ImpactGraphCalls", out _));
+        Assert.False(semanticJson.RootElement.TryGetProperty("ImpactGraphOmittedCount", out _));
     }
 
     [Fact]
