@@ -1,5 +1,6 @@
 using System.Text.Json;
 using BrownPants.Cli;
+using BrownPants.Cli.Analysis;
 
 namespace BrownPants.Tests;
 
@@ -24,6 +25,8 @@ public sealed class EvidenceCommandTests : IDisposable
         Assert.Equal(1, report.GetProperty("schemaVersion").GetInt32());
         Assert.False(report.TryGetProperty("focus", out _));
         var findings = report.GetProperty("findings").EnumerateArray().ToArray();
+        Assert.Equal(findings.Length, report.GetProperty("completeness").GetProperty("emittedFindingCount").GetInt32());
+        Assert.Equal(findings.Length, report.GetProperty("completeness").GetProperty("totalFindingCount").GetInt32());
         var factory = Assert.Single(findings, item => item.GetProperty("signal").GetString() == "Factory type");
         Assert.Equal("architecture-candidate", factory.GetProperty("category").GetString());
         Assert.Equal("candidate", factory.GetProperty("status").GetString());
@@ -34,6 +37,121 @@ public sealed class EvidenceCommandTests : IDisposable
         Assert.Equal("candidate", test.GetProperty("status").GetString());
         Assert.Contains(report.GetProperty("limitations").EnumerateArray(), item =>
             item.GetString()!.Contains("Semantic analysis was not requested", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Evidence_RepeatedCandidateGroupsPreserveRawFindings()
+    {
+        Write("src/SessionA.cs", """
+            using NHibernate;
+            public class SessionA
+            {
+                private ISession first;
+                private ISession second;
+                private ITransaction transaction;
+            }
+            """);
+        Write("src/SessionB.cs", "using NHibernate; public class SessionB { private ISession other; }");
+
+        var first = Run("evidence", _root, "--limit", "1000");
+        var second = Run("evidence", _root, "--limit", "1000");
+
+        Assert.Equal(0, first.ExitCode);
+        Assert.Equal(first.Output, second.Output);
+        using var json = JsonDocument.Parse(first.Output);
+        var report = json.RootElement;
+        Assert.Equal(1, report.GetProperty("schemaVersion").GetInt32());
+        var rawSessions = report.GetProperty("findings").EnumerateArray()
+            .Where(item => item.GetProperty("category").GetString() == "framework-candidate"
+                && item.GetProperty("signal").GetString() == "NHibernate session"
+                && item.GetProperty("path").GetString() == "src/SessionA.cs")
+            .ToArray();
+        Assert.Equal(2, rawSessions.Length);
+        var group = Assert.Single(report.GetProperty("repeatedCandidateGroups").EnumerateArray(), item =>
+            item.GetProperty("category").GetString() == "framework-candidate"
+            && item.GetProperty("signal").GetString() == "NHibernate session"
+            && item.GetProperty("path").GetString() == "src/SessionA.cs");
+        Assert.Equal(rawSessions.Select(item => item.GetProperty("line").GetInt32()).Order().ToArray(),
+            group.GetProperty("locations").EnumerateArray().Select(item => item.GetProperty("line").GetInt32()).ToArray());
+        Assert.Equal(rawSessions.Select(item => (Id: item.GetProperty("id").GetString(), Line: item.GetProperty("line").GetInt32()))
+                .OrderBy(item => item.Line).ThenBy(item => item.Id, StringComparer.Ordinal).ToArray(),
+            group.GetProperty("locations").EnumerateArray().Select(item =>
+                (Id: item.GetProperty("findingId").GetString(), Line: item.GetProperty("line").GetInt32())).ToArray());
+        Assert.DoesNotContain(report.GetProperty("repeatedCandidateGroups").EnumerateArray(), item =>
+            item.GetProperty("signal").GetString() == "NHibernate session" && item.GetProperty("path").GetString() == "src/SessionB.cs");
+    }
+
+    [Fact]
+    public void Evidence_FocusedRepeatedCandidateGroupsContainOnlySelectedFindingIdsAndKeepReasons()
+    {
+        Write("src/SessionA.cs", """
+            using NHibernate;
+            public class SessionA
+            {
+                private ISession first;
+                private ISession second;
+            }
+            """);
+        Write("src/SessionB.cs", "using NHibernate; public class SessionB { private ISession other; }");
+
+        var result = Run("evidence", _root, "--clue", "SessionA", "--changed", "src/SessionA.cs", "--limit", "1000");
+
+        Assert.Equal(0, result.ExitCode);
+        using var json = JsonDocument.Parse(result.Output);
+        var report = json.RootElement;
+        var findings = report.GetProperty("findings").EnumerateArray().ToArray();
+        var group = Assert.Single(report.GetProperty("repeatedCandidateGroups").EnumerateArray(), item =>
+            item.GetProperty("signal").GetString() == "NHibernate session");
+        var selectedIds = findings.Select(item => item.GetProperty("id").GetString()).ToHashSet(StringComparer.Ordinal);
+        var locations = group.GetProperty("locations").EnumerateArray().ToArray();
+        Assert.Equal(2, locations.Length);
+        Assert.All(locations, location => Assert.Contains(location.GetProperty("findingId").GetString(), selectedIds));
+        Assert.All(findings.Where(item => locations.Any(location =>
+            location.GetProperty("findingId").GetString() == item.GetProperty("id").GetString())), item =>
+        {
+            var reasons = item.GetProperty("matchedBy").EnumerateArray().Select(reason => reason.GetString()!).ToArray();
+            Assert.Contains(reasons, reason => reason.StartsWith("changed-path:", StringComparison.Ordinal));
+            Assert.Contains(reasons, reason => reason.StartsWith("clue[0]:", StringComparison.Ordinal));
+        });
+        Assert.Equal(findings.Where(item => item.GetProperty("signal").GetString() == "NHibernate session")
+                .Select(item => item.GetProperty("id").GetString()).Order(StringComparer.Ordinal).ToArray(),
+            locations.Select(location => location.GetProperty("findingId").GetString()).Order(StringComparer.Ordinal).ToArray());
+    }
+
+    [Fact]
+    public void RepeatedCandidateGroups_KeepDifferentCategoriesSignalsAndPathsSeparate()
+    {
+        var findings = new[]
+        {
+            Candidate("a1", "architecture-candidate", "Shared signal", "src/One.cs", 1),
+            Candidate("a2", "architecture-candidate", "Shared signal", "src/One.cs", 2),
+            Candidate("f1", "framework-candidate", "Shared signal", "src/One.cs", 3),
+            Candidate("f2", "framework-candidate", "Shared signal", "src/One.cs", 4),
+            Candidate("s1", "framework-candidate", "Other signal", "src/One.cs", 5),
+            Candidate("s2", "framework-candidate", "Other signal", "src/One.cs", 6),
+            Candidate("p1", "framework-candidate", "Other signal", "src/Two.cs", 7),
+            Candidate("p2", "framework-candidate", "Other signal", "src/Two.cs", 8),
+            Candidate("resolved", "framework-candidate", "Other signal", "src/Two.cs", 9, "resolved")
+        };
+
+        var groups = EvidenceReportAnalyzer.CreateRepeatedCandidateGroups(findings);
+
+        Assert.Equal(4, groups.Count);
+        Assert.Equal(4, groups.Select(group => (group.Category, group.Signal, group.Path)).Distinct().Count());
+        Assert.Equal(new[]
+        {
+            ("architecture-candidate", "Shared signal", "src/One.cs"),
+            ("framework-candidate", "Other signal", "src/One.cs"),
+            ("framework-candidate", "Shared signal", "src/One.cs"),
+            ("framework-candidate", "Other signal", "src/Two.cs")
+        }, groups.Select(group => (group.Category, group.Signal, group.Path)));
+        Assert.All(groups, group => Assert.Equal(2, group.LocationCount));
+        Assert.Equal(new[] { 1, 2 }, Assert.Single(groups, group => group.Category == "architecture-candidate").Locations.Select(location => location.Line));
+        Assert.Equal(new[] { 3, 4 }, Assert.Single(groups, group => group.Category == "framework-candidate" && group.Signal == "Shared signal").Locations.Select(location => location.Line));
+        Assert.DoesNotContain(groups.SelectMany(group => group.Locations), location => location.FindingId == "resolved");
+
+        static EvidenceFinding Candidate(string id, string category, string signal, string path, int line, string status = "candidate") =>
+            new(id, category, status, signal, path, line, null, null, "fixture evidence");
     }
 
     [Fact]

@@ -2,6 +2,7 @@ param(
     [Parameter(Mandatory=$true)][string] $DemoRoot,
     [Parameter(Mandatory=$true)][string] $OutputRoot,
     [string] $TaskPromptPath = (Join-Path $PSScriptRoot 'task-prompt.md'),
+    [string] $ResultSchemaPath = (Join-Path $PSScriptRoot 'result.schema.md'),
     [string] $BrownPantsProject = (Join-Path $PSScriptRoot '../../../src/BrownPants.Cli')
 )
 $ErrorActionPreference = 'Stop'
@@ -39,7 +40,7 @@ Copy-Item -LiteralPath $TaskPromptPath -Destination (Join-Path $control 'task-pr
 Copy-Item -LiteralPath (Join-Path $source 'evaluation/task-spec.md') -Destination $control
 Copy-Item -LiteralPath (Join-Path $source 'evaluation/acceptance-criteria.sha256') -Destination $control
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot '../../../scripts/acceptance-criteria-hash.ps1') -Destination (Join-Path $control 'acceptance-criteria-hash.ps1')
-Copy-Item -LiteralPath (Join-Path $source 'evaluation/result.schema.md') -Destination $control
+Copy-Item -LiteralPath $ResultSchemaPath -Destination (Join-Path $control 'result.schema.md')
 $evidence = Join-Path $output 'brownpants-evidence-assisted'
 New-Item -ItemType Directory -Path $evidence | Out-Null
 $assisted = Join-Path $output 'assisted-source'

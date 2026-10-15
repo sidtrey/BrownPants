@@ -1,4 +1,6 @@
-# Brownfield Evidence Handoff: Repeat Comparison
+# Brownfield Evidence Handoff: Superseded v3 Record
+
+> Historical v3 report, retained unchanged for audit context. Its answer key contains a stale C++/CLI line, and the recorded source commit could not be resolved locally or through GitHub. Do not treat its reported precision, recall, or advantage claim as a verified current comparison; see the [v4 grouped evidence report](brownfield-evidence-grouping-2026-10.md).
 
 ## Why this run exists
 

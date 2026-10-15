@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "emittedFindingCount": 27,
+  "findingsTruncated": false,
+  "repeatedCandidateGroupCount": 5,
+  "repeatedCandidateGroups": [
+    {
+      "category": "framework-candidate",
+      "signal": "C++/CLI bridge",
+      "path": "legacy/Bridge/OrderManagedBridge.cpp",
+      "locationCount": 3,
+      "locations": [
+        {
+          "findingId": "dc11b5980cbfac6c",
+          "line": 5
+        },
+        {
+          "findingId": "f295c7d9f66a1dbf",
+          "line": 10
+        },
+        {
+          "findingId": "3c3033a24d833646",
+          "line": 11
+        }
+      ]
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "NHibernate session",
+      "path": "legacy/Framework/OrderDataAccess.cs",
+      "locationCount": 2,
+      "locations": [
+        {
+          "findingId": "d51e88a396a67708",
+          "line": 13
+        },
+        {
+          "findingId": "de077995f9e827e7",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "NHibernate session factory",
+      "path": "legacy/Framework/OrderDataAccess.cs",
+      "locationCount": 2,
+      "locations": [
+        {
+          "findingId": "3eb84524721bcc7e",
+          "line": 7
+        },
+        {
+          "findingId": "31439cbbef17f97c",
+          "line": 9
+        }
+      ]
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "NHibernate transaction",
+      "path": "legacy/Framework/OrderDataAccess.cs",
+      "locationCount": 2,
+      "locations": [
+        {
+          "findingId": "af5441b4d1108f31",
+          "line": 14
+        },
+        {
+          "findingId": "107f0cda8012c472",
+          "line": 16
+        }
+      ]
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "MFC message map",
+      "path": "legacy/Native/OrderMfcView.cpp",
+      "locationCount": 2,
+      "locations": [
+        {
+          "findingId": "0de9ce54c1320ce9",
+          "line": 5
+        },
+        {
+          "findingId": "5f5acec0ac68ef5b",
+          "line": 7
+        }
+      ]
+    }
+  ]
+}

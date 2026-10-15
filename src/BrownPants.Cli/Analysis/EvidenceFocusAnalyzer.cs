@@ -160,6 +160,7 @@ public static class EvidenceFocusAnalyzer
         return fullReport with
         {
             Findings = emitted,
+            RepeatedCandidateGroups = EvidenceReportAnalyzer.CreateRepeatedCandidateGroups(emitted),
             Focus = focus,
             Completeness = fullReport.Completeness with
             {

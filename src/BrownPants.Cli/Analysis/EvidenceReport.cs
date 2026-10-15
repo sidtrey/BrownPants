@@ -12,9 +12,20 @@ public sealed record EvidenceReport(
     EvidenceCompleteness Completeness,
     IReadOnlyList<string> Limitations)
 {
+    public IReadOnlyList<EvidenceCandidateGroup> RepeatedCandidateGroups { get; init; } = Array.Empty<EvidenceCandidateGroup>();
+
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public EvidenceFocusSummary? Focus { get; init; }
 }
+
+public sealed record EvidenceCandidateGroup(
+    string Category,
+    string Signal,
+    string Path,
+    int LocationCount,
+    IReadOnlyList<EvidenceCandidateLocation> Locations);
+
+public sealed record EvidenceCandidateLocation(string FindingId, int Line);
 
 public sealed record EvidenceContext(
     IReadOnlyList<string> ProjectSystems,
@@ -166,7 +177,7 @@ public static class EvidenceReportAnalyzer
         if (nativeFlow is { OmittedCount: > 0 })
             limitations.Add($"Native-flow relations were sampled: {nativeFlow.Relations.Count} of {nativeFlow.RelationCount} retained.");
 
-        return new EvidenceReport(
+        var report = new EvidenceReport(
             1,
             inventory.Root,
             new EvidenceContext(
@@ -188,7 +199,27 @@ public static class EvidenceReportAnalyzer
                     ? semantic.UnresolvedInvocationCount + semantic.UnresolvedConstructorCount
                     : 0),
             limitations.ToArray());
+        return report with { RepeatedCandidateGroups = CreateRepeatedCandidateGroups(ordered) };
     }
+
+    public static IReadOnlyList<EvidenceCandidateGroup> CreateRepeatedCandidateGroups(
+        IReadOnlyList<EvidenceFinding> emittedFindings) => emittedFindings
+        .Where(item => (item.Category == "architecture-candidate" || item.Category == "framework-candidate")
+            && item.Status == "candidate" && item.Line is not null)
+        .GroupBy(item => (item.Category, item.Signal, item.Path))
+        .Where(group => group.Count() >= 2)
+        .OrderBy(group => group.Key.Category, StringComparer.Ordinal)
+        .ThenBy(group => group.Key.Path, StringComparer.Ordinal)
+        .ThenBy(group => group.Key.Signal, StringComparer.Ordinal)
+        .Select(group =>
+        {
+            var locations = group.Select(item => new EvidenceCandidateLocation(item.Id, item.Line!.Value))
+                .OrderBy(item => item.Line)
+                .ThenBy(item => item.FindingId, StringComparer.Ordinal)
+                .ToArray();
+            return new EvidenceCandidateGroup(group.Key.Category, group.Key.Signal, group.Key.Path,
+                locations.Length, locations);
+        }).ToArray();
 
     private static EvidenceFinding CreateFinding(string category, string status, string signal, string path, int? line,
         string? caller, string? target, string evidence, string? targetPath = null, int? targetLine = null,

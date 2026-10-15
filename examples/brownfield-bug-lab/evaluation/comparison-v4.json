@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "criteriaSha256": "777ecb0e7523c67dc4a3e8b28cebae70e7b9476939c00a65eea50308c7d3dd63",
+  "conditions": [
+    {
+      "condition": "spec-kit",
+      "expected": 20,
+      "submitted": 23,
+      "truePositives": 20,
+      "falsePositives": 3,
+      "falseNegatives": 0,
+      "precision": 0.8696,
+      "recall": 1.0,
+      "byCategory": [
+        {
+          "category": "managed-call",
+          "expected": 4,
+          "submitted": 4,
+          "truePositives": 4,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        {
+          "category": "architecture-candidate",
+          "expected": 5,
+          "submitted": 5,
+          "truePositives": 5,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        {
+          "category": "framework-candidate",
+          "expected": 10,
+          "submitted": 13,
+          "truePositives": 10,
+          "falsePositives": 3,
+          "falseNegatives": 0,
+          "precision": 0.7692,
+          "recall": 1.0
+        },
+        {
+          "category": "test-identification",
+          "expected": 1,
+          "submitted": 1,
+          "truePositives": 1,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1.0,
+          "recall": 1.0
+        }
+      ]
+    },
+    {
+      "condition": "spec-kit-plus-brownpants",
+      "expected": 20,
+      "submitted": 23,
+      "truePositives": 20,
+      "falsePositives": 3,
+      "falseNegatives": 0,
+      "precision": 0.8696,
+      "recall": 1.0,
+      "byCategory": [
+        {
+          "category": "managed-call",
+          "expected": 4,
+          "submitted": 4,
+          "truePositives": 4,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        {
+          "category": "architecture-candidate",
+          "expected": 5,
+          "submitted": 5,
+          "truePositives": 5,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        {
+          "category": "framework-candidate",
+          "expected": 10,
+          "submitted": 13,
+          "truePositives": 10,
+          "falsePositives": 3,
+          "falseNegatives": 0,
+          "precision": 0.7692,
+          "recall": 1.0
+        },
+        {
+          "category": "test-identification",
+          "expected": 1,
+          "submitted": 1,
+          "truePositives": 1,
+          "falsePositives": 0,
+          "falseNegatives": 0,
+          "precision": 1.0,
+          "recall": 1.0
+        }
+      ]
+    }
+  ],
+  "recallGainPercentagePoints": 0.0,
+  "managedCallRecallGainPercentagePoints": 0.0,
+  "advantageThreshold": 20,
+  "advantageDemonstrated": false
+}

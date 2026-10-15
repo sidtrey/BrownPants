@@ -1,0 +1,188 @@
+{
+  "schemaVersion": 1,
+  "provenance": {
+    "fixtureSourceCommit": "cc91a0376975ac52b64b5fc7c33417afaf5a2736",
+    "sourceEvidenceCommand": "brownpants evidence examples/brownfield-bug-lab --format json --limit 10000",
+    "sourceEvidenceFindingCount": 27,
+    "sourceEvidenceRepeatedGroupCount": 5
+  },
+  "findings": [
+    {
+      "category": "managed-call",
+      "signal": "resolved call",
+      "path": "managed/Workflows/OrderImportWorkflow.cs",
+      "line": 12,
+      "callerSignature": "global::LegacyOrderDesk.Workflows.OrderImportWorkflow<T>.ImportOne(T)",
+      "targetSignature": "global::LegacyOrderDesk.Persistence.OrderRepository<T>.Save(T)"
+    },
+    {
+      "category": "managed-call",
+      "signal": "resolved call",
+      "path": "managed/Workflows/OrderImportWorkflow.cs",
+      "line": 14,
+      "callerSignature": "global::LegacyOrderDesk.Workflows.OrderImportWorkflow<T>.ImportBatch(global::System.Collections.Generic.IEnumerable<T>)",
+      "targetSignature": "global::LegacyOrderDesk.Persistence.OrderRepository<T>.Save(global::System.Collections.Generic.IEnumerable<T>)"
+    },
+    {
+      "category": "managed-call",
+      "signal": "resolved call",
+      "path": "managed/Workflows/OrderImportWorkflow.cs",
+      "line": 17,
+      "callerSignature": "global::LegacyOrderDesk.Workflows.OrderImportWorkflow<T>.ImportMapped<TSource>(global::System.Collections.Generic.IEnumerable<TSource>, global::System.Func<TSource, T>)",
+      "targetSignature": "global::LegacyOrderDesk.Persistence.OrderRepository<T>.SaveMapped<TSource>(global::System.Collections.Generic.IEnumerable<TSource>, global::System.Func<TSource, T>)"
+    },
+    {
+      "category": "managed-call",
+      "signal": "resolved call",
+      "path": "managed/Persistence/OrderRepository.cs",
+      "line": 25,
+      "callerSignature": "global::LegacyOrderDesk.Persistence.OrderRepository<T>.SaveMapped<TSource>(global::System.Collections.Generic.IEnumerable<TSource>, global::System.Func<TSource, T>)",
+      "targetSignature": "global::LegacyOrderDesk.Persistence.OrderRepository<T>.Save(global::System.Collections.Generic.IEnumerable<T>)"
+    },
+    {
+      "category": "architecture-candidate",
+      "signal": "Factory type",
+      "path": "managed/Workflows/OrderImportWorkflow.cs",
+      "lines": [
+        20
+      ]
+    },
+    {
+      "category": "architecture-candidate",
+      "signal": "Factory method",
+      "path": "managed/Workflows/OrderImportWorkflow.cs",
+      "lines": [
+        22
+      ]
+    },
+    {
+      "category": "architecture-candidate",
+      "signal": "DI registration",
+      "path": "managed/Workflows/OrderImportWorkflow.cs",
+      "lines": [
+        26
+      ]
+    },
+    {
+      "category": "architecture-candidate",
+      "signal": "DI resolution",
+      "path": "managed/Workflows/OrderImportWorkflow.cs",
+      "lines": [
+        27
+      ]
+    },
+    {
+      "category": "architecture-candidate",
+      "signal": "Factory invocation",
+      "path": "managed/Workflows/OrderImportWorkflow.cs",
+      "lines": [
+        27
+      ]
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "C++/CLI bridge",
+      "path": "legacy/Bridge/OrderManagedBridge.cpp",
+      "lines": [
+        5,
+        10,
+        11
+      ]
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "NHibernate session",
+      "path": "legacy/Framework/OrderDataAccess.cs",
+      "lines": [
+        13,
+        15
+      ]
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "NHibernate transaction",
+      "path": "legacy/Framework/OrderDataAccess.cs",
+      "lines": [
+        14,
+        16
+      ]
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "Constructor injection",
+      "path": "legacy/Framework/OrderDataAccess.cs",
+      "lines": [
+        9
+      ]
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "NHibernate dependency",
+      "path": "legacy/Framework/packages.config",
+      "lines": [
+        2
+      ]
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "MFC runtime type",
+      "path": "legacy/Native/OrderMfcView.cpp",
+      "lines": [
+        4
+      ]
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "MFC message map",
+      "path": "legacy/Native/OrderMfcView.cpp",
+      "lines": [
+        5,
+        7
+      ]
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "MFC class inheritance",
+      "path": "legacy/Native/OrderMfcView.h",
+      "lines": [
+        4
+      ]
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "NHibernate configuration",
+      "path": "legacy/Persistence/hibernate.cfg.xml",
+      "lines": [
+        1
+      ]
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "NHibernate mapping",
+      "path": "legacy/Persistence/OrderEntity.hbm.xml",
+      "lines": [
+        1
+      ]
+    },
+    {
+      "category": "test-identification",
+      "signal": "test path",
+      "path": "managed/tests/Program.cs"
+    }
+  ],
+  "decoys": [
+    {
+      "category": "managed-call",
+      "signal": "resolved call",
+      "path": "managed/Workflows/OrderImportWorkflow.cs",
+      "line": 42,
+      "callerSignature": "global::LegacyOrderDesk.Workflows.AuditJournal.WriteExample()",
+      "targetSignature": "global::LegacyOrderDesk.Persistence.OrderRepository<T>.Save(global::System.Collections.Generic.IEnumerable<T>)"
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "MFC message map",
+      "path": "legacy/Native/Noise.cpp"
+    }
+  ]
+}

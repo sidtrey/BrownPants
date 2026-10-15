@@ -1,0 +1,203 @@
+{
+  "schemaVersion": 1,
+  "findings": [
+    {
+      "category": "managed-call",
+      "signal": "resolved call",
+      "path": "managed/Persistence/OrderRepository.cs",
+      "line": 25,
+      "callerSignature": "global::LegacyOrderDesk.Persistence.OrderRepository<T>.SaveMapped<TSource>(global::System.Collections.Generic.IEnumerable<TSource>, global::System.Func<TSource, T>)",
+      "targetSignature": "global::LegacyOrderDesk.Persistence.OrderRepository<T>.Save(global::System.Collections.Generic.IEnumerable<T>)",
+      "status": "resolved",
+      "note": "Roslyn impact reports this direct internal edge. It preserves the mapped generic path and reaches the batch overload."
+    },
+    {
+      "category": "managed-call",
+      "signal": "resolved call",
+      "path": "managed/Workflows/OrderImportWorkflow.cs",
+      "line": 12,
+      "callerSignature": "global::LegacyOrderDesk.Workflows.OrderImportWorkflow<T>.ImportOne(T)",
+      "targetSignature": "global::LegacyOrderDesk.Persistence.OrderRepository<T>.Save(T)",
+      "status": "resolved",
+      "note": "The single-item workflow calls the single-item overload, distinct from Save(IEnumerable<T>)."
+    },
+    {
+      "category": "managed-call",
+      "signal": "resolved call",
+      "path": "managed/Workflows/OrderImportWorkflow.cs",
+      "line": 14,
+      "callerSignature": "global::LegacyOrderDesk.Workflows.OrderImportWorkflow<T>.ImportBatch(global::System.Collections.Generic.IEnumerable<T>)",
+      "targetSignature": "global::LegacyOrderDesk.Persistence.OrderRepository<T>.Save(global::System.Collections.Generic.IEnumerable<T>)",
+      "status": "resolved",
+      "note": "This is the reported batch path into the filtered enumerable overload."
+    },
+    {
+      "category": "managed-call",
+      "signal": "resolved call",
+      "path": "managed/Workflows/OrderImportWorkflow.cs",
+      "line": 17,
+      "callerSignature": "global::LegacyOrderDesk.Workflows.OrderImportWorkflow<T>.ImportMapped<TSource>(global::System.Collections.Generic.IEnumerable<TSource>, global::System.Func<TSource, T>)",
+      "targetSignature": "global::LegacyOrderDesk.Persistence.OrderRepository<T>.SaveMapped<TSource>(global::System.Collections.Generic.IEnumerable<TSource>, global::System.Func<TSource, T>)",
+      "status": "resolved",
+      "note": "Mapped imports call SaveMapped; its implementation then invokes the enumerable Save overload."
+    },
+    {
+      "category": "architecture-candidate",
+      "signal": "Factory type",
+      "path": "managed/Workflows/OrderImportWorkflow.cs",
+      "line": 20,
+      "status": "candidate",
+      "note": "OrderBatchFactory is a possible workflow construction point around imports; it does not implement repository persistence."
+    },
+    {
+      "category": "architecture-candidate",
+      "signal": "Factory method",
+      "path": "managed/Workflows/OrderImportWorkflow.cs",
+      "line": 22,
+      "status": "candidate",
+      "note": "Create constructs the workflow from a supplied repository, making it relevant to the managed workflow architecture but not the filtering defect."
+    },
+    {
+      "category": "architecture-candidate",
+      "signal": "DI registration",
+      "path": "managed/Workflows/OrderImportWorkflow.cs",
+      "line": 26,
+      "status": "candidate",
+      "note": "Register adds a transient workflow factory to WorkScope; runtime registration/activation is not established by this source signal."
+    },
+    {
+      "category": "architecture-candidate",
+      "signal": "DI resolution",
+      "path": "managed/Workflows/OrderImportWorkflow.cs",
+      "line": 27,
+      "status": "candidate",
+      "note": "The registration resolves OrderRepository<Order> before creating the workflow; this wiring does not explain row omission."
+    },
+    {
+      "category": "architecture-candidate",
+      "signal": "Factory invocation",
+      "path": "managed/Workflows/OrderImportWorkflow.cs",
+      "line": 27,
+      "status": "candidate",
+      "note": "The factory is invoked from the registration delegate; this is candidate construction evidence, not a resolved runtime edge."
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "C++/CLI bridge",
+      "path": "legacy/Bridge/OrderManagedBridge.cpp",
+      "lines": [5, 10, 11],
+      "status": "candidate",
+      "note": "The bridge declares a managed ref class, constructs OrderImportWorkflow<Order^>, and invokes ImportBatch. This is a possible boundary path, but it is not compiler-resolved managed evidence; the bridge passes nullptr and an empty list in this analysis fixture."
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "NHibernate session factory",
+      "path": "legacy/Framework/OrderDataAccess.cs",
+      "lines": [7, 9],
+      "status": "candidate",
+      "note": "ISessionFactory is held and constructor-injected in a separate legacy data-access class; no source edge connects it to the managed OrderRepository<T> overload."
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "Constructor injection",
+      "path": "legacy/Framework/OrderDataAccess.cs",
+      "line": 9,
+      "status": "candidate",
+      "note": "The legacy data-access wrapper receives its NHibernate factory through its constructor; no construction or managed workflow relationship is established."
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "NHibernate session",
+      "path": "legacy/Framework/OrderDataAccess.cs",
+      "lines": [13, 15],
+      "status": "candidate",
+      "note": "The legacy wrapper opens a session and calls SaveOrUpdate on OrderEntity. It is a separate persistence path and does not establish the cause of the in-memory managed batch filter."
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "NHibernate transaction",
+      "path": "legacy/Framework/OrderDataAccess.cs",
+      "lines": [14, 16],
+      "status": "candidate",
+      "note": "The legacy wrapper begins and commits an NHibernate transaction around one entity save; no relation to the affected managed repository is established."
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "NHibernate dependency",
+      "path": "legacy/Framework/packages.config",
+      "line": 2,
+      "status": "candidate",
+      "note": "The legacy Framework project declares NHibernate 5.5.2; dependency metadata alone does not connect it to the managed project."
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "MFC runtime type",
+      "path": "legacy/Native/OrderMfcView.cpp",
+      "line": 4,
+      "status": "candidate",
+      "note": "MFC dynamic creation is present in the native view. It is a framework boundary lead, not evidence that MFC causes omission in the managed repository."
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "MFC message map",
+      "path": "legacy/Native/OrderMfcView.cpp",
+      "lines": [5, 7],
+      "status": "candidate",
+      "note": "The message-map block surrounds the batch command handler; macro dispatch is not a resolved C# call edge."
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "MFC class inheritance",
+      "path": "legacy/Native/OrderMfcView.h",
+      "line": 4,
+      "status": "candidate",
+      "note": "The native view derives from CFormView and is part of the possible UI boundary; it does not establish persistence behavior."
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "MFC runtime type",
+      "path": "legacy/Native/OrderMfcView.h",
+      "line": 6,
+      "status": "candidate",
+      "note": "The view declares MFC dynamic creation metadata; runtime creation is not established."
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "NHibernate mapping",
+      "path": "legacy/Persistence/OrderEntity.hbm.xml",
+      "line": 1,
+      "status": "candidate",
+      "note": "This maps the legacy OrderEntity, whereas the affected managed repository stores T in its local list; mapping activation and any relation are unproven."
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "NHibernate configuration",
+      "path": "legacy/Persistence/hibernate.cfg.xml",
+      "line": 1,
+      "status": "candidate",
+      "note": "A legacy NHibernate session-factory configuration exists, but its activation and relationship to the managed workflow are not established."
+    },
+    {
+      "category": "framework-candidate",
+      "signal": "legacy .NET Framework target",
+      "path": "legacy/Framework/LegacyOrderDesk.csproj",
+      "line": 4,
+      "status": "candidate",
+      "note": "The project targets .NET Framework 4.7.2 and is separate from the managed net10.0 repository project; it is boundary context, not a proven cause."
+    },
+    {
+      "category": "test-identification",
+      "signal": "test path",
+      "path": "managed/tests/Program.cs",
+      "line": 16,
+      "status": "candidate",
+      "note": "This check invokes ImportBatch with one retry-marked and one ordinary order and asserts that both are saved; the required independent managed check runs this file."
+    }
+  ],
+  "limitations": [
+    "BrownPants impact.md provides four direct Depth 1 managed edges; test-caller rows at greater depth are intentionally represented by the test-identification finding, not as managed-call findings.",
+    "MFC and C++/CLI relationships are lexical boundary candidates, not compiler-resolved calls. The bridge's sample invocation uses a null repository and an empty list, so it does not demonstrate runtime execution of the reported defect.",
+    "The legacy NHibernate entity, session, mapping, configuration, and .NET Framework project have no established relationship to the managed OrderRepository<T> path; activation and transitive runtime behavior are unknown.",
+    "The managed source identifies the retry predicate as the row omission cause; no ORM or native artifact was changed."
+  ]
+}

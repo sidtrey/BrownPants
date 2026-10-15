@@ -12,6 +12,15 @@ function Normalize-Signature([string]$signature) {
     if (-not $signature) { return '' }
     return (($signature -replace 'global::','' -replace 'global\.', '' -replace 'System\.Collections\.Generic\.', '' -replace 'System\.Func', 'Func') -replace '\s+', '')
 }
+function Get-ActualLines($actual) {
+    if ($actual.PSObject.Properties.Name -contains 'lines') {
+        return @($actual.lines | ForEach-Object { [int]$_ } | Sort-Object -Unique)
+    }
+    if ($actual.PSObject.Properties.Name -contains 'line' -and $null -ne $actual.line) {
+        return @([int]$actual.line)
+    }
+    return @()
+}
 function Match-Finding($actual, $expected) {
     if ($actual.category -ne $expected.category -or $actual.path -ne $expected.path) { return $false }
     if ($expected.category -eq 'managed-call') {
@@ -26,9 +35,18 @@ function Match-Finding($actual, $expected) {
         return $true
     }
     if ($expected.category -in @('architecture-candidate','framework-candidate')) {
+        if (($actual.PSObject.Properties.Name -contains 'line') -and ($actual.PSObject.Properties.Name -contains 'lines')) { return $false }
         if ($actual.status -ne 'candidate' -or $actual.signal -ne $expected.signal) { return $false }
         if ($expected.PSObject.Properties.Name -contains 'line') { return $actual.line -eq $expected.line }
-        if ($expected.PSObject.Properties.Name -contains 'lines') { return $expected.lines -contains $actual.line }
+        if ($expected.PSObject.Properties.Name -contains 'lines') {
+            $expectedLines = @($expected.lines | ForEach-Object { [int]$_ } | Sort-Object -Unique)
+            if ($actual.PSObject.Properties.Name -contains 'lines') {
+                $actualLines = @(Get-ActualLines $actual)
+                return $actualLines.Count -eq $expectedLines.Count -and
+                    (@(Compare-Object -ReferenceObject $expectedLines -DifferenceObject $actualLines).Count -eq 0)
+            }
+            return ($actual.PSObject.Properties.Name -contains 'line') -and ($expectedLines -contains [int]$actual.line)
+        }
         return $true
     }
     return $false
@@ -92,7 +110,7 @@ function Score-Condition([string]$name, $result, $answerKey) {
 if ($SelfTest) {
     $synthetic = foreach ($item in $key.findings) {
         if ($item.PSObject.Properties.Name -contains 'lines') {
-            [pscustomobject]@{ category=$item.category; signal=$item.signal; path=$item.path; line=$item.lines[0]; status='candidate' }
+            [pscustomobject]@{ category=$item.category; signal=$item.signal; path=$item.path; lines=@($item.lines); status='candidate' }
         } elseif ($item.PSObject.Properties.Name -contains 'line') {
             [pscustomobject]@{ category=$item.category; signal=$item.signal; path=$item.path; line=$item.line; callerSignature=($item.callerSignature -replace 'global::','' -replace 'global\.', '' -replace 'System\.Collections\.Generic\.', '' -replace 'System\.Func','Func'); targetSignature=($item.targetSignature -replace 'global::','' -replace 'global\.', '' -replace 'System\.Collections\.Generic\.', '' -replace 'System\.Func','Func'); status=if ($item.category -eq 'managed-call') { 'resolved' } else { 'candidate' } }
         } else {
@@ -104,7 +122,14 @@ if ($SelfTest) {
     if ($check.truePositives -ne $key.findings.Count -or $check.falsePositives -ne $key.decoys.Count -or $check.falseNegatives -ne 0) {
         throw "Scorer self-test failed: TP=$($check.truePositives), FP=$($check.falsePositives), FN=$($check.falseNegatives)."
     }
-    Write-Output "Evaluator self-test passed: $($check.truePositives) expected findings matched, $($check.falsePositives) decoys rejected, signature normalization verified."
+    $groupedExpected = @($key.findings | Where-Object { $_.category -in @('architecture-candidate','framework-candidate') -and $_.PSObject.Properties.Name -contains 'lines' } | Select-Object -First 1)
+    if ($groupedExpected.Count -gt 0) {
+        $validGroup = [pscustomobject]@{ category=$groupedExpected[0].category; signal=$groupedExpected[0].signal; path=$groupedExpected[0].path; lines=@($groupedExpected[0].lines); status='candidate' }
+        if (-not (Match-Finding $validGroup $groupedExpected[0])) { throw 'Scorer self-test rejected a valid exact grouped line set.' }
+        $invalidGroup = [pscustomobject]@{ category=$groupedExpected[0].category; signal=$groupedExpected[0].signal; path=$groupedExpected[0].path; lines=@($groupedExpected[0].lines) + 999999; status='candidate' }
+        if (Match-Finding $invalidGroup $groupedExpected[0]) { throw 'Scorer self-test accepted an unrelated grouped source line.' }
+    }
+    Write-Output "Evaluator self-test passed: $($check.truePositives) expected findings matched, $($check.falsePositives) decoys rejected, signature normalization and grouped-line validation verified."
     return
 }
 $baseline = Score-Condition 'spec-kit' (Read-Result $BaselineResultPath) $key
