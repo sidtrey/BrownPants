@@ -62,7 +62,7 @@ dotnet run --project src/BrownPants.Cli -- placement --rule "All features follow
 dotnet run --project src/BrownPants.Cli -- models validate .
 dotnet run --project src/BrownPants.Cli -- models report . --format markdown
 dotnet pack src/BrownPants.Cli -c Release -o ./artifacts
-dotnet tool install --tool-path ./.tools --add-source ./artifacts BrownPants.Cli --version 0.1.0
+dotnet tool install --tool-path ./.tools --add-source ./artifacts BrownPants.Cli --version 0.2.0
 ./.tools/brownpants inspect . # Windows: .\.tools\brownpants.exe inspect .
 dotnet test BrownPants.sln
 ```
@@ -74,7 +74,7 @@ The installed CLI's default `inspect`, `investigate`, and local workbench paths 
 ```powershell
 dotnet restore BrownPants.sln --configfile <approved-nuget.config> --locked-mode
 dotnet build BrownPants.sln -c Release --no-restore
-dotnet tool install --tool-path ./.tools --configfile <approved-nuget.config> --add-source ./artifacts BrownPants.Cli --version 0.1.0
+dotnet tool install --tool-path ./.tools --configfile <approved-nuget.config> --add-source ./artifacts BrownPants.Cli --version 0.2.0
 ```
 
 Keep package-signature validation aligned with your organization's trust policy. Once installed, default repository inspection does not call the package source, an AI service, or a remote API.

@@ -16,7 +16,7 @@ Pack and install BrownPants in the target repository. A local tool path works wi
 
 ```powershell
 dotnet pack src/BrownPants.Cli -c Release -o ./artifacts
-dotnet tool install --tool-path ./.tools --add-source ./artifacts BrownPants.Cli --version 0.1.0
+dotnet tool install --tool-path ./.tools --add-source ./artifacts BrownPants.Cli --version 0.2.0
 ```
 
 Initialize the project with Spec Kit, then install this local extension:

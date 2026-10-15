@@ -24,6 +24,6 @@
 ## Phase 4: Compatibility and Release Evidence
 
 - [x] T011 [US3] Update README provider matrix and `IDEA-QUEUE.md` item 14 with verified support boundaries.
-- [x] T012 [US3] Verify frozen criteria and run full build, tests, package audit, CLI help and offline preview smoke; record outputs under `specs/044-multi-provider-draft-prs/evidence/`.
+- [x] T012 [US3] Verify frozen criteria and run full build, tests, package audit, CLI help and offline preview smoke; record outputs in `specs/044-multi-provider-draft-prs/verification.md`.
 - [x] T013 [US3] Map completed tasks to acceptance IDs and evidence in `acceptance-evidence.json`; validate hash and ledger.
-
+- [x] T014 [US3] Add a packed-tool no-network/provider-routing smoke test to `tests/PackedMultiProviderPullRequestSmoke.ps1` and `.github/workflows/ci.yml`, then verify the packaged CLI recognizes both providers without reading credentials prematurely.
