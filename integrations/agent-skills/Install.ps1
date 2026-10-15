@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string] $ProjectRoot = (Get-Location).Path,
-    [ValidateSet('codex', 'claude', 'both')]
+    [ValidateSet('codex', 'claude', 'copilot', 'both', 'all')]
     [string] $Agent = 'both'
 )
 
@@ -62,18 +62,25 @@ function Assert-ContainedPath {
 }
 
 $targetDefinitions = @()
-if ($Agent -in @('codex', 'both')) {
+if ($Agent -in @('codex', 'both', 'all')) {
     $targetDefinitions += [pscustomobject]@{
         Agent = 'Codex'
         RelativeDirectory = '.agents/skills/brownpants-context'
         Directory = Join-Path $resolvedRoot '.agents/skills/brownpants-context'
     }
 }
-if ($Agent -in @('claude', 'both')) {
+if ($Agent -in @('claude', 'both', 'all')) {
     $targetDefinitions += [pscustomobject]@{
         Agent = 'Claude Code'
         RelativeDirectory = '.claude/skills/brownpants-context'
         Directory = Join-Path $resolvedRoot '.claude/skills/brownpants-context'
+    }
+}
+if ($Agent -in @('copilot', 'all')) {
+    $targetDefinitions += [pscustomobject]@{
+        Agent = 'GitHub Copilot'
+        RelativeDirectory = '.github/skills/brownpants-context'
+        Directory = Join-Path $resolvedRoot '.github/skills/brownpants-context'
     }
 }
 
