@@ -182,7 +182,7 @@ public static class CSharpSemanticAnalyzer
                         relativeProjectPath,
                         relativeSourcePath,
                         declarationNode.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
-                        ResolvedTarget(method)), sampleLimit);
+                        ResolvedTarget(method, repositoryRoot)), sampleLimit);
                 }
                 foreach (var invocationNode in syntaxRoot.DescendantNodes()
                     .Where(node => node is CSharpInvocation or VisualBasicInvocation))
@@ -217,11 +217,11 @@ public static class CSharpSemanticAnalyzer
                             relativeSourcePath,
                             invocationNode.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
                             Normalize(expressionText),
-                            EnclosingMethod(semanticModel.GetEnclosingSymbol(invocationNode.SpanStart)),
-                            ResolvedTarget(method),
+                            EnclosingMethod(semanticModel.GetEnclosingSymbol(invocationNode.SpanStart), repositoryRoot),
+                            ResolvedTarget(method, repositoryRoot),
                             sourceLocation.Location is not null ? sourceLocation.Path : null,
                             sourceLocation.Location?.GetLineSpan().StartLinePosition.Line + 1, "method",
-                            ResolvedTarget(method.OriginalDefinition),
+                            ResolvedTarget(method.OriginalDefinition, repositoryRoot),
                             invocationNode.GetLocation().GetLineSpan().StartLinePosition.Character + 1));
                     }
                     else
@@ -261,10 +261,10 @@ public static class CSharpSemanticAnalyzer
                         AddResolvedCall(new CSharpResolvedCall(relativeProjectPath, relativeSourcePath,
                             constructionNode.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
                             Normalize(expression),
-                            EnclosingMethod(semanticModel.GetEnclosingSymbol(constructionNode.SpanStart)),
-                            ResolvedTarget(method), sourceLocation.Location is not null ? sourceLocation.Path : null,
+                            EnclosingMethod(semanticModel.GetEnclosingSymbol(constructionNode.SpanStart), repositoryRoot),
+                            ResolvedTarget(method, repositoryRoot), sourceLocation.Location is not null ? sourceLocation.Path : null,
                             sourceLocation.Location?.GetLineSpan().StartLinePosition.Line + 1, "constructor",
-                            ResolvedTarget(method.OriginalDefinition),
+                            ResolvedTarget(method.OriginalDefinition, repositoryRoot),
                             constructionNode.GetLocation().GetLineSpan().StartLinePosition.Character + 1));
                     }
                     else
@@ -333,7 +333,30 @@ public static class CSharpSemanticAnalyzer
     private static string NormalizeProjectPath(string path, string? root = null) =>
         Path.GetFullPath(path, root ?? Environment.CurrentDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-    private static string ResolvedTarget(IMethodSymbol method)
+    private static string ResolvedTarget(IMethodSymbol method, string repositoryRoot) =>
+        CallableIdentity(method, repositoryRoot);
+
+    private static string CallableIdentity(ISymbol? symbol, string repositoryRoot)
+    {
+        if (symbol is not IMethodSymbol method)
+            return symbol?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ?? "<unknown>";
+
+        if (method.MethodKind == MethodKind.AnonymousFunction)
+        {
+            var kind = method.DeclaringSyntaxReferences.Select(reference => reference.GetSyntax())
+                .Any(node => node is Microsoft.CodeAnalysis.CSharp.Syntax.AnonymousMethodExpressionSyntax)
+                ? "anonymous"
+                : "lambda";
+            return $"{CallableIdentity(method.ContainingSymbol, repositoryRoot)}::<{kind}@{CallableSourceAnchor(method, repositoryRoot)}>";
+        }
+
+        if (method.MethodKind == MethodKind.LocalFunction)
+            return $"{CallableIdentity(method.ContainingSymbol, repositoryRoot)}::<local {MethodSignature(method)}>";
+
+        return MethodSignature(method);
+    }
+
+    private static string MethodSignature(IMethodSymbol method)
     {
         var containingType = method.ContainingType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
         var genericArguments = method.TypeArguments.Length == 0
@@ -344,9 +367,23 @@ public static class CSharpSemanticAnalyzer
         return $"{containingType}.{method.Name}{genericArguments}({parameters})";
     }
 
-    private static string EnclosingMethod(ISymbol? symbol) => symbol is IMethodSymbol method
-        ? ResolvedTarget(method)
-        : symbol?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ?? "<unknown>";
+    private static string CallableSourceAnchor(IMethodSymbol method, string repositoryRoot)
+    {
+        var location = method.DeclaringSyntaxReferences.Select(reference => reference.GetSyntax().GetLocation())
+            .Where(candidate => candidate.IsInSource && candidate.SourceTree is not null)
+            .OrderBy(candidate => candidate.SourceTree!.FilePath, StringComparer.Ordinal)
+            .ThenBy(candidate => candidate.SourceSpan.Start).FirstOrDefault();
+        if (location is null) return "<external>:1:1";
+
+        var linePosition = location.GetLineSpan().StartLinePosition;
+        var path = TryGetRepositoryRelativePath(repositoryRoot, location.SourceTree!.FilePath, out var relativePath)
+            ? relativePath
+            : "<external>";
+        return $"{path}:{linePosition.Line + 1}:{linePosition.Character + 1}";
+    }
+
+    private static string EnclosingMethod(ISymbol? symbol, string repositoryRoot) =>
+        CallableIdentity(symbol, repositoryRoot);
 
     private static bool TryGetRepositoryRelativePath(string root, string path, out string relativePath)
     {

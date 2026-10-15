@@ -2576,6 +2576,93 @@ public sealed class RepositoryScannerTests : IDisposable
     }
 
     [Fact]
+    public void SemanticAnalyzer_FormatsNestedCallableIdentities()
+    {
+        var source = """
+            namespace Demo;
+            public class Workflow
+            {
+                public string Register()
+                {
+                    Func<string> first = () =>
+                    {
+                        return Create() + Create();
+                    };
+                    Func<string> second = () => Create();
+                    Func<Func<string>> nested = () =>
+                    {
+                        _ = Create();
+                        return () => Create();
+                    };
+                    Func<string> anonymous = delegate
+                    {
+                        return Create();
+                    };
+                    string Local() => Create();
+                    return first() + second() + anonymous() + Local();
+                }
+
+                private string Create() => "ok";
+            }
+            """;
+        var tree = CSharpSyntaxTree.ParseText(source, path: "src/Workflow.cs",
+            cancellationToken: TestContext.Current.CancellationToken);
+        var references = new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) };
+        var compilation = CSharpCompilation.Create("NestedCallableFixture", new[] { tree }, references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var analysis = CSharpSemanticAnalyzer.AnalyzeCompilations(
+            new[] { ("NestedCallableFixture.csproj", (Compilation)compilation) }, 1, 100, _root);
+
+        var calls = analysis.ResolvedCalls.Where(call => call.Target.Contains("Workflow.Create", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(7, calls.Length);
+        Assert.All(calls, call => Assert.DoesNotContain(".(", call.Caller, StringComparison.Ordinal));
+        var lambdas = calls.Where(call => call.Caller.Contains("::<lambda@src/Workflow.cs:", StringComparison.Ordinal))
+            .GroupBy(call => call.Caller, StringComparer.Ordinal).ToArray();
+        Assert.Equal(4, lambdas.Length);
+        Assert.Equal(new[] { 1, 1, 1, 2 }, lambdas.Select(group => group.Count()).OrderBy(count => count));
+        Assert.All(lambdas, group => Assert.Contains("Workflow.Register()", group.Key, StringComparison.Ordinal));
+        Assert.Contains(lambdas, group => group.Key.Split("::<lambda@", StringSplitOptions.None).Length == 3);
+        Assert.Contains(calls, call => call.Caller.Contains("::<anonymous@src/Workflow.cs:", StringComparison.Ordinal));
+        var localCall = Assert.Single(calls, call => call.Caller.Contains("::<local global::Demo.Workflow.Local()>", StringComparison.Ordinal));
+        var localDeclaration = Assert.Single(analysis.Declarations!, item => item.Symbol.Contains("::<local global::Demo.Workflow.Local()>", StringComparison.Ordinal));
+        Assert.Equal(localDeclaration.Symbol, localCall.Caller);
+        var localTarget = Assert.Single(analysis.ResolvedCalls, call => call.Target.Contains("::<local global::Demo.Workflow.Local()>", StringComparison.Ordinal));
+        Assert.Equal(localDeclaration.Symbol, localTarget.Target);
+    }
+
+    [Fact]
+    public void SemanticAnalyzer_ResolvesVisualBasicLambdaCallerIdentity()
+    {
+        var tree = Microsoft.CodeAnalysis.VisualBasic.VisualBasicSyntaxTree.ParseText("""
+            Namespace Legacy.App
+                Public Class Workflow
+                    Public Function Register() As String
+                        Dim factory As Func(Of String) = Function() Create()
+                        Return factory()
+                    End Function
+                    Private Function Create() As String
+                        Return "ok"
+                    End Function
+                End Class
+            End Namespace
+            """, path: "src/Workflow.vb", cancellationToken: TestContext.Current.CancellationToken);
+        var references = new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) };
+        var compilation = Microsoft.CodeAnalysis.VisualBasic.VisualBasicCompilation.Create("NestedCallableVbFixture",
+            new[] { tree }, references,
+            new Microsoft.CodeAnalysis.VisualBasic.VisualBasicCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var analysis = CSharpSemanticAnalyzer.AnalyzeCompilations(
+            new[] { ("NestedCallableVbFixture.vbproj", (Compilation)compilation) }, 1, 100, _root);
+
+        var call = Assert.Single(analysis.ResolvedCalls, item => item.Target.Contains("Workflow.Create", StringComparison.Ordinal));
+        Assert.Contains("Workflow.Register", call.Caller, StringComparison.Ordinal);
+        Assert.Contains("::<lambda@src/Workflow.vb:", call.Caller, StringComparison.Ordinal);
+        Assert.DoesNotContain(".(", call.Caller, StringComparison.Ordinal);
+        Assert.Equal(1, analysis.ResolvedInvocationCount);
+    }
+
+    [Fact]
     public void SemanticAnalyzer_ResolvesVisualBasicInvocationTargets()
     {
         var tree = Microsoft.CodeAnalysis.VisualBasic.VisualBasicSyntaxTree.ParseText("""

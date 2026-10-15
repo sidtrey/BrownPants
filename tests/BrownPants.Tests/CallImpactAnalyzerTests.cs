@@ -225,6 +225,46 @@ public sealed class CallImpactAnalyzerTests
     }
 
     [Fact]
+    public void Analyze_TracesCallsFromDistinctLambdasWithoutMergingCallerIdentities()
+    {
+        var tree = CSharpSyntaxTree.ParseText("""
+            namespace Demo;
+            public class Registration
+            {
+                public void Register()
+                {
+                    System.Action first = () => new Changed().Save();
+                    System.Action second = () => new Changed().Save();
+                }
+            }
+            """, path: "src/Registration.cs", cancellationToken: TestContext.Current.CancellationToken);
+        var changedTree = CSharpSyntaxTree.ParseText("namespace Demo; public class Changed { public Changed() { } public void Save() { } }",
+            path: "src/Changed.cs", cancellationToken: TestContext.Current.CancellationToken);
+        var compilation = CSharpCompilation.Create("LambdaImpactFixture", new[] { tree, changedTree },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var semantic = CSharpSemanticAnalyzer.AnalyzeCompilations(
+            new[] { ("fixture.csproj", (Compilation)compilation) }, 1, 100, ".");
+        Assert.Contains(semantic.ResolvedCalls, call => call.Target.Contains("Changed.Save", StringComparison.Ordinal));
+        Assert.Contains(semantic.Declarations!, declaration => declaration.Path == "src/Changed.cs"
+            && declaration.Symbol.Contains("Changed.Save", StringComparison.Ordinal));
+
+        var report = CallImpactAnalyzer.Analyze(".", new[] { "src/Changed.cs" },
+            new[] { "src/Changed.cs", "src/Registration.cs" }, semantic, 100);
+
+        var callers = report.Impacts.Where(item => item.Target.Contains("Changed.Save", StringComparison.Ordinal))
+            .Select(item => item.Caller).Distinct(StringComparer.Ordinal).ToArray();
+        Assert.Equal(2, callers.Length);
+        Assert.All(callers, caller => Assert.Contains("::<lambda@src/Registration.cs:", caller, StringComparison.Ordinal));
+        Assert.Equal(2, report.Impacts.Where(item => item.Target.Contains("Changed.Save", StringComparison.Ordinal)).Count());
+        var repeated = CallImpactAnalyzer.Analyze(".", new[] { "src/Changed.cs" },
+            new[] { "src/Changed.cs", "src/Registration.cs" }, semantic, 100);
+        Assert.Equal(report.Impacts, repeated.Impacts);
+        Assert.Equal(JsonSerializer.Serialize(report), JsonSerializer.Serialize(repeated));
+        Assert.Equal(CallImpactReportRenderer.Render(report), CallImpactReportRenderer.Render(repeated));
+    }
+
+    [Fact]
     public void Analyze_RetainsAmbiguousAndUnresolvedNativeEvidenceAsIncomplete()
     {
         var semantic = new CSharpSemanticAnalysis(0, 0, 0, 0, Array.Empty<CSharpResolvedCall>(),
