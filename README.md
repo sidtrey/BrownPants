@@ -1,10 +1,27 @@
-#           <img width="25%" height="25%" alt="image" src="https://github.com/user-attachments/assets/bc2bfb61-14b8-4c87-bd7f-74897cc50b4e" />
+<div align="center">
+  <img width="340" alt="BrownPants" src="https://github.com/user-attachments/assets/bc2bfb61-14b8-4c87-bd7f-74897cc50b4e" />
+  <h1>BrownPants</h1>
+  <p><strong>Understand the system before you change it.</strong></p>
+  <p>Local-first brownfield code intelligence for spec-driven development.</p>
+  <p><a href="#brownfield-first">Explore brownfield analysis</a> · <a href="#measured-results">See measured results</a> · <a href="#quick-start">Quick start</a></p>
+</div>
 
-**Plain English:** BrownPants helps teams understand an existing system before they change it. It maps the code and project evidence already in the repository, gives developers and agents leads into unfamiliar behavior, and helps QA see what a change may touch and what was checked. Its core inspection runs locally without AI, builds, or source changes.
+<p align="center">
+  <a href="https://github.com/sidtrey/BrownPants/actions/workflows/ci.yml"><img alt="CI workflow" src="https://img.shields.io/github/actions/workflow/status/sidtrey/BrownPants/ci.yml?branch=main&label=CI" /></a>
+  <a href="https://github.com/sidtrey/BrownPants/releases/latest"><img alt="Latest GitHub release" src="https://img.shields.io/github/v/release/sidtrey/BrownPants?label=latest%20release" /></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/sidtrey/BrownPants" /></a>
+</p>
+
+> **Plain English:** BrownPants helps a team see what is already in an unfamiliar codebase, where changes may lead, and what was actually checked. Developers get evidence before they edit; QA gets a clearer handoff after the change. Core inspection runs locally without AI, builds, or source changes.
+
+<p align="center">
+  <a href="docs/screenshots/workbench-feature-review.png"><img width="760" alt="BrownPants local review workbench showing feature progress, acceptance baseline, and reviewable stories" src="docs/screenshots/workbench-feature-review.png" /></a>
+</p>
+<p align="center"><em>A real local workbench report. Reviewers can follow stories, acceptance criteria, tasks, and recorded verification, then download feedback without sending it over the network.</em></p>
 
 > **Looks like someone has the Right idea.**
 
-## Start with the brownfield system
+## Brownfield first
 
 BrownPants is built for the code that teams already have: old frameworks, mixed languages, undocumented boundaries, and project files nobody wants to upgrade just to inspect. Run the .NET 10 tool against legacy .NET Framework 4.x source; Roslyn reads C# and Visual Basic without building those projects. It also inventories C/C++, MFC and C++/CLI markers, reports candidate evidence for factories, dependency injection, interop, and framework-specific patterns, and links supported MFC message-map entries to handler and explicitly qualified native/C++/CLI method definitions. Where compiler context is available, semantic mode resolves managed method calls and explicit constructor use—including target-typed and generic construction—and traces their callers.
 
@@ -19,7 +36,15 @@ That gives a team a reviewable starting point before it writes a spec or edits c
 - **QA needs to know what to verify and what shipped.** The local workbench presents feature scenarios and tasks. The Azure DevOps adapter can trace related work items, PRs, builds, and releases; the local PR preview carries QA guidance and evidence gaps. A user can prepare or create a draft PR, while review and merge stay human-controlled.
 - **Your company restricts AI services or command-line agents.** BrownPants' default inspection runs locally without an LLM, network calls, project builds, or source modifications. IDE and SDD adapters are optional; an organization can use local reports or approved hosts without enabling online integrations.
 
-## Spec Kit vs. Spec Kit + BrownPants: brownfield bug lab
+## Measured results
+
+### A repeatable win: tracing a delegate callback
+
+In a frozen persistence-bug task, vanilla Codex found **1 of 2** expected managed-impact relationships in each of three runs. With BrownPants impact evidence, it found **2 of 2** each time. Recall rose from **50% to 100%**, precision stayed at **100%**, all three pairs favored the assisted run, and all six repairs passed the same independent check.
+
+That result demonstrates a specific BrownPants strength: following a local method-group delegate to the code it calls. It applies to this fixture and recorded Codex setup; it is not a claim that BrownPants improves every task. See the [full protocol and results](docs/comparisons/delegate-impact-comparison.md), [scored data](docs/comparisons/delegate-impact-comparison.json), and [frozen inputs and run archive](examples/brownfield-bug-lab/evaluation/delegate-impact/).
+
+### The broader brownfield task: evidence helped, advantage not proven
 
 The [Brownfield Bug Lab](examples/brownfield-bug-lab/) is a small .NET 10 order importer with a seeded retry-row bug, generic overloads, factory/DI wiring, and analysis-only .NET Framework, MFC/C++/CLI, and NHibernate artifacts. It keeps the old integrations visible for inspection without requiring those frameworks to build.
 
@@ -27,24 +52,9 @@ It also demonstrates constructor impact across a generic factory and a DI regist
 
 BrownPants' own reports identify the legacy project and source candidates, including **21 architecture signals** with paths and lines. Its semantic impact report resolves the four managed calls around the changed batch save: single-item `Save(T)`, batch `Save(IEnumerable<T>)`, `SaveMapped<TSource>`, and the generic forwarding call from `SaveMapped` to the batch overload. The forwarding path matters because both ordinary and mapped imports can reach the affected method. MFC and NHibernate findings remain candidates; the fixture does not prove native-to-managed runtime behavior or database behavior.
 
-The matched agent run produced the same narrow repair in both conditions, and the same independent regression check passed after each fix. The structured finding scores were:
-
-| Finding domain | Expected | Spec Kit hits / submitted | + BrownPants hits / submitted |
-| --- | ---: | ---: | ---: |
-| Managed call edges | 4 | 4 / 4 | 4 / 4 |
-| Factory and DI candidates | 5 | 0 / 0 | 0 / 1 |
-| MFC and NHibernate candidates | 10 | 0 / 2 | 2 / 3 |
-| Test candidates | 1 | 1 / 1 | 0 / 1 |
-
-Overall recall moved from **25% to 30%**, while precision moved from **71.4% to 66.7%**. The assisted run therefore **did not meet the frozen advantage criterion** of at least 20 percentage points more recall with no precision loss. This pair shows BrownPants can produce detailed source-linked brownfield evidence; it does not show a better repair or a net improvement in the agents' final structured findings. The agents used **299,072 input / 3,531 output tokens** and **389,425 input / 3,331 output tokens**, respectively (cached input is included in input totals).
+The matched agent run produced the same narrow repair in both conditions, and the same independent regression check passed after each fix. On the frozen finding rubric, Spec Kit alone reached **25% recall and 71.4% precision**; Spec Kit plus BrownPants reached **30% recall and 66.7% precision**. That result **did not meet the advantage threshold**: it improved recall by five points while precision fell. The detailed report includes all scored findings, the exact task, source evidence, token counts, and limits. This negative result stays visible so the successful delegate result is not presented as universal.
 
 Both pre-fix checks failed with “Batch import saved 1 of 2 orders.” The driver verified the frozen task hash and ran the same post-fix check in both copies; both passed. The [full protocol, scores, run details, and limits](docs/comparisons/brownfield-bug-lab-2026-10.md) include the machine-readable [results](docs/comparisons/brownfield-bug-lab-2026-10-results.json). This is a measured case study, not a general performance claim.
-
-### Delegate-impact head-to-head
-
-A separate frozen Codex CLI task seeded a persistence bug behind a local method-group delegate. Across three counterbalanced baseline/assisted pairs, baseline Codex found **1 of 2** expected managed-impact relationships in every run; the BrownPants-assisted runs found **2 of 2**. Pooled recall increased from **50% to 100%**, precision stayed at **100%**, all three paired trials favored BrownPants, and all six repairs passed the same independent check. This meets the pre-registered threshold for this delegate fixture; it does not establish an advantage across other tasks or codebases.
-
-Codex reported **366,727 input / 2,190 output tokens** for the three baseline runs and **326,586 input / 2,236 output tokens** for the assisted runs. These are recorded usage counts, not a cost or efficiency claim. The [comparison report](docs/comparisons/delegate-impact-comparison.md), [scored JSON](docs/comparisons/delegate-impact-comparison.json), frozen [task and scoring protocol](examples/brownfield-bug-lab/evaluation/delegate-impact/), and [raw run artifacts](examples/brownfield-bug-lab/evaluation/delegate-impact/runs/codex-cli-0.162.1-gpt-6.1-sol-20261015/) include the counterbalanced order, input hashes, outputs, usage, and post-fix checks.
 
 ### Grouped evidence follow-up
 
@@ -54,9 +64,20 @@ BrownPants complements Spec Kit: Spec Kit structures the work; BrownPants adds e
 
 A SHA-256 acceptance hash is a fingerprint of the agreed pass/fail conditions. If the criteria change during a task, the fingerprint changes and asks a maintainer to review the change. It keeps the goalposts visible; it does not prove the implementation is correct.
 
-**Author's note:** Loves his job, wishes his employer would convert him to full-time. If you have a Trey in your meeting, you should hire him.
-
 ## Quick start
+
+### Install the release
+
+Download [`BrownPants.Cli.0.3.0.nupkg`](https://github.com/sidtrey/BrownPants/releases/download/v0.3.0/BrownPants.Cli.0.3.0.nupkg) from the GitHub release and place it in a folder such as `./release`. Then install the tool from that local package while NuGet restores its dependencies from your configured package feeds:
+
+```powershell
+dotnet tool install --global --add-source ./release BrownPants.Cli --version 0.3.0
+brownpants inspect .
+```
+
+For restricted environments, configure an approved NuGet mirror as described below.
+
+### Run from source
 
 Requires the .NET 10 SDK.
 
@@ -78,7 +99,7 @@ dotnet run --project src/BrownPants.Cli -- placement --rule "All features follow
 dotnet run --project src/BrownPants.Cli -- models validate .
 dotnet run --project src/BrownPants.Cli -- models report . --format markdown
 dotnet pack src/BrownPants.Cli -c Release -o ./artifacts
-dotnet tool install --tool-path ./.tools --add-source ./artifacts BrownPants.Cli --version 0.2.1
+dotnet tool install --tool-path ./.tools --add-source ./artifacts BrownPants.Cli --version 0.3.0
 ./.tools/brownpants inspect . # Windows: .\.tools\brownpants.exe inspect .
 dotnet test BrownPants.sln
 ```
@@ -90,7 +111,7 @@ The installed CLI's default `inspect`, `investigate`, and local workbench paths 
 ```powershell
 dotnet restore BrownPants.sln --configfile <approved-nuget.config> --locked-mode
 dotnet build BrownPants.sln -c Release --no-restore
-dotnet tool install --tool-path ./.tools --configfile <approved-nuget.config> --add-source ./artifacts BrownPants.Cli --version 0.2.1
+dotnet tool install --tool-path ./.tools --configfile <approved-nuget.config> --add-source ./artifacts BrownPants.Cli --version 0.3.0
 ```
 
 Keep package-signature validation aligned with your organization's trust policy. Once installed, default repository inspection does not call the package source, an AI service, or a remote API.
