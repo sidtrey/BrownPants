@@ -8,7 +8,7 @@ if ($workflow -notmatch '(?m)fetch-depth:\s*0') { throw 'CI must fetch history f
 if ($workflow -notmatch 'check-acceptance-criteria-review\.ps1') { throw 'CI does not run baseline review validation.' }
 if ($workflow -notmatch 'check-acceptance-evidence\.ps1') { throw 'CI does not validate changed task evidence ledgers.' }
 if ($workflow -notmatch [regex]::Escape("[char]39")) { throw 'CI must compare the closed disposition status.' }
-if ($workflow -notmatch [regex]::Escape("$statusMatch.Groups['status'].Value -eq $closedStatus")) { throw 'CI must compare the full feature status before skipping its ledger.' }
+if ($workflow -notmatch [regex]::Escape('statusMatch.Groups[''status''].Value -eq $closedStatus')) { throw 'CI must compare the full feature status before skipping its ledger.' }
 $closedFeatureSkip = $workflow.IndexOf('continue', [System.StringComparison]::Ordinal)
 $ledgerValidation = $workflow.IndexOf('Changed feature tasks require an acceptance evidence ledger', [System.StringComparison]::Ordinal)
 if ($closedFeatureSkip -lt 0 -or $ledgerValidation -lt $closedFeatureSkip) { throw 'CI must skip closed features before requiring an acceptance evidence ledger.' }
