@@ -66,9 +66,11 @@ public static class CallImpactReportRenderer
                 var command = impact.CommandId is null ? string.Empty : $" command `{Escape(impact.CommandId)}`";
                 var targetLocation = impact.TargetPath is null ? "target location unresolved"
                     : $"target `{Escape(impact.TargetPath)}:{impact.TargetLine}`";
+                var depthLabel = impact.ManagedImpactDepth is null ? $"Depth {impact.Depth}"
+                    : $"Managed depth {impact.ManagedImpactDepth}, native depth {impact.Depth}";
                 var candidateTargets = impact.CandidateTargets.Count == 0 ? string.Empty
                     : $"; possible locations: {string.Join(", ", impact.CandidateTargets.Select(target => $"`{Escape(target.Path)}:{target.Line}`"))}";
-                output.AppendLine($"- Depth {impact.Depth} **{Escape(impact.Status)}** {Escape(impact.RelationshipKind)}{command}: `{Escape(impact.SourceSymbol)}` at `{Escape(impact.SourcePath)}:{impact.SourceLine}` → `{Escape(impact.TargetSymbol)}` ({targetLocation}; {impact.CandidateTargetCount} candidate target(s){candidateTargets}; changed `{Escape(impact.ChangedPath)}`)");
+                output.AppendLine($"- {depthLabel} **{Escape(impact.Status)}** {Escape(impact.RelationshipKind)}{command}: `{Escape(impact.SourceSymbol)}` at `{Escape(impact.SourcePath)}:{impact.SourceLine}` → `{Escape(impact.TargetSymbol)}` ({targetLocation}; {impact.CandidateTargetCount} candidate target(s){candidateTargets}; changed `{Escape(impact.ChangedPath)}`)");
             }
         }
         if (report.Issues.Count > 0)

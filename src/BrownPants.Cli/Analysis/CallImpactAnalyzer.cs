@@ -58,7 +58,8 @@ public sealed record NativeCallImpact(
     string? CommandId,
     int CandidateTargetCount,
     int Depth,
-    string Evidence)
+    string Evidence,
+    int? ManagedImpactDepth = null)
 {
     public IReadOnlyList<NativeFlowTarget> CandidateTargets { get; init; } = Array.Empty<NativeFlowTarget>();
     public string EvidenceKind => "native-lexical";
@@ -106,6 +107,9 @@ public static class CallImpactAnalyzer
         }
 
         var declarations = semantic.Declarations ?? Array.Empty<CSharpSemanticDeclaration>();
+        var declarationsBySymbol = declarations.GroupBy(item => item.Symbol, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.OrderBy(item => item.Path, StringComparer.Ordinal)
+                .ThenBy(item => item.Line).ToArray(), StringComparer.Ordinal);
         var declarationGroups = declarations
             .GroupBy(item => NormalizePath(item.Path), pathComparer)
             .ToDictionary(group => group.Key, group => group.Select(item => item.Symbol).ToHashSet(StringComparer.Ordinal), pathComparer);
@@ -186,7 +190,17 @@ public static class CallImpactAnalyzer
         if (impacts.Count > orderedImpacts.Length)
             issues.Add($"Impact findings were sampled: {orderedImpacts.Length} of {impacts.Count} retained.");
 
-        var nativeImpacts = AnalyzeNativeImpacts(normalizedChanged, nativeFlow, sampleLimit, issues);
+        var managedNativeSeeds = new List<ManagedNativeSeed>();
+        foreach (var changedPath in normalizedChanged.Where(IsManagedSource))
+        {
+            if (!declarationGroups.TryGetValue(changedPath, out var changedSymbols)) continue;
+            foreach (var impact in orderedImpacts.Where(item => changedSymbols.Contains(item.ChangedMethod)))
+            foreach (var declaration in declarationsBySymbol.GetValueOrDefault(impact.Caller) ?? [])
+                managedNativeSeeds.Add(new ManagedNativeSeed(changedPath, NormalizePath(declaration.Path),
+                    declaration.Line, declaration.Symbol, impact.Depth));
+        }
+
+        var nativeImpacts = AnalyzeNativeImpacts(normalizedChanged, managedNativeSeeds, nativeFlow, sampleLimit, issues);
         var summary = new CallImpactSummary(
             impacts.Values.Where(item => item.Depth == 1).Select(item => item.Caller).Distinct(StringComparer.Ordinal).Count(),
             impacts.Values.Where(item => item.Depth > 1).Select(item => item.Caller).Distinct(StringComparer.Ordinal).Count(),
@@ -199,7 +213,8 @@ public static class CallImpactAnalyzer
     }
 
     private static NativeCallImpact[] AnalyzeNativeImpacts(IReadOnlyCollection<string> changedPaths,
-        NativeFlowAnalysis? nativeFlow, int sampleLimit, ISet<string> issues)
+        IReadOnlyCollection<ManagedNativeSeed> managedSeeds, NativeFlowAnalysis? nativeFlow, int sampleLimit,
+        ISet<string> issues)
     {
         if (changedPaths.Count == 0 || nativeFlow is null) return [];
 
@@ -213,6 +228,26 @@ public static class CallImpactAnalyzer
             .GroupBy(item => item.TargetSymbol, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.OrderBy(item => item.SourcePath, StringComparer.Ordinal)
                 .ThenBy(item => item.SourceLine).ThenBy(item => item.Id, StringComparer.Ordinal).ToArray(), StringComparer.Ordinal);
+        var managedIncomingByLocation = new Dictionary<string, List<NativeFlowRelation>>(StringComparer.Ordinal);
+        var unresolvedByManagedSymbol = nativeFlow.Relations.Where(item => item.Status == "unresolved")
+            .GroupBy(item => NormalizeManagedMethodSymbol(item.TargetSymbol), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.OrderBy(item => item.SourcePath, StringComparer.Ordinal)
+                .ThenBy(item => item.SourceLine).ThenBy(item => item.Id, StringComparer.Ordinal).ToArray(), StringComparer.OrdinalIgnoreCase);
+        void AddManagedLocation(string path, int line, string symbol, NativeFlowRelation relation)
+        {
+            var key = ManagedLocationKey(path, line, symbol);
+            if (!managedIncomingByLocation.TryGetValue(key, out var values))
+                managedIncomingByLocation[key] = values = [];
+            values.Add(relation);
+        }
+
+        foreach (var relation in nativeFlow.Relations.Where(item => item.Status is "candidate" or "ambiguous"))
+        {
+            if (relation.TargetPath is not null && relation.TargetLine is not null)
+                AddManagedLocation(relation.TargetPath, relation.TargetLine.Value, relation.TargetSymbol, relation);
+            foreach (var target in relation.CandidateTargets ?? Array.Empty<NativeFlowTarget>())
+                AddManagedLocation(target.Path, target.Line, target.Symbol, relation);
+        }
         var results = new Dictionary<string, NativeCallImpact>(StringComparer.Ordinal);
         foreach (var changed in changedPaths)
         {
@@ -224,31 +259,7 @@ public static class CallImpactAnalyzer
                 .ThenBy(relation => relation.SourceLine)
                 .ThenBy(relation => relation.Id, StringComparer.Ordinal)
                 .ToArray();
-            var queue = new Queue<(string Symbol, int Depth)>();
-            var visited = new Dictionary<string, int>(StringComparer.Ordinal);
-            foreach (var relation in incoming)
-            {
-                Add(relation, changed, 1);
-                queue.Enqueue((relation.SourceSymbol, 1));
-            }
-
-            while (queue.Count > 0)
-            {
-                var (symbol, depth) = queue.Dequeue();
-                if (string.IsNullOrWhiteSpace(symbol) || symbol.StartsWith("MFC message map ", StringComparison.Ordinal))
-                    continue;
-                if (visited.TryGetValue(symbol, out var priorDepth) && priorDepth <= depth) continue;
-                visited[symbol] = depth;
-                if (!incomingBySymbol.TryGetValue(symbol, out var related)) continue;
-                foreach (var relation in related)
-                {
-                    if (relation.Status == "ambiguous" && relation.CandidateTargets is { Count: > 0 }
-                        && !relation.CandidateTargets.Any(target => string.Equals(target.Symbol, symbol, StringComparison.Ordinal)))
-                        continue;
-                    Add(relation, changed, depth + 1);
-                    queue.Enqueue((relation.SourceSymbol, depth + 1));
-                }
-            }
+            Trace(changed, incoming, managedImpactDepth: null);
 
             foreach (var relation in nativeFlow.Relations.Where(item => item.Status is "unresolved" or "ambiguous"
                          && (PathEquals(item.SourcePath, changed)
@@ -256,21 +267,74 @@ public static class CallImpactAnalyzer
                              || item.CandidateTargets?.Any(target => PathEquals(target.Path, changed)) == true))
                      .OrderBy(item => item.SourcePath, StringComparer.Ordinal).ThenBy(item => item.SourceLine)
                      .ThenBy(item => item.Id, StringComparer.Ordinal))
-                Add(relation, changed, 1);
+                Add(relation, changed, 1, managedImpactDepth: null);
 
-            void Add(NativeFlowRelation relation, string changedPath, int depth)
+            foreach (var seed in managedSeeds.Where(item => PathEquals(item.ChangedPath, changed))
+                         .GroupBy(item => ManagedLocationKey(item.TargetPath, item.TargetLine, item.TargetSymbol), StringComparer.Ordinal)
+                         .Select(group => group.OrderBy(item => item.ManagedDepth).First())
+                         .OrderBy(item => item.ManagedDepth).ThenBy(item => item.TargetPath, StringComparer.Ordinal)
+                         .ThenBy(item => item.TargetLine).ThenBy(item => item.TargetSymbol, StringComparer.Ordinal))
+            {
+                var matching = new List<NativeFlowRelation>();
+                if (managedIncomingByLocation.TryGetValue(
+                        ManagedLocationKey(seed.TargetPath, seed.TargetLine, seed.TargetSymbol), out var located))
+                    matching.AddRange(located);
+                if (unresolvedByManagedSymbol.TryGetValue(NormalizeManagedMethodSymbol(seed.TargetSymbol), out var unresolved))
+                    matching.AddRange(unresolved);
+                var managedIncoming = matching.DistinctBy(item => item.Id, StringComparer.Ordinal)
+                    .OrderBy(relation => relation.SourcePath, StringComparer.Ordinal)
+                    .ThenBy(relation => relation.SourceLine).ThenBy(relation => relation.Id, StringComparer.Ordinal).ToArray();
+                Trace(changed, managedIncoming, seed.ManagedDepth);
+            }
+
+            void Trace(string changedPath, IReadOnlyCollection<NativeFlowRelation> initial, int? managedImpactDepth)
+            {
+                var queue = new Queue<(string Symbol, int Depth)>();
+                var visited = new Dictionary<string, int>(StringComparer.Ordinal);
+                foreach (var relation in initial)
+                {
+                    Add(relation, changedPath, 1, managedImpactDepth);
+                    queue.Enqueue((relation.SourceSymbol, 1));
+                }
+
+                while (queue.Count > 0)
+                {
+                    var (symbol, depth) = queue.Dequeue();
+                    if (string.IsNullOrWhiteSpace(symbol) || symbol.StartsWith("MFC message map ", StringComparison.Ordinal))
+                        continue;
+                    if (visited.TryGetValue(symbol, out var priorDepth) && priorDepth <= depth) continue;
+                    visited[symbol] = depth;
+                    if (!incomingBySymbol.TryGetValue(symbol, out var related)) continue;
+                    foreach (var relation in related)
+                    {
+                        if (relation.Status == "ambiguous" && relation.CandidateTargets is { Count: > 0 }
+                            && !relation.CandidateTargets.Any(target => string.Equals(target.Symbol, symbol, StringComparison.Ordinal)))
+                            continue;
+                        Add(relation, changedPath, depth + 1, managedImpactDepth);
+                        queue.Enqueue((relation.SourceSymbol, depth + 1));
+                    }
+                }
+            }
+
+            void Add(NativeFlowRelation relation, string changedPath, int depth, int? managedImpactDepth)
             {
                 var item = new NativeCallImpact(changedPath, relation.Id, relation.Kind, relation.Status,
                     relation.SourceSymbol, relation.TargetSymbol, NormalizePath(relation.SourcePath),
                     relation.SourceLine, relation.TargetPath is null ? null : NormalizePath(relation.TargetPath),
-                    relation.TargetLine, relation.CommandId, relation.CandidateTargetCount, depth, relation.Evidence)
+                    relation.TargetLine, relation.CommandId, relation.CandidateTargetCount, depth, relation.Evidence,
+                    managedImpactDepth)
                 {
                     CandidateTargets = (relation.CandidateTargets ?? Array.Empty<NativeFlowTarget>())
                         .Select(target => target with { Path = NormalizePath(target.Path) })
                         .OrderBy(target => target.Path, StringComparer.Ordinal).ThenBy(target => target.Line)
                         .ThenBy(target => target.Symbol, StringComparer.Ordinal).ToArray()
                 };
-                results.TryAdd(string.Join("\n", changedPath, relation.Id), item);
+                var key = string.Join("\n", changedPath, relation.Id);
+                if (!results.TryGetValue(key, out var existing)
+                    || existing.ManagedImpactDepth is not null && (managedImpactDepth is null
+                        || managedImpactDepth < existing.ManagedImpactDepth
+                        || managedImpactDepth == existing.ManagedImpactDepth && depth < existing.Depth))
+                    results[key] = item;
             }
         }
 
@@ -293,8 +357,28 @@ public static class CallImpactAnalyzer
 
     private static bool IsManagedSource(string path) => Path.GetExtension(path).ToLowerInvariant() is ".cs" or ".vb";
 
+    private sealed record ManagedNativeSeed(string ChangedPath, string TargetPath, int TargetLine,
+        string TargetSymbol, int ManagedDepth);
+
     private static bool PathEquals(string left, string right) => string.Equals(NormalizePath(left), NormalizePath(right),
         OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+
+    private static string ManagedLocationKey(string path, int line, string symbol)
+    {
+        var normalizedPath = NormalizePath(path);
+        if (OperatingSystem.IsWindows()) normalizedPath = normalizedPath.ToUpperInvariant();
+        var normalizedSymbol = NormalizeManagedMethodSymbol(symbol);
+        if (Path.GetExtension(path).Equals(".vb", StringComparison.OrdinalIgnoreCase))
+            normalizedSymbol = normalizedSymbol.ToUpperInvariant();
+        return string.Join("\n", normalizedPath, line, normalizedSymbol);
+    }
+
+    private static string NormalizeManagedMethodSymbol(string symbol)
+    {
+        var normalized = symbol.Replace("global::", string.Empty, StringComparison.Ordinal);
+        var signature = normalized.IndexOf('(');
+        return signature < 0 ? normalized : normalized[..signature];
+    }
 
     private static string NormalizePath(string path)
     {

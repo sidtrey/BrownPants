@@ -362,6 +362,51 @@ public sealed class EvidenceCommandTests : IDisposable
     }
 
     [Fact]
+    public void Evidence_FocusByChangedRepositoryIncludesOnlyNativeTraceForImpactedManagedCaller()
+    {
+        Write("Legacy.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+            </Project>
+            """);
+        Write("src/Store.cs", "namespace Demo; public class Store { public void Save() { } }");
+        Write("src/Workflow.cs", "namespace Demo; public class Workflow { private readonly Store _store = new(); public void Run() => _store.Save(); public void Ignore() { } }");
+        Write("legacy/Bridge/Bridge.cpp", """
+            using namespace Demo;
+            public ref class CBridge
+            {
+            public:
+                static void Import()
+                {
+                    Workflow^ workflow = gcnew Workflow();
+                    workflow->Run();
+                    workflow->Ignore();
+                }
+            };
+            """);
+        Write("legacy/Native/View.cpp", """
+            void CView::OnImport() { CBridge::Import(); }
+            BEGIN_MESSAGE_MAP(CView, CView)
+                ON_COMMAND(ID_IMPORT, &CView::OnImport)
+            END_MESSAGE_MAP()
+            """);
+
+        var result = Run("evidence", _root, "--changed", "src/Store.cs", "--semantic", "--limit", "1000");
+
+        Assert.Equal(0, result.ExitCode);
+        using var json = JsonDocument.Parse(result.Output);
+        var findings = json.RootElement.GetProperty("findings").EnumerateArray().ToArray();
+        var native = findings.Where(item => item.GetProperty("category").GetString() == "native-flow-candidate").ToArray();
+        Assert.Contains(native, item => item.GetProperty("relationKind").GetString() == "cppcli-managed-call"
+            && item.GetProperty("targetSymbol").GetString()!.Contains("Workflow.Run", StringComparison.Ordinal));
+        Assert.DoesNotContain(native, item => item.GetProperty("targetSymbol").GetString()!.Contains("Workflow.Ignore", StringComparison.Ordinal));
+        Assert.Contains(native, item => item.GetProperty("relationKind").GetString() == "qualified-native-call");
+        Assert.Contains(native, item => item.GetProperty("relationKind").GetString() == "mfc-dispatch");
+        Assert.All(native, item => Assert.Contains(item.GetProperty("matchedBy").EnumerateArray(), reason =>
+            reason.GetString()!.EndsWith(":native-caller-impact", StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public void Evidence_FocusPreservesDotPrefixedRepositoryPathSegments()
     {
         Write("Legacy.csproj", """

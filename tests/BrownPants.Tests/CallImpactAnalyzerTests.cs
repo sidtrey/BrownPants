@@ -160,6 +160,71 @@ public sealed class CallImpactAnalyzerTests
     }
 
     [Fact]
+    public void Analyze_TracesManagedCallerDeclarationToNativeAndMfcCandidates()
+    {
+        var semantic = CompileFixtureGraph();
+        var declarations = semantic.Declarations!;
+        var managedCaller = declarations.Single(item => item.Symbol.Contains("Service.Run", StringComparison.Ordinal));
+        var changedSave = declarations.Single(item => item.Symbol.Contains("Core.Save", StringComparison.Ordinal)).Symbol;
+        const string changedDelete = "global::Demo.Core.Delete()";
+        var addedCall = new CSharpResolvedCall("fixture.csproj", "src/Core.cs", 1, "Delete()", changedSave, changedDelete);
+        semantic = semantic with
+        {
+            Declarations = declarations.Append(new CSharpSemanticDeclaration("fixture.csproj", "src/Core.cs", 1, changedDelete)).ToArray(),
+            ResolvedCalls = semantic.ResolvedCalls.Append(addedCall).ToArray(),
+            ImpactGraphCalls = semantic.ImpactGraphCalls!.Append(addedCall).ToArray(),
+            ResolvedInvocationCount = semantic.ResolvedInvocationCount + 1
+        };
+        var native = new NativeFlowAnalysis(6, 6, 1, 1, 0, new[]
+        {
+            new NativeFlowRelation("interop", "cppcli-managed-call", "candidate", "legacy/Bridge/Bridge.cpp", 9,
+                "CBridge::Import", managedCaller.Path, managedCaller.Line, managedCaller.Symbol, null, 1,
+                "workflow->Run(...)", new[] { new NativeFlowTarget(managedCaller.Path, managedCaller.Line, managedCaller.Symbol) }),
+            new NativeFlowRelation("same-location-decoy", "cppcli-managed-call", "candidate", "legacy/Bridge/Bridge.cpp", 15,
+                "CBridge::Other", managedCaller.Path, managedCaller.Line, "Demo.Other.Run", null, 1,
+                "other->Run(...)", new[] { new NativeFlowTarget(managedCaller.Path, managedCaller.Line, "Demo.Other.Run") }),
+            new NativeFlowRelation("same-file-decoy", "cppcli-managed-call", "candidate", "legacy/Bridge/Bridge.cpp", 16,
+                "CBridge::Other", managedCaller.Path, managedCaller.Line + 20, "Demo.Other.Other", null, 1,
+                "other->Other(...)", new[] { new NativeFlowTarget(managedCaller.Path, managedCaller.Line + 20, "Demo.Other.Other") }),
+            new NativeFlowRelation("ambiguous-interop", "cppcli-managed-call", "ambiguous", "legacy/Bridge/Bridge.cpp", 17,
+                "CBridge::ImportAmbiguous", null, null, "Demo.Service.Run", null, 2,
+                "other->Run(...)", new[]
+                {
+                    new NativeFlowTarget(managedCaller.Path, managedCaller.Line, managedCaller.Symbol),
+                    new NativeFlowTarget("src/Other.cs", 4, "Demo.Other.Run")
+                }),
+            new NativeFlowRelation("unresolved-interop", "cppcli-managed-call", "unresolved", "legacy/Bridge/Bridge.cpp", 18,
+                "CBridge::ImportUnresolved", null, null, "Demo.Service.Run", null, 0, "workflow->Run(...)"),
+            new NativeFlowRelation("native-call", "qualified-native-call", "candidate", "legacy/Native/View.cpp", 11,
+                "CView::OnImport", "legacy/Bridge/Bridge.cpp", 9, "CBridge::Import", null, 1, "CBridge::Import()"),
+            new NativeFlowRelation("dispatch", "mfc-dispatch", "candidate", "legacy/Native/View.cpp", 6,
+                "MFC message map CView", "legacy/Native/View.cpp", 10, "CView::OnImport", "ID_IMPORT", 1, "ON_COMMAND")
+        }, Array.Empty<string>());
+
+        var report = CallImpactAnalyzer.Analyze(".", new[] { "src/Core.cs" },
+            new[] { "src/Core.cs", "src/Service.cs", "tests/CoreTests.cs", "legacy/Bridge/Bridge.cpp", "legacy/Native/View.cpp" },
+            semantic, 100, native);
+
+        Assert.Equal(new[] { "interop", "ambiguous-interop", "unresolved-interop", "native-call", "dispatch" },
+            report.NativeImpacts.Select(item => item.RelationshipId));
+        Assert.False(report.IsComplete);
+        Assert.Contains(report.Issues, issue => issue.Contains("ambiguous relation", StringComparison.Ordinal));
+        Assert.Contains(report.Issues, issue => issue.Contains("unresolved relation", StringComparison.Ordinal));
+        Assert.All(report.NativeImpacts, item => Assert.Equal(1, item.ManagedImpactDepth));
+        Assert.Equal(new[] { 1, 1, 1, 2, 3 }, report.NativeImpacts.Select(item => item.Depth));
+        Assert.All(report.NativeImpacts, item => Assert.Equal("native-lexical", item.EvidenceKind));
+        Assert.Contains("Managed depth 1", CallImpactReportRenderer.Render(report), StringComparison.Ordinal);
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(report));
+        Assert.All(json.RootElement.GetProperty("NativeImpacts").EnumerateArray(), item =>
+            Assert.Equal(1, item.GetProperty("ManagedImpactDepth").GetInt32()));
+        var repeated = CallImpactAnalyzer.Analyze(".", new[] { "src/Core.cs" },
+            new[] { "src/Core.cs", "src/Service.cs", "tests/CoreTests.cs", "legacy/Bridge/Bridge.cpp", "legacy/Native/View.cpp" },
+            semantic, 100, native);
+        Assert.Equal(JsonSerializer.Serialize(report), JsonSerializer.Serialize(repeated));
+        Assert.Equal(CallImpactReportRenderer.Render(report), CallImpactReportRenderer.Render(repeated));
+    }
+
+    [Fact]
     public void Analyze_RetainsAmbiguousAndUnresolvedNativeEvidenceAsIncomplete()
     {
         var semantic = new CSharpSemanticAnalysis(0, 0, 0, 0, Array.Empty<CSharpResolvedCall>(),
