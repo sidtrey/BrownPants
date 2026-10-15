@@ -2,7 +2,7 @@
 
 **Feature Branch**: `045-tag-ci-ledger-scope`
 **Created**: 2026-10-15
-**Status**: In Progress
+**Status**: Completed
 **Input**: Release validation revealed that a new annotated tag has an all-zero push-before SHA; CI scans all historical task artifacts and fails on unchanged legacy features without ledgers.
 
 ## User Scenarios & Testing
