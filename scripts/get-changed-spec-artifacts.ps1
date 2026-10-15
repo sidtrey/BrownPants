@@ -30,6 +30,13 @@ elseif ($RefType -eq 'tag') {
         $changed = & git ls-tree -r --name-only $Head -- specs
     }
 }
+elseif ($RefType -eq 'branch') {
+    # A first push has no remote "before" commit. The pull-request event validates
+    # the complete proposed diff; do not treat the repository's entire history as changed.
+    Write-Host 'Initial branch push: changed-feature evidence checks run on the pull-request diff.'
+    $changed = @()
+    $LASTEXITCODE = 0
+}
 else {
     $changed = & git ls-tree -r --name-only $Head -- specs
 }
