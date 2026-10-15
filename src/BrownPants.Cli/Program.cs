@@ -31,6 +31,9 @@ public static class Program
         if (string.Equals(args[0], "instructions", StringComparison.OrdinalIgnoreCase))
             return RunInstructions(args.Skip(1).ToArray(), output, error);
 
+        if (string.Equals(args[0], "workbench", StringComparison.OrdinalIgnoreCase))
+            return RunWorkbench(args.Skip(1).ToArray(), output, error);
+
         if (string.Equals(args[0], "frame", StringComparison.OrdinalIgnoreCase))
             return RunFrame(args.Skip(1).ToArray(), output, error);
 
@@ -440,6 +443,15 @@ public static class Program
             output.WriteLine("  --format             Report as markdown (default) or json.");
             return 0;
         }
+        if (command.Equals("workbench", StringComparison.OrdinalIgnoreCase))
+        {
+            output.WriteLine("Usage: brownpants workbench [repository] [--feature <relative-feature-directory>] [--output <relative-html-path>] [--overwrite]");
+            output.WriteLine("  --feature           Spec Kit feature directory; defaults to .specify/feature.json.");
+            output.WriteLine("  --output            HTML path under the repository (default: TestResults/brownpants-workbench.html).");
+            output.WriteLine("  --overwrite         Replace an existing report; feature artifacts remain protected.");
+            output.WriteLine("The report opens directly from disk, makes no network requests, and exports review notes without changing feature files.");
+            return 0;
+        }
         if (command.Equals("placement", StringComparison.OrdinalIgnoreCase))
         {
             output.WriteLine("Usage: brownpants placement --rule <text> [--scope repository|feature|unknown] [--durability enduring|feature|unknown] [--purpose principle|outcome|agent-workflow|mixed|unknown] [--format markdown|json]");
@@ -486,6 +498,7 @@ public static class Program
         output.WriteLine("  investigate   Search repository evidence using clues from a bug report.");
         output.WriteLine("  impact        Trace semantic callers affected by changed source files.");
         output.WriteLine("  instructions  Discover instruction files or retrieve a selected section.");
+        output.WriteLine("  workbench    Create a local visual review page for one Spec Kit feature.");
         output.WriteLine("  frame         Create or validate a context frame.");
         output.WriteLine("  placement     Classify whether guidance belongs in a constitution or a spec.");
         output.WriteLine("  devops        Trace Azure DevOps work items and delivery references.");
@@ -494,6 +507,7 @@ public static class Program
         output.WriteLine("       brownpants investigate [path] --clue <text> [--clue <text> ...] [--format markdown|json] [--limit 1..10000]");
         output.WriteLine("       brownpants impact <repository> --changed <relative-source-path> [--changed <relative-source-path> ...] [--format markdown|json] [--limit 1..10000]");
         output.WriteLine("       brownpants instructions [path] [--source <relative-path>] [--section <anchor>] [--format markdown|json]");
+        output.WriteLine("       brownpants workbench [repository] [--feature <relative-feature-directory>] [--output <relative-html-path>] [--overwrite]");
         output.WriteLine("       brownpants frame create <repository> <draft.json> <output.md> [--overwrite]");
         output.WriteLine("       brownpants frame validate <repository> <frame.md>");
         output.WriteLine("       brownpants placement --rule <text> [--scope repository|feature|unknown] [--durability enduring|feature|unknown] [--purpose principle|outcome|agent-workflow|mixed|unknown] [--format markdown|json]");
@@ -501,6 +515,99 @@ public static class Program
         output.WriteLine("       brownpants diagram <repository> <relative-markdown-path> --output <relative-path> [--format png|drawio] [--overwrite]");
         output.WriteLine("Run 'brownpants <command> --help' for command options. Use -h as an alias.");
         output.WriteLine("Use 'brownpants inspect --help' to understand syntax-only inventory and semantic target resolution.");
+    }
+
+    private static int RunWorkbench(string[] args, TextWriter output, TextWriter error)
+    {
+        var repository = Directory.GetCurrentDirectory();
+        var repositoryProvided = false;
+        string? feature = null;
+        var outputPath = "TestResults/brownpants-workbench.html";
+        var outputProvided = false;
+        var overwrite = false;
+
+        for (var index = 0; index < args.Length; index++)
+        {
+            var argument = args[index];
+            if (argument == "--feature" || argument == "--output")
+            {
+                if (++index >= args.Length || args[index].StartsWith("--", StringComparison.Ordinal))
+                {
+                    error.WriteLine($"Missing value for {argument}.");
+                    return 2;
+                }
+                if (argument == "--feature")
+                {
+                    if (feature is not null) { error.WriteLine("--feature may be supplied only once."); return 2; }
+                    feature = args[index];
+                }
+                else
+                {
+                    if (outputProvided) { error.WriteLine("--output may be supplied only once."); return 2; }
+                    outputPath = args[index];
+                    outputProvided = true;
+                }
+            }
+            else if (argument == "--overwrite")
+            {
+                if (overwrite) { error.WriteLine("--overwrite may be supplied only once."); return 2; }
+                overwrite = true;
+            }
+            else if (!argument.StartsWith("-", StringComparison.Ordinal) && !repositoryProvided)
+            {
+                repository = argument;
+                repositoryProvided = true;
+            }
+            else
+            {
+                error.WriteLine($"Unknown workbench argument '{argument}'. Use 'brownpants workbench --help' for usage.");
+                return 2;
+            }
+        }
+
+        try
+        {
+            var root = Path.GetFullPath(repository);
+            var data = SddWorkbenchAnalyzer.Analyze(root, feature);
+            var destination = SddWorkbenchAnalyzer.ResolveOutputPath(root, outputPath);
+            var protectedPaths = data.Artifacts.Select(artifact => artifact.Path)
+                .Append($"{data.FeaturePath}/acceptance-criteria.sha256")
+                .Append(".specify/feature.json");
+            if (protectedPaths.Any(artifactPath => string.Equals(
+                Path.GetFullPath(Path.Combine(root, artifactPath.Replace('/', Path.DirectorySeparatorChar))), destination,
+                OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)))
+                throw new IOException("The workbench output cannot replace one of the selected feature's source artifacts.");
+            if (Directory.Exists(destination))
+                throw new IOException($"Workbench output '{outputPath}' is a directory.");
+            if (File.Exists(destination) && !overwrite)
+                throw new IOException($"Workbench output '{outputPath}' already exists. Supply --overwrite to replace it.");
+
+            var parent = Path.GetDirectoryName(destination)!;
+            Directory.CreateDirectory(parent);
+            _ = SddWorkbenchAnalyzer.ResolveOutputPath(root, outputPath);
+            WriteWorkbenchAtomically(destination, SddWorkbenchHtmlReport.Render(data), overwrite);
+            output.WriteLine($"Workbench written: {Path.GetRelativePath(root, destination).Replace('\\', '/')}");
+            return 0;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or InvalidDataException)
+        {
+            error.WriteLine($"Unable to create SDD workbench: {exception.Message}");
+            return 1;
+        }
+    }
+
+    private static void WriteWorkbenchAtomically(string destination, string content, bool overwrite)
+    {
+        var temporary = Path.Combine(Path.GetDirectoryName(destination)!, $".{Path.GetFileName(destination)}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            File.WriteAllText(temporary, content, new System.Text.UTF8Encoding(false));
+            File.Move(temporary, destination, overwrite);
+        }
+        finally
+        {
+            if (File.Exists(temporary)) File.Delete(temporary);
+        }
     }
 
     private static int RunPlacement(string[] args, TextWriter output, TextWriter error)

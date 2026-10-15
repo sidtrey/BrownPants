@@ -27,6 +27,7 @@ public sealed class RepositoryScannerTests : IDisposable
     [InlineData("investigate", "-h", "--clue")]
     [InlineData("impact", "--help", "--changed")]
     [InlineData("instructions", "-h", "--source")]
+    [InlineData("workbench", "--help", "network requests")]
     [InlineData("placement", "--help", "--rule")]
     [InlineData("frame", "--help", "create")]
     [InlineData("frame create", "-h", "--overwrite")]
