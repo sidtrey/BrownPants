@@ -272,6 +272,14 @@ public static class MarkdownReport
         }
         report.AppendLine($"- MSBuild / workspace issue total: {semantic.WorkspaceIssueCount}; {semantic.WorkspaceIssueOmittedCount} issue samples omitted.");
         report.AppendLine($"- Compiler error total: {semantic.CompilerErrorCount}; {semantic.CompilerErrorOmittedCount} error samples omitted.");
+        if (semantic.CompilerDiagnosticGroupCount > 0 || semantic.CompilerDiagnosticGroups is { Count: > 0 })
+        {
+            report.AppendLine($"- Compiler diagnostic groups: {semantic.CompilerDiagnosticGroupCount} total; {semantic.CompilerDiagnosticGroupOmittedCount} group samples omitted (project/code counts; not causal explanations).");
+            foreach (var group in semantic.CompilerDiagnosticGroups)
+                report.AppendLine($"  - `{Escape(group.Project)}` `{Escape(group.Code)}`: {group.Count}");
+            if (semantic.CompilerDiagnosticGroupOmittedCount > 0)
+                report.AppendLine($"  - {semantic.CompilerDiagnosticGroupOmittedCount} additional groups omitted by the sample limit.");
+        }
         if (semantic.CompilerDiagnostics is { Count: > 0 })
         {
             report.AppendLine("- Compiler error samples:");

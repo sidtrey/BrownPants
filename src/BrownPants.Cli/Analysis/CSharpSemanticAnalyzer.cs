@@ -126,6 +126,7 @@ public static class CSharpSemanticAnalyzer
         var skippedInvocationCount = 0;
         var reasonCounts = new Dictionary<string, int>(StringComparer.Ordinal);
         var compilerDiagnostics = new List<SemanticCompilerDiagnostic>();
+        var compilerDiagnosticGroupCounts = new Dictionary<(string Project, string Code), int>();
         var compilerErrorCount = 0;
         var seenProjects = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var repositoryRoot = Path.GetFullPath(root);
@@ -150,6 +151,8 @@ public static class CSharpSemanticAnalyzer
             foreach (var diagnostic in compilation.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error))
             {
                 compilerErrorCount++;
+                var groupKey = (relativeProjectPath, diagnostic.Id);
+                compilerDiagnosticGroupCounts[groupKey] = compilerDiagnosticGroupCounts.GetValueOrDefault(groupKey) + 1;
                 if (compilerDiagnostics.Count >= sampleLimit) continue;
                 string? path = null; int? line = null;
                 if (diagnostic.Location.IsInSource && diagnostic.Location.SourceTree is not null
@@ -278,6 +281,13 @@ public static class CSharpSemanticAnalyzer
             }
         }
 
+        var compilerDiagnosticGroups = compilerDiagnosticGroupCounts
+            .OrderBy(pair => pair.Key.Project, StringComparer.Ordinal)
+            .ThenBy(pair => pair.Key.Code, StringComparer.Ordinal)
+            .Take(sampleLimit)
+            .Select(pair => new SemanticCompilerDiagnosticGroup(pair.Key.Project, pair.Key.Code, pair.Value))
+            .ToArray();
+
         return new CSharpSemanticAnalysis(projectsDiscovered, projectsLoaded, resolvedInvocationCount,
             unresolvedInvocationCount, resolvedCalls, unresolvedCalls, issues, declarationCount, declarations,
             invocationSyntaxCount, skippedInvocationCount, resolvedInvocationCount + unresolvedInvocationCount,
@@ -287,7 +297,10 @@ public static class CSharpSemanticAnalyzer
             constructorSyntaxCount, resolvedConstructorCount, unresolvedConstructorCount)
         {
             ImpactGraphCalls = impactGraphCalls,
-            ImpactGraphOmittedCount = impactGraphOmittedCount
+            ImpactGraphOmittedCount = impactGraphOmittedCount,
+            CompilerDiagnosticGroupCount = compilerDiagnosticGroupCounts.Count,
+            CompilerDiagnosticGroupOmittedCount = Math.Max(0, compilerDiagnosticGroupCounts.Count - compilerDiagnosticGroups.Length),
+            CompilerDiagnosticGroups = compilerDiagnosticGroups
         };
     }
 

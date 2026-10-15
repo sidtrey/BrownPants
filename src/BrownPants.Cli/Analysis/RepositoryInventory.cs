@@ -181,12 +181,17 @@ public sealed record CSharpSemanticAnalysis(
     int ResolvedConstructorCount = 0,
     int UnresolvedConstructorCount = 0)
 {
+    public int CompilerDiagnosticGroupCount { get; init; }
+    public int CompilerDiagnosticGroupOmittedCount { get; init; }
+    public IReadOnlyList<SemanticCompilerDiagnosticGroup> CompilerDiagnosticGroups { get; init; }
+        = Array.Empty<SemanticCompilerDiagnosticGroup>();
     internal IReadOnlyList<CSharpResolvedCall>? ImpactGraphCalls { get; init; }
     internal int ImpactGraphOmittedCount { get; init; }
 }
 
 public sealed record SemanticReasonCount(string Reason, int Count);
 public sealed record SemanticCompilerDiagnostic(string Project, string? Path, int? Line, string Code, string Message);
+public sealed record SemanticCompilerDiagnosticGroup(string Project, string Code, int Count);
 
 public sealed record CSharpSemanticDeclaration(string Project, string Path, int Line, string Symbol);
 

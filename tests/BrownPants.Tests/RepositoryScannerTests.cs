@@ -2315,6 +2315,100 @@ public sealed class RepositoryScannerTests : IDisposable
     }
 
     [Fact]
+    public void SemanticAnalyzer_GroupsCompilerErrorsByProjectAndCodeIndependentOfSamplingAndInputOrder()
+    {
+        var references = new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) };
+        var firstTree = CSharpSyntaxTree.ParseText(
+            "public class First { public MissingType Value; public void Run() { MissingOne(); MissingTwo(); } }",
+            path: Path.Combine(_root, "first", "First.cs"),
+            cancellationToken: TestContext.Current.CancellationToken);
+        var secondTree = CSharpSyntaxTree.ParseText(
+            "public class Second { public void Run() { MissingThree(); } }",
+            path: Path.Combine(_root, "second", "Second.cs"),
+            cancellationToken: TestContext.Current.CancellationToken);
+        var firstCompilation = CSharpCompilation.Create("First", new[] { firstTree }, references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var secondCompilation = CSharpCompilation.Create("Second", new[] { secondTree }, references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var inputs = new (string Project, Compilation Compilation)[]
+        {
+            ("first/First.csproj", firstCompilation),
+            ("second/Second.csproj", secondCompilation)
+        };
+
+        var complete = CSharpSemanticAnalyzer.AnalyzeCompilations(inputs, 2, 10, _root);
+        var reversed = CSharpSemanticAnalyzer.AnalyzeCompilations(inputs.Reverse(), 2, 10, _root);
+        var limited = CSharpSemanticAnalyzer.AnalyzeCompilations(inputs, 2, 1, _root);
+
+        Assert.Equal(4, complete.CompilerErrorCount);
+        Assert.Equal(0, complete.CompilerErrorOmittedCount);
+        Assert.Equal(3, complete.CompilerDiagnosticGroupCount);
+        Assert.Equal(0, complete.CompilerDiagnosticGroupOmittedCount);
+        Assert.Equal(new[]
+        {
+            new SemanticCompilerDiagnosticGroup("first/First.csproj", "CS0103", 2),
+            new SemanticCompilerDiagnosticGroup("first/First.csproj", "CS0246", 1),
+            new SemanticCompilerDiagnosticGroup("second/Second.csproj", "CS0103", 1)
+        }, complete.CompilerDiagnosticGroups);
+        Assert.Equal(complete.CompilerDiagnosticGroups, reversed.CompilerDiagnosticGroups);
+
+        Assert.Equal(4, limited.CompilerErrorCount);
+        Assert.Equal(3, limited.CompilerErrorOmittedCount);
+        Assert.Single(limited.CompilerDiagnostics!);
+        Assert.Equal(3, limited.CompilerDiagnosticGroupCount);
+        Assert.Equal(2, limited.CompilerDiagnosticGroupOmittedCount);
+        Assert.Single(limited.CompilerDiagnosticGroups!);
+    }
+
+    [Fact]
+    public void CompilerDiagnosticGroups_AreAdditiveInJsonAndVisibleAlongsideMarkdownSamples()
+    {
+        Directory.CreateDirectory(_root);
+        var tree = CSharpSyntaxTree.ParseText(
+            "public class Errors { public MissingType Value; public void Run() { MissingOne(); MissingTwo(); } }",
+            path: Path.Combine(_root, "src", "Errors.cs"),
+            cancellationToken: TestContext.Current.CancellationToken);
+        var compilation = CSharpCompilation.Create("Errors", new[] { tree },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var semantic = CSharpSemanticAnalyzer.AnalyzeCompilations(
+            new[] { ("legacy/Errors.csproj", (Compilation)compilation) }, 1, 10, _root);
+        var scanned = RepositoryScanner.Scan(_root, sampleLimit: 10);
+        var inventory = scanned with
+        {
+            CSharp = scanned.CSharp with { Semantic = semantic }
+        };
+
+        using var json = System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(inventory));
+        var root = json.RootElement;
+        var semanticJson = root.GetProperty("CSharp").GetProperty("Semantic");
+        var groups = semanticJson.GetProperty("CompilerDiagnosticGroups").EnumerateArray().ToArray();
+        var codeGroup = Assert.Single(groups, item => item.GetProperty("Code").GetString() == "CS0103");
+        var limitedSemantic = CSharpSemanticAnalyzer.AnalyzeCompilations(
+            new[] { ("legacy/Errors.csproj", (Compilation)compilation) }, 1, 1, _root);
+        var limitedInventory = inventory with
+        {
+            CSharp = inventory.CSharp with { Semantic = limitedSemantic }
+        };
+        var markdown = MarkdownReport.Render(limitedInventory);
+
+        Assert.Equal(1, root.GetProperty("SchemaVersion").GetInt32());
+        Assert.Equal(3, semanticJson.GetProperty("CompilerErrorCount").GetInt32());
+        Assert.Equal(0, semanticJson.GetProperty("CompilerErrorOmittedCount").GetInt32());
+        Assert.Equal(2, semanticJson.GetProperty("CompilerDiagnosticGroupCount").GetInt32());
+        Assert.Equal(0, semanticJson.GetProperty("CompilerDiagnosticGroupOmittedCount").GetInt32());
+        Assert.Equal("legacy/Errors.csproj", codeGroup.GetProperty("Project").GetString());
+        Assert.Equal(2, codeGroup.GetProperty("Count").GetInt32());
+        Assert.Equal(3, semanticJson.GetProperty("CompilerDiagnostics").GetArrayLength());
+        Assert.Contains("Compiler diagnostic groups: 2 total; 1 group samples omitted", markdown, StringComparison.Ordinal);
+        Assert.Contains("`legacy/Errors.csproj` `CS0103`: 2", markdown, StringComparison.Ordinal);
+        Assert.Contains("Compiler error total: 3; 2 error samples omitted", markdown, StringComparison.Ordinal);
+        Assert.Contains("Compiler error samples:", markdown, StringComparison.Ordinal);
+        Assert.True(markdown.IndexOf("Compiler diagnostic groups", StringComparison.Ordinal)
+            < markdown.IndexOf("Compiler error samples", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void SemanticAnalyzer_LoadsUnlistedProjectsOnceAndReportsFailedProjectsAndIssueTotals()
     {
         var projectGuid = Guid.Parse("12345678-1234-1234-1234-123456789012").ToString("B");
