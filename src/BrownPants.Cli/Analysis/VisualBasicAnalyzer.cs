@@ -7,12 +7,16 @@ namespace BrownPants.Cli.Analysis;
 
 public static class VisualBasicAnalyzer
 {
+    private const int ManagedMethodIndexLimit = 100_000;
+
     public static VisualBasicAnalysis Analyze(string root, IEnumerable<string> sourcePaths, int sampleLimit)
     {
         var types = new List<VisualBasicTypeInfo>();
         var members = new List<VisualBasicMemberInfo>();
         var invocations = new List<VisualBasicInvocationInfo>();
         var issues = new List<VisualBasicParseIssue>();
+        var managedMethodIndex = new List<ManagedMethodTarget>();
+        var managedMethodIndexTruncated = false;
         var sourceFileCount = 0;
         var typeCount = 0;
         var memberCount = 0;
@@ -40,6 +44,15 @@ public static class VisualBasicAnalyzer
                 {
                     memberCount++;
                     AddSample(members, DescribeMember(relativePath, member), sampleLimit);
+                    if (member is MethodStatementSyntax method)
+                    {
+                        if (managedMethodIndex.Count < ManagedMethodIndexLimit)
+                            managedMethodIndex.Add(new ManagedMethodTarget("Visual Basic", NamespaceOf(method),
+                                ManagedTypeNameOf(method), method.Identifier.ValueText, relativePath, Line(method),
+                                ManagedDisplayTypeNameOf(method)));
+                        else
+                            managedMethodIndexTruncated = true;
+                    }
                 }
 
                 foreach (var invocation in syntaxRoot.DescendantNodes().OfType<InvocationExpressionSyntax>())
@@ -65,7 +78,11 @@ public static class VisualBasicAnalyzer
         }
 
         return new VisualBasicAnalysis(sourceFileCount, typeCount, memberCount, invocationCount, parseErrorCount,
-            types, members, invocations, issues);
+            types, members, invocations, issues)
+        {
+            ManagedMethodIndex = managedMethodIndex,
+            ManagedMethodIndexTruncated = managedMethodIndexTruncated
+        };
     }
 
     private static bool IsMemberDeclaration(SyntaxNode node) => node is MethodStatementSyntax
@@ -93,6 +110,13 @@ public static class VisualBasicAnalyzer
     private static string NamespaceOf(SyntaxNode node) => string.Join(".", node.Ancestors()
         .OfType<NamespaceBlockSyntax>().Reverse()
         .Select(block => block.NamespaceStatement.Name.ToString()));
+
+    private static string ManagedTypeNameOf(SyntaxNode node) => string.Join(".", node.Ancestors()
+        .OfType<TypeBlockSyntax>().Reverse().Select(block => block.BlockStatement.Identifier.ValueText));
+
+    private static string ManagedDisplayTypeNameOf(SyntaxNode node) => string.Join(".", node.Ancestors()
+        .OfType<TypeBlockSyntax>().Reverse().Select(block => block.BlockStatement.Identifier.ValueText
+            + block.BlockStatement.TypeParameterList));
 
     private static int Line(SyntaxNode node) => node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
     private static string Normalize(string value) =>

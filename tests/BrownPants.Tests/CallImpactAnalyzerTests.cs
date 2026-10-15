@@ -38,6 +38,60 @@ public sealed class CallImpactAnalyzerTests
     }
 
     [Fact]
+    public void Analyze_TracesChangedManagedTargetBackThroughCppCliAndMfcCandidates()
+    {
+        const string targetSymbol = "Demo.App.OrderImportWorkflow.ImportBatch";
+        var semantic = new CSharpSemanticAnalysis(1, 0, 1, 0, Array.Empty<CSharpResolvedCall>(),
+            Array.Empty<CSharpUnresolvedCall>(), Array.Empty<string>())
+        {
+            Declarations = new[] { new CSharpSemanticDeclaration("fixture.csproj", "managed/Workflow.cs", 6, targetSymbol) }
+        };
+        var native = new NativeFlowAnalysis(3, 4, 0, 1, 0, new[]
+        {
+            new NativeFlowRelation("interop", "cppcli-managed-call", "candidate", "legacy/Bridge/Bridge.cpp", 9,
+                "CBridge::Import", "managed/Workflow.cs", 6, targetSymbol, null, 1,
+                "OrderImportWorkflow<Order^>^ workflow; workflow->ImportBatch(...)",
+                new[] { new NativeFlowTarget("managed/Workflow.cs", 6, targetSymbol) }),
+            new NativeFlowRelation("interop-ambiguous", "cppcli-managed-call", "ambiguous", "legacy/Bridge/Bridge.cpp", 10,
+                "CBridge::Import", null, null, "Demo.App.OrderImportWorkflow.ImportMapped", null, 2,
+                "workflow->ImportMapped(...)", new[]
+                {
+                    new NativeFlowTarget("managed/Workflow.cs", 7, "Demo.App.OrderImportWorkflow.ImportMapped"),
+                    new NativeFlowTarget("managed/OtherWorkflow.cs", 12, "Demo.App.OtherWorkflow.ImportMapped")
+                }),
+            new NativeFlowRelation("native-call", "qualified-native-call", "candidate", "legacy/Native/View.cpp", 11,
+                "CView::OnImport", "legacy/Bridge/Bridge.cpp", 4, "CBridge::Import", null, 1, "CBridge::Import()"),
+            new NativeFlowRelation("dispatch", "mfc-dispatch", "candidate", "legacy/Native/View.cpp", 6,
+                "MFC message map CView", "legacy/Native/View.cpp", 9, "CView::OnImport", "ID_IMPORT", 1, "ON_COMMAND")
+        }, Array.Empty<string>());
+
+        var report = CallImpactAnalyzer.Analyze(".", new[] { "managed/Workflow.cs" },
+            new[] { "managed/Workflow.cs", "managed/OtherWorkflow.cs", "legacy/Native/View.cpp", "legacy/Bridge/Bridge.cpp" },
+            semantic, 100, native);
+
+        Assert.False(report.IsComplete);
+        Assert.Equal(4, report.NativeImpacts.Count);
+        Assert.Contains(report.NativeImpacts, item => item.RelationshipKind == "cppcli-managed-call"
+            && item.Status == "candidate" && item.Depth == 1 && item.TargetPath == "managed/Workflow.cs");
+        Assert.Contains(report.NativeImpacts, item => item.RelationshipKind == "cppcli-managed-call"
+            && item.Status == "ambiguous" && item.CandidateTargets.Count == 2
+            && item.CandidateTargets.Any(target => target.Path == "managed/Workflow.cs"));
+        Assert.Contains(report.NativeImpacts, item => item.RelationshipKind == "qualified-native-call" && item.Depth == 2);
+        Assert.Contains(report.NativeImpacts, item => item.RelationshipKind == "mfc-dispatch" && item.Depth == 3);
+        var rendered = CallImpactReportRenderer.Render(report);
+        Assert.Contains("Native impact candidates", rendered, StringComparison.Ordinal);
+        Assert.Contains("possible locations:", rendered, StringComparison.Ordinal);
+        Assert.Contains("`managed/Workflow.cs:7`", rendered, StringComparison.Ordinal);
+        Assert.Contains("`managed/OtherWorkflow.cs:12`", rendered, StringComparison.Ordinal);
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(report));
+        Assert.Equal("managed/Workflow.cs", json.RootElement.GetProperty("NativeImpacts")[0]
+            .GetProperty("ChangedPath").GetString());
+        Assert.Equal(report.NativeImpacts.Select(item => item.RelationshipId), CallImpactAnalyzer.Analyze(".", new[] { "managed/Workflow.cs" },
+            new[] { "managed/Workflow.cs", "managed/OtherWorkflow.cs", "legacy/Native/View.cpp", "legacy/Bridge/Bridge.cpp" },
+            semantic, 100, native).NativeImpacts.Select(item => item.RelationshipId));
+    }
+
+    [Fact]
     public void Analyze_RetainsAmbiguousAndUnresolvedNativeEvidenceAsIncomplete()
     {
         var semantic = new CSharpSemanticAnalysis(0, 0, 0, 0, Array.Empty<CSharpResolvedCall>(),

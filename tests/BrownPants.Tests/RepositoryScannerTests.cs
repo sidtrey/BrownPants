@@ -1242,6 +1242,106 @@ public sealed class RepositoryScannerTests : IDisposable
     }
 
     [Fact]
+    public void Scan_ConnectsTypedCppCliHandlesToManagedMethodsWithoutResolvingAmbiguity()
+    {
+        Write("managed/Workflow.cs", """
+            using System.Collections.Generic;
+            namespace Demo.App;
+            public class Order { }
+            public class OrderImportWorkflow<T>
+            {
+                public void ImportBatch(IEnumerable<T> rows) { }
+                public void ImportMapped(T row) { }
+                public void ImportMapped(IEnumerable<T> rows) { }
+            }
+            """);
+        Write("managed/VisualBasicWorkflow.vb", """
+            Namespace Demo.App
+                Public Class VisualBasicWorkflow
+                    Public Sub Run()
+                    End Sub
+                End Class
+            End Namespace
+            """);
+        Write("native/View.cpp", """
+            BEGIN_MESSAGE_MAP(CView, CView)
+                ON_COMMAND(ID_IMPORT, &CView::OnImport)
+            END_MESSAGE_MAP()
+            void CView::OnImport() { CManagedBridge::ImportSelectedOrders(); }
+            """);
+        Write("native/Bridge.cpp", """
+            using namespace Demo::App;
+            public ref class CManagedBridge
+            {
+            public:
+                static void ImportSelectedOrders()
+                {
+                    OrderImportWorkflow<Order^>^ workflow = gcnew OrderImportWorkflow<Order^>();
+                    workflow->ImportBatch(gcnew List<Order^>());
+                    workflow->ImportMapped(gcnew Order());
+                    workflow->NoSuchMethod();
+                    Demo::App::OrderImportWorkflow<Order^>^ qualified = gcnew Demo::App::OrderImportWorkflow<Order^>();
+                    qualified->MissingExplicit();
+                    VisualBasicWorkflow^ vbWorkflow = gcnew VisualBasicWorkflow();
+                    vbWorkflow->Run();
+                    NativeOnly^ unrelated = gcnew NativeOnly();
+                    unrelated->ImportBatch();
+                    // workflow->ImportBatch(gcnew List<Order^>());
+                    const char* decoy = "workflow->ImportBatch()";
+                }
+            };
+            public ref class NativeOnly
+            {
+            public:
+                void ImportBatch() {}
+            };
+            """);
+        var filesBefore = Directory.GetFiles(_root, "*", SearchOption.AllDirectories)
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .Select(path => (Path: path, Content: File.ReadAllText(path))).ToArray();
+
+        var inventory = RepositoryScanner.Scan(_root, sampleLimit: 50);
+        var repeatedInventory = RepositoryScanner.Scan(_root, sampleLimit: 50);
+        var flow = inventory.ArchitecturePatterns.NativeFlow
+            ?? throw new InvalidOperationException("Native flow analysis was absent.");
+        var managedCalls = flow.Relations.Where(item => item.Kind == "cppcli-managed-call").ToArray();
+
+        Assert.Contains(managedCalls, item => item.Status == "candidate"
+            && item.SourceSymbol == "CManagedBridge::ImportSelectedOrders"
+            && item.TargetSymbol == "Demo.App.OrderImportWorkflow<T>.ImportBatch"
+            && item.TargetPath == "managed/Workflow.cs" && item.TargetLine == 6
+            && item.CandidateTargetCount == 1);
+        Assert.Contains(managedCalls, item => item.Status == "ambiguous"
+            && item.TargetSymbol == "Demo.App.OrderImportWorkflow<T>.ImportMapped"
+            && item.TargetPath is null && item.CandidateTargetCount == 2
+            && item.CandidateTargets?.Count == 2);
+        Assert.Contains(managedCalls, item => item.Status == "unresolved"
+            && item.TargetSymbol == "Demo.App.OrderImportWorkflow<T>.NoSuchMethod"
+            && item.CandidateTargetCount == 0);
+        Assert.Contains(managedCalls, item => item.Status == "unresolved"
+            && item.TargetSymbol == "Demo.App.OrderImportWorkflow<T>.MissingExplicit"
+            && item.CandidateTargetCount == 0);
+        Assert.Contains(managedCalls, item => item.Status == "candidate"
+            && item.TargetSymbol == "Demo.App.VisualBasicWorkflow.Run"
+            && item.TargetPath == "managed/VisualBasicWorkflow.vb");
+        Assert.DoesNotContain(managedCalls, item => item.TargetSymbol.Contains("NativeOnly.ImportBatch", StringComparison.Ordinal));
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(inventory),
+            System.Text.Json.JsonSerializer.Serialize(repeatedInventory));
+        Assert.Equal(MarkdownReport.Render(inventory), MarkdownReport.Render(repeatedInventory));
+        using var inventoryJson = System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(inventory));
+        var jsonManagedCall = Assert.Single(inventoryJson.RootElement.GetProperty("ArchitecturePatterns")
+            .GetProperty("NativeFlow").GetProperty("Relations").EnumerateArray(), item =>
+            item.GetProperty("Kind").GetString() == "cppcli-managed-call"
+                && item.GetProperty("Status").GetString() == "ambiguous");
+        Assert.Equal(2, jsonManagedCall.GetProperty("CandidateTargets").GetArrayLength());
+        Assert.Contains("possible target locations", MarkdownReport.Render(inventory), StringComparison.Ordinal);
+        Assert.Equal(managedCalls.Select(item => item.Id), RepositoryScanner.Scan(_root, sampleLimit: 50)
+            .ArchitecturePatterns.NativeFlow!.Relations.Where(item => item.Kind == "cppcli-managed-call").Select(item => item.Id));
+        Assert.Equal(filesBefore, Directory.GetFiles(_root, "*", SearchOption.AllDirectories)
+            .OrderBy(path => path, StringComparer.Ordinal).Select(path => (Path: path, Content: File.ReadAllText(path))).ToArray());
+    }
+
+    [Fact]
     public void Scan_TracesMfcMessageHandlersAndQualifiedCallsAsBoundedNativeCandidates()
     {
         Write("native/View.cpp", """

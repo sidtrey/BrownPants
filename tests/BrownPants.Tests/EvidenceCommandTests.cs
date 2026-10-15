@@ -223,6 +223,27 @@ public sealed class EvidenceCommandTests : IDisposable
     }
 
     [Fact]
+    public void Evidence_FocusByChangedManagedTargetIncludesInteropAndUpstreamMfcCandidates()
+    {
+        Write("managed/Workflow.cs", "namespace Demo; public class Workflow { public void Run() { } }");
+        Write("legacy/Bridge/Bridge.cpp", "using namespace Demo; void CBridge::Import() { Workflow^ workflow = gcnew Workflow(); workflow->Run(); }");
+        Write("legacy/Native/View.cpp", "void CView::OnImport() { CBridge::Import(); }\nBEGIN_MESSAGE_MAP(CView, CView)\nON_COMMAND(ID_IMPORT, &CView::OnImport)\nEND_MESSAGE_MAP()");
+
+        var result = Run("evidence", _root, "--changed", "managed/Workflow.cs", "--limit", "1000");
+
+        Assert.Equal(0, result.ExitCode);
+        using var json = JsonDocument.Parse(result.Output);
+        var findings = json.RootElement.GetProperty("findings").EnumerateArray()
+            .Where(item => item.GetProperty("category").GetString() == "native-flow-candidate").ToArray();
+        Assert.Contains(findings, item => item.GetProperty("relationKind").GetString() == "cppcli-managed-call"
+            && item.GetProperty("targetPath").GetString() == "managed/Workflow.cs"
+            && item.GetProperty("matchedBy").EnumerateArray().Any(reason =>
+                reason.GetString()!.EndsWith(":native-caller-impact", StringComparison.Ordinal)));
+        Assert.Contains(findings, item => item.GetProperty("relationKind").GetString() == "qualified-native-call");
+        Assert.Contains(findings, item => item.GetProperty("relationKind").GetString() == "mfc-dispatch");
+    }
+
+    [Fact]
     public void Evidence_FocusPreservesDotPrefixedRepositoryPathSegments()
     {
         Write("Legacy.csproj", """

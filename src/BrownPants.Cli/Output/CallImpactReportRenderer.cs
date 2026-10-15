@@ -27,8 +27,7 @@ public static class CallImpactReportRenderer
             output.AppendLine($"- Test-candidate files: {report.Summary.TestCandidateCount}");
             output.AppendLine($"- Maximum observed caller depth: {report.Summary.MaximumCallerDepth}");
         }
-        if (report.ChangedPaths.Any(path => Path.GetExtension(path).ToLowerInvariant() is
-                ".c" or ".cc" or ".cpp" or ".cxx" or ".h" or ".hh" or ".hpp" or ".hxx" or ".inl" or ".ipp"))
+        if (report.ChangedPaths.Any(IsNativePath) || report.NativeImpacts.Count > 0)
         {
             output.AppendLine();
             output.AppendLine("## Native candidate measures");
@@ -55,8 +54,7 @@ public static class CallImpactReportRenderer
                 }
             }
         }
-        if (report.ChangedPaths.Any(path => Path.GetExtension(path).ToLowerInvariant() is
-                ".c" or ".cc" or ".cpp" or ".cxx" or ".h" or ".hh" or ".hpp" or ".hxx" or ".inl" or ".ipp"))
+        if (report.ChangedPaths.Any(IsNativePath) || report.NativeImpacts.Count > 0)
         {
             output.AppendLine();
             output.AppendLine("## Native impact candidates");
@@ -68,7 +66,9 @@ public static class CallImpactReportRenderer
                 var command = impact.CommandId is null ? string.Empty : $" command `{Escape(impact.CommandId)}`";
                 var targetLocation = impact.TargetPath is null ? "target location unresolved"
                     : $"target `{Escape(impact.TargetPath)}:{impact.TargetLine}`";
-                output.AppendLine($"- Depth {impact.Depth} **{Escape(impact.Status)}** {Escape(impact.RelationshipKind)}{command}: `{Escape(impact.SourceSymbol)}` at `{Escape(impact.SourcePath)}:{impact.SourceLine}` → `{Escape(impact.TargetSymbol)}` ({targetLocation}; {impact.CandidateTargetCount} candidate target(s); changed `{Escape(impact.ChangedPath)}`)");
+                var candidateTargets = impact.CandidateTargets.Count == 0 ? string.Empty
+                    : $"; possible locations: {string.Join(", ", impact.CandidateTargets.Select(target => $"`{Escape(target.Path)}:{target.Line}`"))}";
+                output.AppendLine($"- Depth {impact.Depth} **{Escape(impact.Status)}** {Escape(impact.RelationshipKind)}{command}: `{Escape(impact.SourceSymbol)}` at `{Escape(impact.SourcePath)}:{impact.SourceLine}` → `{Escape(impact.TargetSymbol)}` ({targetLocation}; {impact.CandidateTargetCount} candidate target(s){candidateTargets}; changed `{Escape(impact.ChangedPath)}`)");
             }
         }
         if (report.Issues.Count > 0)
@@ -87,4 +87,7 @@ public static class CallImpactReportRenderer
     }
 
     private static string Escape(string value) => value.Replace("`", "\\`");
+
+    private static bool IsNativePath(string path) => Path.GetExtension(path).ToLowerInvariant() is
+        ".c" or ".cc" or ".cpp" or ".cxx" or ".h" or ".hh" or ".hpp" or ".hxx" or ".inl" or ".ipp";
 }

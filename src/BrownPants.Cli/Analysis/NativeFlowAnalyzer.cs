@@ -40,13 +40,26 @@ internal static class NativeFlowAnalyzer
         @"(?<qualified>(?<owner>(?:[A-Za-z_]\w*::)+)(?<method>[A-Za-z_]\w*))\s*\(",
         RegexOptions.CultureInvariant);
 
+    private static readonly Regex ManagedHandleDeclaration = new(
+        @"(?<type>(?:[A-Za-z_]\w*::)*[A-Za-z_]\w*(?:\s*<[^;{}=]+>)?)\s*\^\s*(?<variable>[A-Za-z_]\w*)\b",
+        RegexOptions.CultureInvariant);
+
+    private static readonly Regex ManagedHandleCall = new(
+        @"(?<variable>[A-Za-z_]\w*)\s*->\s*(?<method>[A-Za-z_]\w*)\s*\(",
+        RegexOptions.CultureInvariant);
+
+    private static readonly Regex ManagedNamespace = new(
+        @"^\s*using\s+namespace\s+(?<namespace>[A-Za-z_]\w*(?:::\w+)*)\s*;",
+        RegexOptions.CultureInvariant | RegexOptions.Multiline);
+
     private static readonly string[] EvidenceLimits =
     [
         "Native flow links are lexical candidates, not compiler-resolved calls.",
-        "Macro expansion, active preprocessor branches, overload binding, unqualified calls, runtime dispatch, and C++/CLI-to-managed project linkage are not resolved."
+        "Macro expansion, active preprocessor branches, overload binding, unqualified calls, project references, C++/CLI-to-managed compiler binding, runtime dispatch, and execution are not resolved."
     ];
 
-    public static NativeFlowAnalysis Analyze(string root, IEnumerable<string> sourcePaths, int sampleLimit)
+    public static NativeFlowAnalysis Analyze(string root, IEnumerable<string> sourcePaths, int sampleLimit,
+        IReadOnlyList<ManagedMethodTarget> managedMethodIndex, bool managedMethodIndexTruncated)
     {
         var sources = new List<NativeSource>();
         foreach (var path in sourcePaths.Where(IsNativeSource).OrderBy(path => path, RepositoryPathComparer.Instance))
@@ -111,14 +124,57 @@ internal static class NativeFlowAnalyzer
             }
         }
 
+        foreach (var definition in definitions)
+        {
+            var body = definition.Source.Sanitized.Substring(definition.BodyStart, definition.BodyLength);
+            var handles = ManagedHandleDeclaration.Matches(body).Select(match => new ManagedHandle(
+                match.Groups["type"].Value, match.Groups["variable"].Value, match.Index)).ToArray();
+            if (handles.Length == 0) continue;
+            var namespaces = ManagedNamespace.Matches(definition.Source.Sanitized)
+                .Select(match => NormalizeNamespace(match.Groups["namespace"].Value)).Distinct(StringComparer.Ordinal).ToArray();
+            foreach (Match call in ManagedHandleCall.Matches(body))
+            {
+                var receiver = handles.Where(item => item.Variable == call.Groups["variable"].Value && item.Position < call.Index)
+                    .OrderByDescending(item => item.Position).FirstOrDefault();
+                if (receiver is null) continue;
+                var targets = ResolveManagedTargets(receiver.Type, call.Groups["method"].Value,
+                    namespaces, managedMethodIndex);
+                if (targets.TypeCount == 0) continue;
+                var status = targets.Methods.Length == 0 ? "unresolved"
+                    : targets.TypeCount > 1 || targets.Methods.Length > 1 ? "ambiguous" : "candidate";
+                var targetSymbol = targets.Methods.Length == 1
+                    ? ManagedSymbol(targets.Methods[0])
+                    : $"{targets.DisplayType}.{call.Groups["method"].Value}";
+                var candidateTargets = targets.Methods.Select(item => new NativeFlowTarget(
+                        item.Path.Replace('\\', '/'), item.Line, ManagedSymbol(item)))
+                    .DistinctBy(item => $"{item.Path}\n{item.Line}\n{item.Symbol}", StringComparer.Ordinal)
+                    .OrderBy(item => item.Path, RepositoryPathComparer.Instance).ThenBy(item => item.Line)
+                    .ThenBy(item => item.Symbol, StringComparer.Ordinal).ToArray();
+                var line = definition.Source.LineAt(definition.BodyStart + call.Index);
+                var identity = string.Join("\n", "cppcli-managed-call", definition.Source.Path, line,
+                    definition.Symbol, targetSymbol, status,
+                    string.Join("|", candidateTargets.Select(item => $"{item.Path}:{item.Line}:{item.Symbol}")));
+                var id = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)))[..16].ToLowerInvariant();
+                var evidence = $"{receiver.Type} {receiver.Variable}; {receiver.Variable}->{call.Groups["method"].Value}(...)";
+                relations.Add(new NativeFlowRelation(id, "cppcli-managed-call", status, definition.Source.Path,
+                    line, definition.Symbol, status == "candidate" ? candidateTargets[0].Path : null,
+                    status == "candidate" ? candidateTargets[0].Line : null, targetSymbol, null,
+                    targets.Methods.Length, evidence, candidateTargets));
+            }
+        }
+
         var ordered = relations.DistinctBy(item => item.Id, StringComparer.Ordinal)
             .OrderBy(item => item.SourcePath, RepositoryPathComparer.Instance).ThenBy(item => item.SourceLine)
             .ThenBy(item => item.Kind, StringComparer.Ordinal).ThenBy(item => item.TargetSymbol, StringComparer.Ordinal)
             .ThenBy(item => item.Id, StringComparer.Ordinal).ToArray();
+        var evidenceLimits = managedMethodIndexTruncated
+            ? EvidenceLimits.Append("The managed method target index reached its bound; additional C#/VB declarations may be missing.").ToArray()
+            : EvidenceLimits;
         return new NativeFlowAnalysis(sources.Count, ordered.Length,
             ordered.Count(item => item.Status == "unresolved"),
             ordered.Count(item => item.Status == "ambiguous"),
-            Math.Max(0, ordered.Length - sampleLimit), ordered.Take(sampleLimit).ToArray(), EvidenceLimits);
+            Math.Max(0, ordered.Length - sampleLimit), ordered.Take(sampleLimit).ToArray(), evidenceLimits,
+            managedMethodIndexTruncated);
     }
 
     private static IEnumerable<NativeDefinition> ParseDefinitions(NativeSource source)
@@ -166,8 +222,52 @@ internal static class NativeFlowAnalyzer
             string.Join("|", targets.Select(item => $"{item.Source.Path}:{item.Line}")));
         var id = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)))[..16].ToLowerInvariant();
         return new NativeFlowRelation(id, kind, status, source.Path, line, sourceSymbol,
-            target?.Source.Path, target?.Line, targetSymbol, commandId, targets.Length, evidence);
+            target?.Source.Path, target?.Line, targetSymbol, commandId, targets.Length, evidence,
+            targets.Select(item => new NativeFlowTarget(item.Source.Path, item.Line, item.Symbol))
+                .OrderBy(item => item.Path, RepositoryPathComparer.Instance).ThenBy(item => item.Line)
+                .ThenBy(item => item.Symbol, StringComparer.Ordinal).ToArray());
     }
+
+    private static ManagedTargetResolution ResolveManagedTargets(string nativeType, string method,
+        IReadOnlyList<string> usingNamespaces, IReadOnlyList<ManagedMethodTarget> managedMethodIndex)
+    {
+        var typeWithoutGeneric = nativeType.Split('<', 2)[0].Trim();
+        var parts = typeWithoutGeneric.Split(new[] { "::" }, StringSplitOptions.RemoveEmptyEntries);
+        var simpleName = parts.LastOrDefault() ?? string.Empty;
+        var qualifiedType = NormalizeNamespace(string.Join(".", parts));
+        var typeMatches = managedMethodIndex.Where(target => parts.Length > 1
+                ? NameEquals(NormalizeNamespace($"{target.Namespace}.{target.TypeName}"), qualifiedType, target.Language)
+                : NameEquals(target.TypeName.Split('.').Last(), simpleName, target.Language))
+            .ToArray();
+        if (parts.Length == 1 && usingNamespaces.Count > 0)
+        {
+            var importedMatches = typeMatches.Where(target => usingNamespaces.Any(ns =>
+                    NameEquals(NormalizeNamespace(target.Namespace), ns, target.Language)))
+                .ToArray();
+            if (importedMatches.Length > 0) typeMatches = importedMatches;
+        }
+
+        var uniqueTypes = typeMatches.Select(target => $"{target.Language}\n{NormalizeNamespace(target.Namespace)}\n{target.DisplayTypeName}")
+            .Distinct(StringComparer.Ordinal).ToArray();
+        var methods = typeMatches.Where(target => NameEquals(target.MethodName, method, target.Language))
+            .OrderBy(target => target.Path, RepositoryPathComparer.Instance).ThenBy(target => target.Line)
+            .ThenBy(target => target.Language, StringComparer.Ordinal).ToArray();
+        var displayType = typeMatches.Length > 0
+            ? string.Join(".", ManagedSymbol(typeMatches[0]).Split('.').SkipLast(1))
+            : qualifiedType;
+        return new ManagedTargetResolution(uniqueTypes.Length, displayType, methods);
+    }
+
+    private static string ManagedSymbol(ManagedMethodTarget target) =>
+        string.Join(".", new[] { NormalizeNamespace(target.Namespace),
+                string.IsNullOrWhiteSpace(target.DisplayTypeName) ? target.TypeName : target.DisplayTypeName,
+                target.MethodName }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private static string NormalizeNamespace(string value) => value.Replace("::", ".", StringComparison.Ordinal).Trim('.');
+
+    private static bool NameEquals(string left, string right, string language) => string.Equals(left, right,
+        language == "Visual Basic" ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 
     private static NativeDefinition[] FindTargets(IReadOnlyDictionary<string, NativeDefinition[]> bySymbol,
         string owner, string method) => bySymbol.GetValueOrDefault(SymbolKey(owner, method)) ?? [];
@@ -265,4 +365,8 @@ internal static class NativeFlowAnalyzer
 
     private sealed record NativeDefinition(NativeSource Source, string Owner, string Method, string Symbol,
         int Line, int BodyStart, int BodyLength);
+
+    private sealed record ManagedHandle(string Type, string Variable, int Position);
+
+    private sealed record ManagedTargetResolution(int TypeCount, string DisplayType, ManagedMethodTarget[] Methods);
 }

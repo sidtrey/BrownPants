@@ -336,10 +336,14 @@ public static class MarkdownReport
                     ? $"`{Escape(relation.TargetSymbol)}` ({relation.Status}, {relation.CandidateTargetCount} definitions)"
                     : $"`{Escape(relation.TargetPath)}:{relation.TargetLine}` `{Escape(relation.TargetSymbol)}`";
                 var command = relation.CommandId is null ? string.Empty : $" command `{Escape(relation.CommandId)}`";
-                report.AppendLine($"- {Escape(relation.Kind)} [{Escape(relation.Status)}]{command}: `{Escape(relation.SourcePath)}:{relation.SourceLine}` `{Escape(relation.SourceSymbol)}` → {target}");
+                var possibleTargets = relation.CandidateTargets is not { Count: > 0 } || relation.Status == "candidate"
+                    ? string.Empty
+                    : "; possible target locations: " + string.Join(", ", relation.CandidateTargets.Select(item =>
+                        Escape(item.Path) + ":" + item.Line));
+                report.AppendLine($"- {Escape(relation.Kind)} [{Escape(relation.Status)}]{command}: `{Escape(relation.SourcePath)}:{relation.SourceLine}` `{Escape(relation.SourceSymbol)}` → {target}{possibleTargets}");
             }
             if (nativeFlow.RelationCount == 0)
-                report.AppendLine("No supported MFC message paths found.");
+                report.AppendLine("No supported native or managed interop paths found.");
             else if (nativeFlow.OmittedCount > 0)
                 report.AppendLine($"- {nativeFlow.OmittedCount} additional native flow relations omitted by the sample limit.");
         }

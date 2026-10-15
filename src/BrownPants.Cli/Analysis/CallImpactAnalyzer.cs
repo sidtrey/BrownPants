@@ -60,6 +60,7 @@ public sealed record NativeCallImpact(
     int Depth,
     string Evidence)
 {
+    public IReadOnlyList<NativeFlowTarget> CandidateTargets { get; init; } = Array.Empty<NativeFlowTarget>();
     public string EvidenceKind => "native-lexical";
 }
 
@@ -198,26 +199,25 @@ public static class CallImpactAnalyzer
     private static NativeCallImpact[] AnalyzeNativeImpacts(IReadOnlyCollection<string> changedPaths,
         NativeFlowAnalysis? nativeFlow, int sampleLimit, ISet<string> issues)
     {
-        var nativeChanged = changedPaths.Where(IsNativeSource).ToArray();
-        if (nativeChanged.Length == 0 || nativeFlow is null) return [];
+        if (changedPaths.Count == 0 || nativeFlow is null) return [];
 
-        if (nativeFlow.UnresolvedCount > 0)
-            issues.Add($"Native flow contains {nativeFlow.UnresolvedCount} unresolved relation(s); native impact may be incomplete.");
-        if (nativeFlow.AmbiguousCount > 0)
-            issues.Add($"Native flow contains {nativeFlow.AmbiguousCount} ambiguous relation(s); native impact may be incomplete.");
+        var managedChanged = changedPaths.Where(IsManagedSource).ToArray();
         if (nativeFlow.OmittedCount > 0)
             issues.Add($"Native flow relations were sampled: {nativeFlow.Relations.Count} retained and {nativeFlow.OmittedCount} omitted.");
+        if (managedChanged.Length > 0 && nativeFlow.ManagedTargetIndexTruncated)
+            issues.Add("The managed target index was truncated; additional C#/VB declarations may be missing from native impact.");
 
-        var incomingBySymbol = nativeFlow.Relations.Where(item => item.Status == "candidate")
+        var incomingBySymbol = nativeFlow.Relations.Where(item => item.Status is "candidate" or "ambiguous")
             .GroupBy(item => item.TargetSymbol, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.OrderBy(item => item.SourcePath, StringComparer.Ordinal)
                 .ThenBy(item => item.SourceLine).ThenBy(item => item.Id, StringComparer.Ordinal).ToArray(), StringComparer.Ordinal);
         var results = new Dictionary<string, NativeCallImpact>(StringComparer.Ordinal);
-        foreach (var changed in nativeChanged)
+        foreach (var changed in changedPaths)
         {
             var incoming = nativeFlow.Relations
-                .Where(relation => relation.Status == "candidate" && relation.TargetPath is not null
-                    && PathEquals(relation.TargetPath, changed))
+                .Where(relation => relation.Status is "candidate" or "ambiguous")
+                .Where(relation => relation.TargetPath is not null && PathEquals(relation.TargetPath, changed)
+                    || relation.CandidateTargets?.Any(target => PathEquals(target.Path, changed)) == true)
                 .OrderBy(relation => relation.SourcePath, StringComparer.Ordinal)
                 .ThenBy(relation => relation.SourceLine)
                 .ThenBy(relation => relation.Id, StringComparer.Ordinal)
@@ -240,6 +240,9 @@ public static class CallImpactAnalyzer
                 if (!incomingBySymbol.TryGetValue(symbol, out var related)) continue;
                 foreach (var relation in related)
                 {
+                    if (relation.Status == "ambiguous" && relation.CandidateTargets is { Count: > 0 }
+                        && !relation.CandidateTargets.Any(target => string.Equals(target.Symbol, symbol, StringComparison.Ordinal)))
+                        continue;
                     Add(relation, changed, depth + 1);
                     queue.Enqueue((relation.SourceSymbol, depth + 1));
                 }
@@ -247,7 +250,8 @@ public static class CallImpactAnalyzer
 
             foreach (var relation in nativeFlow.Relations.Where(item => item.Status is "unresolved" or "ambiguous"
                          && (PathEquals(item.SourcePath, changed)
-                             || item.TargetPath is not null && PathEquals(item.TargetPath, changed)))
+                             || item.TargetPath is not null && PathEquals(item.TargetPath, changed)
+                             || item.CandidateTargets?.Any(target => PathEquals(target.Path, changed)) == true))
                      .OrderBy(item => item.SourcePath, StringComparer.Ordinal).ThenBy(item => item.SourceLine)
                      .ThenBy(item => item.Id, StringComparer.Ordinal))
                 Add(relation, changed, 1);
@@ -257,10 +261,21 @@ public static class CallImpactAnalyzer
                 var item = new NativeCallImpact(changedPath, relation.Id, relation.Kind, relation.Status,
                     relation.SourceSymbol, relation.TargetSymbol, NormalizePath(relation.SourcePath),
                     relation.SourceLine, relation.TargetPath is null ? null : NormalizePath(relation.TargetPath),
-                    relation.TargetLine, relation.CommandId, relation.CandidateTargetCount, depth, relation.Evidence);
+                    relation.TargetLine, relation.CommandId, relation.CandidateTargetCount, depth, relation.Evidence)
+                {
+                    CandidateTargets = (relation.CandidateTargets ?? Array.Empty<NativeFlowTarget>())
+                        .Select(target => target with { Path = NormalizePath(target.Path) })
+                        .OrderBy(target => target.Path, StringComparer.Ordinal).ThenBy(target => target.Line)
+                        .ThenBy(target => target.Symbol, StringComparer.Ordinal).ToArray()
+                };
                 results.TryAdd(string.Join("\n", changedPath, relation.Id), item);
             }
         }
+
+        if (results.Values.Any(item => item.Status == "unresolved"))
+            issues.Add("Related native flow contains unresolved relation(s); native impact may be incomplete.");
+        if (results.Values.Any(item => item.Status == "ambiguous"))
+            issues.Add("Related native flow contains ambiguous relation(s); native impact may be incomplete.");
 
         var ordered = results.Values.OrderBy(item => item.ChangedPath, StringComparer.Ordinal)
             .ThenBy(item => item.Depth).ThenBy(item => item.SourcePath, StringComparer.Ordinal)
@@ -273,6 +288,8 @@ public static class CallImpactAnalyzer
 
     private static bool IsNativeSource(string path) => Path.GetExtension(path).ToLowerInvariant() is
         ".c" or ".cc" or ".cpp" or ".cxx" or ".h" or ".hh" or ".hpp" or ".hxx" or ".inl" or ".ipp";
+
+    private static bool IsManagedSource(string path) => Path.GetExtension(path).ToLowerInvariant() is ".cs" or ".vb";
 
     private static bool PathEquals(string left, string right) => string.Equals(NormalizePath(left), NormalizePath(right),
         OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);

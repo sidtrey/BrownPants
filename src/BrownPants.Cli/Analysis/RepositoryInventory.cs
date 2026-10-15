@@ -77,13 +77,20 @@ public sealed record CSharpAnalysis(
     IReadOnlyList<CSharpUsingInfo> Usings,
     IReadOnlyList<CSharpInvocationInfo> Invocations,
     IReadOnlyList<CSharpParseIssue> Issues,
-    CSharpSemanticAnalysis? Semantic = null);
+    CSharpSemanticAnalysis? Semantic = null)
+{
+    internal IReadOnlyList<ManagedMethodTarget> ManagedMethodIndex { get; init; } = Array.Empty<ManagedMethodTarget>();
+    internal bool ManagedMethodIndexTruncated { get; init; }
+}
 
 public sealed record CSharpTypeInfo(string Path, int Line, string Namespace, string Kind, string Name);
 
 public sealed record CSharpMemberInfo(string Path, int Line, string ContainingType, string Kind, string Signature);
 
 public sealed record CSharpUsingInfo(string Path, int Line, string Namespace, string? Alias, bool IsStatic, bool IsGlobal);
+
+public sealed record ManagedMethodTarget(string Language, string Namespace, string TypeName, string MethodName, string Path, int Line,
+    string DisplayTypeName = "");
 
 public sealed record CSharpInvocationInfo(string Path, int Line, string Expression);
 
@@ -98,7 +105,11 @@ public sealed record VisualBasicAnalysis(
     IReadOnlyList<VisualBasicTypeInfo> Types,
     IReadOnlyList<VisualBasicMemberInfo> Members,
     IReadOnlyList<VisualBasicInvocationInfo> Invocations,
-    IReadOnlyList<VisualBasicParseIssue> Issues);
+    IReadOnlyList<VisualBasicParseIssue> Issues)
+{
+    internal IReadOnlyList<ManagedMethodTarget> ManagedMethodIndex { get; init; } = Array.Empty<ManagedMethodTarget>();
+    internal bool ManagedMethodIndexTruncated { get; init; }
+}
 
 public sealed record VisualBasicTypeInfo(string Path, int Line, string Namespace, string Kind, string Name);
 public sealed record VisualBasicMemberInfo(string Path, int Line, string ContainingType, string Kind, string Signature);
@@ -116,7 +127,8 @@ public sealed record NativeFlowAnalysis(
     int AmbiguousCount,
     int OmittedCount,
     IReadOnlyList<NativeFlowRelation> Relations,
-    IReadOnlyList<string> EvidenceLimits);
+    IReadOnlyList<string> EvidenceLimits,
+    bool ManagedTargetIndexTruncated = false);
 
 public sealed record NativeFlowRelation(
     string Id,
@@ -130,7 +142,10 @@ public sealed record NativeFlowRelation(
     string TargetSymbol,
     string? CommandId,
     int CandidateTargetCount,
-    string Evidence);
+    string Evidence,
+    IReadOnlyList<NativeFlowTarget>? CandidateTargets = null);
+
+public sealed record NativeFlowTarget(string Path, int Line, string Symbol);
 
 public sealed record NativeProjectInfo(
     string Path,

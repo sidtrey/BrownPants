@@ -64,7 +64,9 @@ public static class RepositoryScanner
             files.Where(file => file.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)), dotNetProjects, sampleLimit);
         var visualBasic = VisualBasicAnalyzer.Analyze(root,
             files.Where(file => file.EndsWith(".vb", StringComparison.OrdinalIgnoreCase)), sampleLimit);
-        var architecturePatterns = ArchitecturePatternAnalyzer.Analyze(root, files, sampleLimit);
+        var managedMethodIndex = csharp.ManagedMethodIndex.Concat(visualBasic.ManagedMethodIndex).ToArray();
+        var architecturePatterns = ArchitecturePatternAnalyzer.Analyze(root, files, sampleLimit,
+            managedMethodIndex, csharp.ManagedMethodIndexTruncated || visualBasic.ManagedMethodIndexTruncated);
         if (analyzeSemantics)
         {
             var semantic = CSharpSemanticAnalyzer.AnalyzeRepository(

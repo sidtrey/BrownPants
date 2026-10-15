@@ -38,7 +38,8 @@ public sealed record EvidenceFinding(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? SourceSymbol = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? TargetSymbol = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? CommandId = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? CandidateTargetCount = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? CandidateTargetCount = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<NativeFlowTarget>? CandidateTargets = null)
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<string>? MatchedBy { get; init; }
@@ -96,11 +97,16 @@ public static class EvidenceReportAnalyzer
         {
             foreach (var relation in nativeFlow.Relations)
             {
-                var signal = relation.Kind == "mfc-dispatch" ? "MFC message dispatch" : "Qualified native call";
+                var signal = relation.Kind switch
+                {
+                    "mfc-dispatch" => "MFC message dispatch",
+                    "cppcli-managed-call" => "C++/CLI managed method call",
+                    _ => "Qualified native call"
+                };
                 findings.Add(CreateFinding("native-flow-candidate", relation.Status, signal,
                     relation.SourcePath, relation.SourceLine, null, null, relation.Evidence,
                     relation.TargetPath, relation.TargetLine, relation.Kind, relation.SourceSymbol,
-                    relation.TargetSymbol, relation.CommandId, relation.CandidateTargetCount));
+                    relation.TargetSymbol, relation.CommandId, relation.CandidateTargetCount, relation.CandidateTargets));
             }
         }
 
@@ -187,7 +193,7 @@ public static class EvidenceReportAnalyzer
     private static EvidenceFinding CreateFinding(string category, string status, string signal, string path, int? line,
         string? caller, string? target, string evidence, string? targetPath = null, int? targetLine = null,
         string? relationKind = null, string? sourceSymbol = null, string? targetSymbol = null,
-        string? commandId = null, int? candidateTargetCount = null)
+        string? commandId = null, int? candidateTargetCount = null, IReadOnlyList<NativeFlowTarget>? candidateTargets = null)
     {
         var normalizedPath = path.Replace('\\', '/');
         var identity = relationKind is null
@@ -195,11 +201,13 @@ public static class EvidenceReportAnalyzer
                 caller ?? "", target ?? "")
             : string.Join("\n", category, status, signal, normalizedPath, line?.ToString() ?? "",
                 relationKind, sourceSymbol ?? "", targetSymbol ?? "", targetPath ?? "", targetLine?.ToString() ?? "",
-                commandId ?? "", candidateTargetCount?.ToString() ?? "");
+                commandId ?? "", candidateTargetCount?.ToString() ?? "",
+                string.Join("|", (candidateTargets ?? Array.Empty<NativeFlowTarget>())
+                    .Select(item => $"{item.Path}:{item.Line}:{item.Symbol}")));
         var id = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)))[..16].ToLowerInvariant();
         return new EvidenceFinding(id, category, status, signal, normalizedPath, line, caller, target, evidence,
             targetPath?.Replace('\\', '/'), targetLine, relationKind, sourceSymbol, targetSymbol, commandId,
-            candidateTargetCount);
+            candidateTargetCount, candidateTargets);
     }
 
     private static bool IsSourceTestPath(string path) =>

@@ -8,6 +8,8 @@ namespace BrownPants.Cli.Analysis;
 
 public static class CSharpAnalyzer
 {
+    private const int ManagedMethodIndexLimit = 100_000;
+
     public static CSharpAnalysis Analyze(string root, IEnumerable<string> sourcePaths,
         IReadOnlyList<DotNetProjectInfo> projects, int sampleLimit)
     {
@@ -16,6 +18,8 @@ public static class CSharpAnalyzer
         var usings = new List<CSharpUsingInfo>();
         var invocations = new List<CSharpInvocationInfo>();
         var issues = new List<CSharpParseIssue>();
+        var managedMethodIndex = new List<ManagedMethodTarget>();
+        var managedMethodIndexTruncated = false;
         var sourceFileCount = 0;
         var typeCount = 0;
         var memberCount = 0;
@@ -49,6 +53,15 @@ public static class CSharpAnalyzer
 
                 foreach (var member in syntaxRoot.DescendantNodes().OfType<MemberDeclarationSyntax>())
                 {
+                    if (member is MethodDeclarationSyntax method)
+                    {
+                        if (managedMethodIndex.Count < ManagedMethodIndexLimit)
+                            managedMethodIndex.Add(new ManagedMethodTarget("C#", NamespaceOf(method),
+                                ManagedTypeNameOf(method), method.Identifier.ValueText, relativePath, Line(method),
+                                ManagedDisplayTypeNameOf(method)));
+                        else
+                            managedMethodIndexTruncated = true;
+                    }
                     foreach (var info in DescribeMember(relativePath, member))
                     {
                         memberCount++;
@@ -105,7 +118,11 @@ public static class CSharpAnalyzer
             members,
             usings,
             invocations,
-            issues);
+            issues)
+        {
+            ManagedMethodIndex = managedMethodIndex,
+            ManagedMethodIndexTruncated = managedMethodIndexTruncated
+        };
     }
 
     private static IEnumerable<CSharpMemberInfo> DescribeMember(string path, MemberDeclarationSyntax member)
@@ -168,6 +185,22 @@ public static class CSharpAnalyzer
         var typePath = string.Join(".", names);
         return currentNamespace.Length == 0 ? typePath : $"{currentNamespace}.{typePath}";
     }
+
+    private static string ManagedTypeNameOf(SyntaxNode node) => string.Join(".", node.Ancestors()
+        .OfType<BaseTypeDeclarationSyntax>().Reverse().Select(declaration => declaration switch
+        {
+            TypeDeclarationSyntax type => type.Identifier.ValueText,
+            EnumDeclarationSyntax enumeration => enumeration.Identifier.ValueText,
+            _ => declaration.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? string.Empty
+        }));
+
+    private static string ManagedDisplayTypeNameOf(SyntaxNode node) => string.Join(".", node.Ancestors()
+        .OfType<BaseTypeDeclarationSyntax>().Reverse().Select(declaration => declaration switch
+        {
+            TypeDeclarationSyntax type => type.Identifier.ValueText + type.TypeParameterList,
+            EnumDeclarationSyntax enumeration => enumeration.Identifier.ValueText,
+            _ => declaration.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? string.Empty
+        }));
 
     private static string TypeName(BaseTypeDeclarationSyntax declaration) => declaration switch
     {

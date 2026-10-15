@@ -22,11 +22,14 @@ Run semantic call impact from the managed root. This resolves the generic single
 dotnet run --project src/BrownPants.Cli -- impact examples/brownfield-bug-lab/managed --changed Persistence/OrderRepository.cs --format markdown --limit 1000
 ```
 
-Trace a changed C++/CLI bridge back through its native caller and MFC command map. Native links are lexical candidates and remain separate from Roslyn-resolved managed calls:
+Trace a changed C++/CLI bridge back through its native caller and MFC command map. To trace a changed managed workflow in the other direction, select its C# file; the typed bridge call and upstream MFC links appear as lexical candidates, separate from Roslyn-resolved managed calls:
 
 ```powershell
 dotnet run --project src/BrownPants.Cli -- impact examples/brownfield-bug-lab `
   --changed legacy/Bridge/OrderManagedBridge.cpp --format markdown --limit 1000
+
+dotnet run --project src/BrownPants.Cli -- impact examples/brownfield-bug-lab `
+  --changed managed/Workflows/OrderImportWorkflow.cs --format markdown --limit 1000
 ```
 
 For an SDD agent, create a single JSON handoff containing project context, source-located architecture/framework candidates, and test-path candidates:
@@ -47,7 +50,7 @@ dotnet run --project src/BrownPants.Cli -- evidence examples/brownfield-bug-lab/
 
 This handoff keeps only matching source facts plus resolved direct/transitive callers and related test-path candidates. Check `focus` for unmatched selectors, evidence limits, and omitted counts. Omitting the selectors still produces the complete task-neutral handoff.
 
-The managed impact report connects `ImportBatch<T>` to the `Save(IEnumerable<T>)` overload and shows how `ImportMapped<TSource>` forwards through `SaveMapped<TSource>`. Native impact on the bridge reports `COrderMfcView::OnImportBatch` and the `ID_ORDER_IMPORT_BATCH` message-map entry as candidate paths. BrownPants does not expand macros, select overloads, prove runtime dispatch, or infer a C# edge. Inventory also locates factory/DI wiring and NHibernate dependency/session/configuration/mapping evidence; ORM candidates do not prove database behavior.
+The managed impact report connects `ImportBatch<T>` to the `Save(IEnumerable<T>)` overload and shows how `ImportMapped<TSource>` forwards through `SaveMapped<TSource>`. Native impact on the bridge reports `COrderMfcView::OnImportBatch` and the `ID_ORDER_IMPORT_BATCH` message-map entry as candidate paths. A changed managed workflow also traces to the typed C++/CLI handle call and its upstream MFC candidates. BrownPants does not expand macros, prove compiler binding or runtime dispatch, or establish that the evidence-only bridge builds. Inventory also locates factory/DI wiring and NHibernate dependency/session/configuration/mapping evidence; ORM candidates do not prove database behavior.
 
 ### Trace a generic factory constructor
 

@@ -106,7 +106,8 @@ public static class ArchitecturePatternAnalyzer
     private const int MaximumMfcDeclarationLines = 32;
     private const int MaximumMfcDeclarationCharacters = 4096;
 
-    public static ArchitecturePatternAnalysis Analyze(string root, IEnumerable<string> sourcePaths, int sampleLimit)
+    public static ArchitecturePatternAnalysis Analyze(string root, IEnumerable<string> sourcePaths, int sampleLimit,
+        IReadOnlyList<ManagedMethodTarget>? managedMethodIndex = null, bool managedMethodIndexTruncated = false)
     {
         var signals = new List<ArchitecturePatternSignal>();
         var signalCount = 0;
@@ -144,7 +145,8 @@ public static class ArchitecturePatternAnalyzer
             ? "NHibernate candidates do not prove transitive package resolution, runtime configuration or mapping activation, session lifetime, or database behavior."
             : string.Empty;
         return new ArchitecturePatternAnalysis(signalCount, signals, limits,
-            NativeFlowAnalyzer.Analyze(root, sourcePaths, sampleLimit));
+            NativeFlowAnalyzer.Analyze(root, sourcePaths, sampleLimit, managedMethodIndex ?? Array.Empty<ManagedMethodTarget>(),
+                managedMethodIndexTruncated));
     }
 
     private static void AnalyzeCSharp(string source, string path, List<ArchitecturePatternSignal> signals,
