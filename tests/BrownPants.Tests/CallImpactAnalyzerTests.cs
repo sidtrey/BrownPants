@@ -33,8 +33,8 @@ public sealed class CallImpactAnalyzerTests
     {
         var trees = new[]
         {
-            CSharpSyntaxTree.ParseText("namespace Demo; public class Core { public void Save(int value) { } public void Save(string value) { } }", path: "src/Core.cs"),
-            CSharpSyntaxTree.ParseText("namespace Demo; public class Service { public void Run(Core core) { core.Save(1); core.Save(\"x\"); core.ToString(); } }", path: "src/Service.cs")
+            CSharpSyntaxTree.ParseText("namespace Demo; public class Core { public void Save(int value) { } public void Save(string value) { } }", path: "src/Core.cs", cancellationToken: TestContext.Current.CancellationToken),
+            CSharpSyntaxTree.ParseText("namespace Demo; public class Service { public void Run(Core core) { core.Save(1); core.Save(\"x\"); core.ToString(); } }", path: "src/Service.cs", cancellationToken: TestContext.Current.CancellationToken)
         };
         var compilation = CSharpCompilation.Create("OverloadFixture", trees,
             new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },

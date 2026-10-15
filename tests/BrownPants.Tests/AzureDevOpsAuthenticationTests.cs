@@ -11,7 +11,7 @@ public sealed class AzureDevOpsAuthenticationTests
         var provider = new FakeInteractiveProvider("short-lived-secret-token");
         var config = BrowserConfiguration();
 
-        var token = await AzureDevOpsAuthentication.AcquireTokenAsync(config, provider, () => null);
+        var token = await AzureDevOpsAuthentication.AcquireTokenAsync(config, provider, () => null, TestContext.Current.CancellationToken);
 
         Assert.Equal("short-lived-secret-token", token);
         Assert.Equal(1, provider.CallCount);
@@ -37,9 +37,11 @@ public sealed class AzureDevOpsAuthenticationTests
     public async Task AcquireToken_UsesExternalTokenReaderAndDoesNotEchoMissingTokenValue()
     {
         var config = TokenConfiguration();
-        Assert.Equal("fixture-token", await AzureDevOpsAuthentication.AcquireTokenAsync(config, tokenReader: () => "fixture-token"));
+        Assert.Equal("fixture-token", await AzureDevOpsAuthentication.AcquireTokenAsync(config,
+            tokenReader: () => "fixture-token", cancellationToken: TestContext.Current.CancellationToken));
         var exception = await Assert.ThrowsAsync<AzureDevOpsAuthenticationException>(() =>
-            AzureDevOpsAuthentication.AcquireTokenAsync(config, tokenReader: () => null));
+            AzureDevOpsAuthentication.AcquireTokenAsync(config, tokenReader: () => null,
+                cancellationToken: TestContext.Current.CancellationToken));
         Assert.Contains(AzureDevOpsAuthentication.TokenEnvironmentVariable, exception.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("fixture-token", exception.ToString(), StringComparison.Ordinal);
     }

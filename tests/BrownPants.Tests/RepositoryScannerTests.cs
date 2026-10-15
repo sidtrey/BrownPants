@@ -1978,7 +1978,7 @@ public sealed class RepositoryScannerTests : IDisposable
                     public string NameOfStore() { return nameof(Store); }
                 }
             }
-            """, path: "src/Api.cs");
+            """, path: "src/Api.cs", cancellationToken: TestContext.Current.CancellationToken);
         var references = new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) };
         var compilation = CSharpCompilation.Create("LegacyFixture", new[] { tree }, references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
@@ -2021,11 +2021,11 @@ public sealed class RepositoryScannerTests : IDisposable
         var trees = new[]
         {
             CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(repositoryRoot, "src", "Entry.cs")),
-                path: Path.Combine(repositoryRoot, "src", "Entry.cs")),
+                path: Path.Combine(repositoryRoot, "src", "Entry.cs"), cancellationToken: TestContext.Current.CancellationToken),
             CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(repositoryRoot, "obj", "Generated.cs")),
-                path: Path.Combine(repositoryRoot, "obj", "Generated.cs")),
+                path: Path.Combine(repositoryRoot, "obj", "Generated.cs"), cancellationToken: TestContext.Current.CancellationToken),
             CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(_root, "external", "Outside.cs")),
-                path: Path.Combine(_root, "external", "Outside.cs"))
+                path: Path.Combine(_root, "external", "Outside.cs"), cancellationToken: TestContext.Current.CancellationToken)
         };
         var references = new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) };
         var compilation = CSharpCompilation.Create("PathBoundaryFixture", trees, references,
@@ -2082,7 +2082,7 @@ public sealed class RepositoryScannerTests : IDisposable
                     End Sub
                 End Class
             End Namespace
-            """, path: "src/Api.vb");
+            """, path: "src/Api.vb", cancellationToken: TestContext.Current.CancellationToken);
         var references = new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) };
         var compilation = Microsoft.CodeAnalysis.VisualBasic.VisualBasicCompilation.Create("LegacyFixture",
             new[] { tree }, references,

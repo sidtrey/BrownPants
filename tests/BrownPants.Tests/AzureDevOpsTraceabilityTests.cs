@@ -21,7 +21,7 @@ public sealed class AzureDevOpsTraceabilityTests
         });
         using var client = new AzureDevOpsClient(config, handler, "fixture-token");
 
-        var report = await AzureDevOpsTraceabilityAnalyzer.AnalyzeAsync(config, "specs/feature-a", client);
+        var report = await AzureDevOpsTraceabilityAnalyzer.AnalyzeAsync(config, "specs/feature-a", client, TestContext.Current.CancellationToken);
 
         Assert.True(report.IsComplete);
         Assert.Equal(new[] { "42", "43" }, report.WorkItems.Select(item => item.Id));
@@ -38,7 +38,7 @@ public sealed class AzureDevOpsTraceabilityTests
     {
         var noMapping = Configuration(new Dictionary<string, IReadOnlyList<string>>());
         using var emptyClient = new AzureDevOpsClient(noMapping, new FixtureHandler(_ => Json(HttpStatusCode.OK, "{}")), "token");
-        var missing = await AzureDevOpsTraceabilityAnalyzer.AnalyzeAsync(noMapping, "specs/none", emptyClient);
+        var missing = await AzureDevOpsTraceabilityAnalyzer.AnalyzeAsync(noMapping, "specs/none", emptyClient, TestContext.Current.CancellationToken);
         Assert.False(missing.IsComplete);
         Assert.Contains(missing.Diagnostics, value => value.Contains("No Azure DevOps work items are mapped", StringComparison.Ordinal));
 
@@ -46,7 +46,7 @@ public sealed class AzureDevOpsTraceabilityTests
         var handler = new FixtureHandler(request => request.RequestUri!.AbsolutePath.EndsWith("/42", StringComparison.Ordinal)
             ? Json(HttpStatusCode.OK, WorkItemJson("42")) : new HttpResponseMessage(HttpStatusCode.Forbidden));
         using var client = new AzureDevOpsClient(mapped, handler, "token");
-        var partial = await AzureDevOpsTraceabilityAnalyzer.AnalyzeAsync(mapped, "specs/f", client);
+        var partial = await AzureDevOpsTraceabilityAnalyzer.AnalyzeAsync(mapped, "specs/f", client, TestContext.Current.CancellationToken);
         Assert.False(partial.IsComplete);
         Assert.Equal(new[] { "Observed", "Unavailable" }, partial.WorkItems.Select(item => item.Status));
         Assert.Contains(partial.Diagnostics, value => value.Contains("43", StringComparison.Ordinal));
@@ -59,8 +59,9 @@ public sealed class AzureDevOpsTraceabilityTests
         var handler = new FixtureHandler(_ => Json(HttpStatusCode.OK, WorkItemJson("42", includeUntrustedLink: true)));
         using var client = new AzureDevOpsClient(config, handler, "token");
 
-        await Assert.ThrowsAsync<ArgumentException>(() => AzureDevOpsTraceabilityAnalyzer.AnalyzeAsync(config, "../outside", client));
-        var report = await AzureDevOpsTraceabilityAnalyzer.AnalyzeAsync(config, "specs/f", client);
+        await Assert.ThrowsAsync<ArgumentException>(() => AzureDevOpsTraceabilityAnalyzer.AnalyzeAsync(
+            config, "../outside", client, TestContext.Current.CancellationToken));
+        var report = await AzureDevOpsTraceabilityAnalyzer.AnalyzeAsync(config, "specs/f", client, TestContext.Current.CancellationToken);
 
         Assert.DoesNotContain(report.DeliveryReferences, reference => reference.TargetUrl?.Contains("evil.example", StringComparison.Ordinal) == true);
         Assert.Contains(report.Diagnostics, value => value.Contains("validated clickable URL", StringComparison.Ordinal));
@@ -72,7 +73,7 @@ public sealed class AzureDevOpsTraceabilityTests
         var config = Configuration(new Dictionary<string, IReadOnlyList<string>> { ["specs/f"] = new[] { "42" } });
         var handler = new FixtureHandler(_ => Json(HttpStatusCode.OK, WorkItemJson("42", title: "Fix | billing <script>")));
         using var client = new AzureDevOpsClient(config, handler, "token");
-        var report = await AzureDevOpsTraceabilityAnalyzer.AnalyzeAsync(config, "specs/f", client);
+        var report = await AzureDevOpsTraceabilityAnalyzer.AnalyzeAsync(config, "specs/f", client, TestContext.Current.CancellationToken);
 
         var markdown = AzureDevOpsReportRenderer.RenderMarkdown(report);
         Assert.Equal(markdown, AzureDevOpsReportRenderer.RenderMarkdown(report));

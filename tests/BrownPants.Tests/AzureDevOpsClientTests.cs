@@ -28,7 +28,7 @@ public sealed class AzureDevOpsClientTests
             """));
         var client = CreateClient(handler, "private-token-value");
 
-        var item = await client.GetWorkItemAsync("42");
+        var item = await client.GetWorkItemAsync("42", TestContext.Current.CancellationToken);
 
         Assert.Equal("Update billing flow", item.Title);
         Assert.Equal("User Story", item.Type);
@@ -56,7 +56,7 @@ public sealed class AzureDevOpsClientTests
         });
         var client = CreateClient(handler, "private-token-value");
 
-        var exception = await Assert.ThrowsAsync<AzureDevOpsApiException>(() => client.GetWorkItemAsync("42"));
+        var exception = await Assert.ThrowsAsync<AzureDevOpsApiException>(() => client.GetWorkItemAsync("42", TestContext.Current.CancellationToken));
 
         Assert.Equal(expected, exception.Code);
         Assert.DoesNotContain("private-token-value", exception.ToString(), StringComparison.Ordinal);
@@ -69,7 +69,7 @@ public sealed class AzureDevOpsClientTests
         var handler = new RecordingHandler(_ => Json(HttpStatusCode.OK, "{}"));
         var client = CreateClient(handler, "token");
 
-        await Assert.ThrowsAsync<ArgumentException>(() => client.GetWorkItemAsync("../42"));
+        await Assert.ThrowsAsync<ArgumentException>(() => client.GetWorkItemAsync("../42", TestContext.Current.CancellationToken));
 
         Assert.Null(handler.Request);
     }
@@ -80,7 +80,7 @@ public sealed class AzureDevOpsClientTests
         var handler = new RecordingHandler(_ => Json(HttpStatusCode.OK, """{"id":42,"fields":{}}"""));
         var client = CreateClient(handler, "pat-secret", "pat");
 
-        await client.GetWorkItemAsync("42");
+        await client.GetWorkItemAsync("42", TestContext.Current.CancellationToken);
 
         Assert.Equal("Basic", handler.Request!.Headers.Authorization!.Scheme);
         Assert.NotEqual("pat-secret", handler.Request.Headers.Authorization.Parameter);
@@ -97,7 +97,7 @@ public sealed class AzureDevOpsClientTests
         });
         using var client = CreateClient(handler, "token");
 
-        var exception = await Assert.ThrowsAsync<AzureDevOpsApiException>(() => client.GetWorkItemAsync("42"));
+        var exception = await Assert.ThrowsAsync<AzureDevOpsApiException>(() => client.GetWorkItemAsync("42", TestContext.Current.CancellationToken));
 
         Assert.Equal("pagination", exception.Code);
         Assert.Contains("incomplete", exception.Message, StringComparison.Ordinal);

@@ -14,7 +14,7 @@ public sealed class AzureDevOpsPullRequestSubmissionTests
         var handler = new RecordingHandler();
         using var submitter = new AzureDevOpsPullRequestSubmitter(Configuration(), handler, "test-token");
 
-        var result = await submitter.CreateDraftAsync(SavedPreview());
+        var result = await submitter.CreateDraftAsync(SavedPreview(), TestContext.Current.CancellationToken);
 
         Assert.Equal(1, handler.Requests);
         Assert.Equal(HttpMethod.Post, handler.Method);
@@ -39,7 +39,8 @@ public sealed class AzureDevOpsPullRequestSubmissionTests
         var handler = new RecordingHandler();
         using var submitter = new AzureDevOpsPullRequestSubmitter(Configuration(), handler, "test-token");
 
-        await Assert.ThrowsAsync<InvalidDataException>(() => submitter.CreateDraftAsync(SavedPreview().Replace("Task evidence", "Edited evidence", StringComparison.Ordinal)));
+        await Assert.ThrowsAsync<InvalidDataException>(() => submitter.CreateDraftAsync(
+            SavedPreview().Replace("Task evidence", "Edited evidence", StringComparison.Ordinal), TestContext.Current.CancellationToken));
 
         Assert.Equal(0, handler.Requests);
     }
