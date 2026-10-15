@@ -6,7 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackageId>BrownPants.Cli</PackageId>
-    <Version>0.2.0</Version>
+    <Version>0.2.1</Version>
     <Authors>BrownPants contributors</Authors>
     <Description>Brownfield repository evidence for spec-driven development, with a Spec Kit workflow adapter.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>

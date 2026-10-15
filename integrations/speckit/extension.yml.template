@@ -3,7 +3,7 @@ schema_version: "1.0"
 extension:
   id: brownpants
   name: BrownPants
-  version: 0.2.0
+  version: 0.2.1
   description: Ground the Spec Kit lifecycle in deterministic repository evidence.
   author: BrownPants contributors
   repository: "__BROWNPANTS_REPOSITORY_URL__"

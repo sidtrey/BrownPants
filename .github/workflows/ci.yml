@@ -47,6 +47,10 @@ jobs:
         shell: pwsh
         run: ./tests/AcceptanceCriteriaHashTests.ps1
 
+      - name: Check acceptance integrity workflow contract
+        shell: pwsh
+        run: ./tests/AcceptanceCriteriaIntegrityWorkflowTests.ps1
+
       - name: Check acceptance criteria amendment policy
         if: github.event_name == 'pull_request'
         shell: pwsh
@@ -67,13 +71,10 @@ jobs:
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
           PUSH_BEFORE: ${{ github.event.before }}
           PUSH_HEAD: ${{ github.sha }}
+          REF_TYPE: ${{ github.ref_type }}
         run: |
-          if ($env:EVENT_NAME -eq 'pull_request') {
-            $changed = git diff --name-only "$($env:PR_BASE)...$($env:PR_HEAD)" -- specs
-          } elseif ($env:EVENT_NAME -eq 'push') {
-            if ($env:PUSH_BEFORE -match '^0+$') { $changed = git ls-tree -r --name-only $env:PUSH_HEAD -- specs }
-            else { $changed = git diff --name-only $env:PUSH_BEFORE $env:PUSH_HEAD -- specs }
-          } else { $changed = @() }
+          $changed = ./scripts/get-changed-spec-artifacts.ps1 -EventName $env:EVENT_NAME -RefType $env:REF_TYPE `
+            -Before $env:PUSH_BEFORE -Head $env:PUSH_HEAD -PullRequestBase $env:PR_BASE -PullRequestHead $env:PR_HEAD
           if ($LASTEXITCODE -ne 0) { throw 'Could not determine changed feature artifacts from Git history.' }
           $featureDirs = @($changed | Where-Object { $_ -match '^specs/[^/]+/(tasks\.md|acceptance-evidence\.json)$' } | ForEach-Object { $_ -replace '/(tasks\.md|acceptance-evidence\.json)$', '' } | Sort-Object -Unique)
           foreach ($featureDir in $featureDirs) {
@@ -169,7 +170,7 @@ jobs:
             </trustedSigners>
           </configuration>
           "@ | Set-Content -LiteralPath $smokeConfig -Encoding utf8
-          dotnet tool install --tool-path $toolPath --configfile $smokeConfig BrownPants.Cli --version 0.2.0
+          dotnet tool install --tool-path $toolPath --configfile $smokeConfig BrownPants.Cli --version 0.2.1
           if ($LASTEXITCODE -ne 0) { throw "Packed tool installation failed with exit code $LASTEXITCODE." }
           $toolName = if ($IsWindows) { 'brownpants.exe' } else { 'brownpants' }
           $tool = Join-Path $toolPath $toolName
