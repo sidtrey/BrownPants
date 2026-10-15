@@ -327,6 +327,8 @@ public sealed class RepositoryScannerTests : IDisposable
         Write("src/ContestTests.cs", "public sealed class ContestTests { }");
         Write("src/TestWidget.cs", "public sealed class TestWidget { }");
         Write("src/test_widget.py", "class TestWidget: pass");
+        Write("src/test.widget.js", "export const testWidget = true;");
+        Write("src/widget.test.ts", "export const testWidget = true;");
         Write("tests/RepositoryScannerTests.cs", "public sealed class RepositoryScannerTests { }");
 
         var inventory = RepositoryScanner.Scan(_root, sampleLimit: 2);
@@ -337,6 +339,8 @@ public sealed class RepositoryScannerTests : IDisposable
         Assert.Contains("src/ContestTests.cs", inventory.TestPaths);
         Assert.Contains("src/TestWidget.cs", inventory.TestPaths);
         Assert.Contains("src/test_widget.py", inventory.TestPaths);
+        Assert.Contains("src/test.widget.js", inventory.TestPaths);
+        Assert.Contains("src/widget.test.ts", inventory.TestPaths);
         Assert.Contains("tests/RepositoryScannerTests.cs", inventory.TestPaths);
     }
 

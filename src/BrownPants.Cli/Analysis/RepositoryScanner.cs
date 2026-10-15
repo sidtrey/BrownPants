@@ -143,7 +143,7 @@ public static class RepositoryScanner
         if (name.Length > 4 && name.StartsWith("Test", StringComparison.OrdinalIgnoreCase))
         {
             var next = name[4];
-            if (char.IsUpper(next) || next is '_' or '-' || char.IsDigit(next))
+            if (char.IsUpper(next) || next is '_' or '-' or '.' || char.IsDigit(next))
                 return true;
         }
 
@@ -158,7 +158,7 @@ public static class RepositoryScanner
         var suffixStart = name.Length - suffix.Length;
         return suffixStart > 0
             && (char.IsLower(name[suffixStart - 1]) && char.IsUpper(name[suffixStart])
-                || name[suffixStart - 1] is '_' or '-');
+                || name[suffixStart - 1] is '_' or '-' or '.');
     }
 
     private static bool Matches(string path, string pattern)

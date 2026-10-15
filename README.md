@@ -34,7 +34,7 @@ We ran the same controlled `ContestController.cs` test-path bug through vanilla 
 | Output tokens | 2,688 | 2,234 |
 | Full Release tests | 229 passed | 229 passed |
 
-These are provider-reported counts from Codex CLI JSONL, not estimates. This single pair does not establish token savings or general code-quality results. Human review caught a false positive in both proposed filename rules, which we fixed and tested before release. See the [full method and attempt record](docs/comparisons/brownpants-vs-vanilla-sdd-2026-10.md).
+These are provider-reported counts from Codex CLI JSONL, not estimates. The one successful pair used Codex CLI 0.162.1 with `gpt-6-luna` on Windows. It does not establish token savings or general code-quality results. Human review caught a false positive in both proposed filename rules, which we fixed and tested before release. See the [full task, commit, method, and attempt record](docs/comparisons/brownpants-vs-vanilla-sdd-2026-10.md).
 
 A SHA-256 acceptance hash is a fingerprint of the agreed pass/fail conditions. If the criteria change during a task, the fingerprint changes and asks a maintainer to review the change. It keeps the goalposts visible; it does not prove the implementation is correct.
 
