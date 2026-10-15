@@ -13,4 +13,4 @@ Acceptance baseline: `b9b558015da0fd4d104297b4a37c348548de6f44075373d61088d2f68a
 
 ## Limits
 
-The local run was on Windows. CI covers Windows, Linux, and macOS. On Windows, `TestResults` and `testresults` are the same case-insensitive path; the fixture accounts for that while verifying case-insensitive pruning.
+The local run was on Windows. CI covers Windows, Linux, and macOS. The fixture detects whether the filesystem is case-insensitive because Windows and common macOS volumes may treat `TestResults` and `testresults` as the same path; Linux case-sensitive filesystems keep them separate.

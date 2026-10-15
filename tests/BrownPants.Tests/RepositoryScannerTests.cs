@@ -92,6 +92,7 @@ public sealed class RepositoryScannerTests : IDisposable
         Write("tests/fixtures/result.json", "authored fixture");
         Write("src/App.cs", "class App { }");
         var before = Directory.GetFiles(_root, "*", SearchOption.AllDirectories).OrderBy(path => path, StringComparer.Ordinal).ToArray();
+        var resultsNameAliasesShareDirectory = File.Exists(Path.Combine(_root, "testresults", "run.trx"));
 
         var files = RepositoryScanner.DiscoverFiles(_root);
         var repeated = RepositoryScanner.DiscoverFiles(_root);
@@ -110,8 +111,8 @@ public sealed class RepositoryScannerTests : IDisposable
 
         var selectedResultsRoot = RepositoryScanner.DiscoverFiles(Path.Combine(_root, "TestResults"));
         Assert.Contains("run.trx", selectedResultsRoot);
-        if (OperatingSystem.IsWindows())
-            Assert.Contains("summary.json", selectedResultsRoot); // TestResults and testresults are the same Windows directory.
+        if (resultsNameAliasesShareDirectory)
+            Assert.Contains("summary.json", selectedResultsRoot); // Some Windows and macOS filesystems are case-insensitive.
         else
             Assert.Equal(new[] { "run.trx" }, selectedResultsRoot);
 
