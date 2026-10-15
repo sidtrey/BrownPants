@@ -125,6 +125,10 @@ jobs:
         shell: pwsh
         run: ./tests/CopilotPromptIntegrationTests.ps1
 
+      - name: Check Cursor command integration
+        shell: pwsh
+        run: ./tests/CursorCommandIntegrationTests.ps1
+
       - name: Check local agent skills integration
         shell: pwsh
         run: ./tests/AgentSkillIntegrationTests.ps1
