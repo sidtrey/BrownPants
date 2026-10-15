@@ -310,6 +310,8 @@ public static class MarkdownReport
         report.AppendLine();
         report.AppendLine($"- Candidate source signals: {analysis.SignalCount}");
         report.AppendLine("- These are source-local candidate signals, not resolved relationships; verify context in the cited source.");
+        if (!string.IsNullOrEmpty(analysis.EvidenceLimits))
+            report.AppendLine($"- Evidence limit: {Escape(analysis.EvidenceLimits)}");
         foreach (var signal in analysis.Signals)
             report.AppendLine($"- {signal.Category} [{signal.EvidenceKind}] ({signal.Language}): `{Escape(signal.Path)}:{signal.Line}` — `{Escape(signal.Evidence)}`");
         if (analysis.SignalCount == 0)

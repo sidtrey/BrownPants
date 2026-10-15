@@ -1,5 +1,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Xml;
+using System.Xml.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -118,6 +120,8 @@ public static class ArchitecturePatternAnalyzer
                     AnalyzeCSharp(source, relativePath, signals, sampleLimit, ref signalCount);
                 else if (Path.GetExtension(relativePath).Equals(".vb", StringComparison.OrdinalIgnoreCase))
                     AnalyzeVisualBasic(source, relativePath, signals, sampleLimit, ref signalCount);
+                else if (IsNhMetadataPath(relativePath))
+                    AnalyzeNhMetadata(source, relativePath, signals, sampleLimit, ref signalCount);
                 else if (IsJavaScriptOrTypeScriptSource(relativePath))
                     AnalyzeJavaScript(source, relativePath, signals, sampleLimit, ref signalCount);
                 else if (IsJvmSource(relativePath))
@@ -135,7 +139,11 @@ public static class ArchitecturePatternAnalyzer
             }
         }
 
-        return new ArchitecturePatternAnalysis(signalCount, signals);
+        var nhibernateObserved = signals.Any(signal => signal.Category.StartsWith("NHibernate ", StringComparison.Ordinal));
+        var limits = nhibernateObserved
+            ? "NHibernate candidates do not prove transitive package resolution, runtime configuration or mapping activation, session lifetime, or database behavior."
+            : string.Empty;
+        return new ArchitecturePatternAnalysis(signalCount, signals, limits);
     }
 
     private static void AnalyzeCSharp(string source, string path, List<ArchitecturePatternSignal> signals,
@@ -143,6 +151,27 @@ public static class ArchitecturePatternAnalyzer
     {
         var tree = CSharpSyntaxTree.ParseText(source, path: path);
         var root = tree.GetRoot();
+        var namespaces = root.DescendantNodes().OfType<UsingDirectiveSyntax>()
+            .Select(directive => directive.Name?.ToString() ?? string.Empty).ToArray();
+        var nhibernateContext = namespaces.Any(name => name.StartsWith("NHibernate", StringComparison.Ordinal)
+                || name.StartsWith("FluentNHibernate", StringComparison.Ordinal))
+            || root.DescendantNodes().OfType<NameSyntax>().Any(name => name.ToString().StartsWith("NHibernate.", StringComparison.Ordinal)
+                || name.ToString().StartsWith("FluentNHibernate.", StringComparison.Ordinal));
+        if (nhibernateContext)
+        {
+            foreach (var type in root.DescendantNodes().OfType<TypeSyntax>())
+            {
+                var simple = type.ToString().Split('.').Last().TrimEnd('?');
+                var category = simple switch
+                {
+                    "ISessionFactory" => "NHibernate session factory",
+                    "ISession" or "IStatelessSession" => "NHibernate session",
+                    "ITransaction" => "NHibernate transaction",
+                    _ => null
+                };
+                if (category is not null) AddNamedSignal(category, "C#", path, type, simple, signals, sampleLimit, ref signalCount);
+            }
+        }
         foreach (var type in root.DescendantNodes().OfType<BaseTypeDeclarationSyntax>())
         {
             var name = TypeIdentifier(type);
@@ -183,6 +212,23 @@ public static class ArchitecturePatternAnalyzer
                 _ => string.Empty
             };
             var receiver = memberAccess.Expression.ToString();
+            if (nhibernateContext)
+            {
+                var nhCategory = name switch
+                {
+                    "BuildSessionFactory" or "OpenSessionFactory" => "NHibernate session factory",
+                    "OpenSession" or "OpenStatelessSession" or "Get" or "Load" or "Save" or "SaveOrUpdate" or "Update" or "Delete" or "Flush" or "Clear" or "Close" => "NHibernate session",
+                    "CreateQuery" or "CreateSQLQuery" or "GetNamedQuery" or "Query" => "NHibernate query",
+                    "BeginTransaction" or "Commit" or "Rollback" => "NHibernate transaction",
+                    "AddFromAssembly" or "AddFromAssemblyOf" or "AddClass" or "AddFile" or "AddAssembly" => "NHibernate mapping",
+                    "Configure" or "SetProperty" or "SetProperties" => "NHibernate configuration",
+                    _ => null
+                };
+                if (nhCategory is not null)
+                    AddNamedSignal(nhCategory, "C#", path, invocation, name, signals, sampleLimit, ref signalCount);
+                else if (IsRegistrationName(name) && invocation.ToString().Contains("ISession", StringComparison.Ordinal))
+                    AddNamedSignal("NHibernate DI registration", "C#", path, invocation, name, signals, sampleLimit, ref signalCount);
+            }
             if (IsComActivationInvocation(name, receiver))
                 AddSignal("COM activation", "C#", path, invocation, source, signals, sampleLimit, ref signalCount);
             else if (IsComMarshallingInvocation(name, receiver))
@@ -209,6 +255,11 @@ public static class ArchitecturePatternAnalyzer
     {
         var tree = VisualBasicSyntaxTree.ParseText(source, path: path);
         var root = tree.GetRoot();
+        var nhibernateContext = root.DescendantNodes().OfType<Microsoft.CodeAnalysis.VisualBasic.Syntax.ImportsStatementSyntax>()
+            .Any(import => import.ToString().Contains("NHibernate", StringComparison.OrdinalIgnoreCase))
+            || root.DescendantNodes().Any(node => node.GetType().Name is "QualifiedNameSyntax" or "MemberAccessExpressionSyntax"
+                && (node.ToString().StartsWith("NHibernate.", StringComparison.OrdinalIgnoreCase)
+                    || node.ToString().StartsWith("FluentNHibernate.", StringComparison.OrdinalIgnoreCase)));
         foreach (var type in root.DescendantNodes().OfType<VisualBasicTypeStatement>())
         {
             if (type.Identifier.ValueText.Contains("Factory", StringComparison.OrdinalIgnoreCase))
@@ -248,6 +299,23 @@ public static class ArchitecturePatternAnalyzer
             };
             var receiver = invocation.Expression is Microsoft.CodeAnalysis.VisualBasic.Syntax.MemberAccessExpressionSyntax memberAccess
                 ? memberAccess.Expression.ToString() : string.Empty;
+            if (nhibernateContext)
+            {
+                var nhCategory = name switch
+                {
+                    "BuildSessionFactory" or "OpenSessionFactory" => "NHibernate session factory",
+                    "OpenSession" or "OpenStatelessSession" or "Get" or "Load" or "Save" or "SaveOrUpdate" or "Update" or "Delete" or "Flush" or "Clear" or "Close" => "NHibernate session",
+                    "CreateQuery" or "CreateSQLQuery" or "GetNamedQuery" or "Query" => "NHibernate query",
+                    "BeginTransaction" or "Commit" or "Rollback" => "NHibernate transaction",
+                    "AddFromAssembly" or "AddFromAssemblyOf" or "AddClass" or "AddFile" or "AddAssembly" => "NHibernate mapping",
+                    "Configure" or "SetProperty" or "SetProperties" => "NHibernate configuration",
+                    _ => null
+                };
+                if (nhCategory is not null)
+                    AddNamedSignal(nhCategory, "VB.NET", path, invocation, name, signals, sampleLimit, ref signalCount);
+                else if (IsRegistrationName(name) && invocation.ToString().Contains("ISession", StringComparison.OrdinalIgnoreCase))
+                    AddNamedSignal("NHibernate DI registration", "VB.NET", path, invocation, name, signals, sampleLimit, ref signalCount);
+            }
             if (IsOneOf(name, "CreateObject", "GetObject") || IsComActivationInvocation(name, receiver,
                     StringComparison.OrdinalIgnoreCase))
                 AddSignal("COM activation", "VB.NET", path, invocation, source, signals, sampleLimit, ref signalCount);
@@ -269,6 +337,84 @@ public static class ArchitecturePatternAnalyzer
                 AddSignal("Native interop", "VB.NET", path, attribute, source, signals, sampleLimit, ref signalCount);
         }
     }
+
+    private static bool IsNhMetadataPath(string path)
+    {
+        var fileName = Path.GetFileName(path);
+        return path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".vbproj", StringComparison.OrdinalIgnoreCase)
+            || fileName.Equals("packages.config", StringComparison.OrdinalIgnoreCase)
+            || fileName.Equals("hibernate.cfg.xml", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".hbm.xml", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".config", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".xml", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void AnalyzeNhMetadata(string source, string path, List<ArchitecturePatternSignal> signals,
+        int sampleLimit, ref int signalCount)
+    {
+        var fileName = Path.GetFileName(path);
+        if (fileName.Equals("hibernate.cfg.xml", StringComparison.OrdinalIgnoreCase))
+            AddLineSignal("NHibernate configuration", "XML", path, 1, "hibernate.cfg.xml configuration candidate",
+                signals, sampleLimit, ref signalCount);
+        if (path.EndsWith(".hbm.xml", StringComparison.OrdinalIgnoreCase))
+            AddLineSignal("NHibernate mapping", "XML", path, 1, "*.hbm.xml mapping candidate",
+                signals, sampleLimit, ref signalCount);
+
+        try
+        {
+            using var reader = XmlReader.Create(new StringReader(source), new XmlReaderSettings
+            {
+                DtdProcessing = DtdProcessing.Prohibit,
+                XmlResolver = null,
+                MaxCharactersInDocument = 4_000_000
+            });
+            var document = XDocument.Load(reader, LoadOptions.SetLineInfo);
+            var extension = Path.GetExtension(path);
+            var isPackageMetadata = extension.Equals(".csproj", StringComparison.OrdinalIgnoreCase)
+                || extension.Equals(".vbproj", StringComparison.OrdinalIgnoreCase)
+                || fileName.Equals("packages.config", StringComparison.OrdinalIgnoreCase);
+            if (isPackageMetadata)
+            {
+                foreach (var dependency in document.Descendants().Where(element => element.Name.LocalName is "PackageReference" or "Reference" or "package"))
+                {
+                    var id = (string?)dependency.Attribute("Include") ?? (string?)dependency.Attribute("id") ?? "";
+                    id = id.Split(',')[0].Trim();
+                    if (!IsNhPackageId(id)) continue;
+                    var line = (dependency as IXmlLineInfo)?.HasLineInfo() == true ? ((IXmlLineInfo)dependency).LineNumber : 0;
+                    AddLineSignal("NHibernate dependency", "project metadata", path, line, $"Direct package/reference: {id}",
+                        signals, sampleLimit, ref signalCount);
+                }
+            }
+
+            foreach (var element in document.Root?.DescendantsAndSelf() ?? Enumerable.Empty<XElement>())
+            {
+                var name = element.Name.LocalName;
+                if (name.Equals("hibernate-mapping", StringComparison.OrdinalIgnoreCase)
+                    && !path.EndsWith(".hbm.xml", StringComparison.OrdinalIgnoreCase))
+                {
+                    var line = (element as IXmlLineInfo)?.HasLineInfo() == true ? ((IXmlLineInfo)element).LineNumber : 0;
+                    AddLineSignal("NHibernate mapping", "XML", path, line, "hibernate-mapping root element",
+                        signals, sampleLimit, ref signalCount);
+                }
+                else if (name.Equals("hibernate-configuration", StringComparison.OrdinalIgnoreCase)
+                    && !fileName.Equals("hibernate.cfg.xml", StringComparison.OrdinalIgnoreCase))
+                {
+                    var line = (element as IXmlLineInfo)?.HasLineInfo() == true ? ((IXmlLineInfo)element).LineNumber : 0;
+                    AddLineSignal("NHibernate configuration", "XML", path, line, "hibernate-configuration root element",
+                        signals, sampleLimit, ref signalCount);
+                }
+            }
+        }
+        catch (XmlException)
+        {
+            // Malformed metadata is not evidence of NHibernate use. Source read failures are handled by the caller.
+        }
+    }
+
+    private static bool IsNhPackageId(string id) => id.Equals("NHibernate", StringComparison.OrdinalIgnoreCase)
+        || id.Equals("FluentNHibernate", StringComparison.OrdinalIgnoreCase)
+        || id.StartsWith("NHibernate.", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsRegistrationName(string name) => IsOneOf(name, "AddTransient", "AddScoped", "AddSingleton",
         "RegisterType", "RegisterInstance", "Register", "Bind");
@@ -1000,6 +1146,13 @@ public static class ArchitecturePatternAnalyzer
         var span = node.GetLocation().GetLineSpan().StartLinePosition;
         var line = source.Split('\n').ElementAtOrDefault(span.Line)?.Trim() ?? node.ToString();
         AddLineSignal(category, language, path, span.Line + 1, line, signals, sampleLimit, ref signalCount);
+    }
+
+    private static void AddNamedSignal(string category, string language, string path, SyntaxNode node, string evidence,
+        List<ArchitecturePatternSignal> signals, int sampleLimit, ref int signalCount)
+    {
+        var line = node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+        AddLineSignal(category, language, path, line, $"NHibernate API: {evidence}", signals, sampleLimit, ref signalCount);
     }
 
     private static void AddMethodSignal(string category, string language, string path, Location location,

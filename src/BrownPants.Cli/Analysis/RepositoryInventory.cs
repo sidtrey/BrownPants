@@ -105,7 +105,8 @@ public sealed record VisualBasicMemberInfo(string Path, int Line, string Contain
 public sealed record VisualBasicInvocationInfo(string Path, int Line, string Expression);
 public sealed record VisualBasicParseIssue(string Path, int Line, string Code, string Message);
 
-public sealed record ArchitecturePatternAnalysis(int SignalCount, IReadOnlyList<ArchitecturePatternSignal> Signals);
+public sealed record ArchitecturePatternAnalysis(int SignalCount, IReadOnlyList<ArchitecturePatternSignal> Signals,
+    string EvidenceLimits = "");
 public sealed record ArchitecturePatternSignal(string Category, string EvidenceKind, string Language, string Path, int Line, string Evidence);
 
 public sealed record NativeProjectInfo(
