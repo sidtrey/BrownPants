@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "diagnosis", "fixSummary", "changedPaths", "findings", "limitations", "testResult"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "diagnosis": { "type": "string", "minLength": 1 },
+    "fixSummary": { "type": "string", "minLength": 1 },
+    "changedPaths": { "type": "array", "items": { "type": "string" } },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["category", "relationshipKind", "path", "line", "callerSignature", "targetSignature", "signal", "status", "note"],
+        "properties": {
+          "category": { "enum": ["managed-call", "architecture-candidate", "test-identification"] },
+          "relationshipKind": { "enum": ["constructor", "method", "candidate", "test"] },
+          "path": { "type": "string", "minLength": 1 },
+          "line": { "type": "integer", "minimum": 1 },
+          "callerSignature": { "type": "string" },
+          "targetSignature": { "type": "string" },
+          "signal": { "type": "string" },
+          "status": { "enum": ["resolved", "candidate", "unresolved"] },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "limitations": { "type": "array", "items": { "type": "string" } },
+    "testResult": { "type": "string", "minLength": 1 }
+  }
+}

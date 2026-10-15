@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "title": "Constructor impact comparison",
+  "date": "2026-10",
+  "model": "gpt-6.1-sol",
+  "codexVersion": "codex-cli 0.162.1",
+  "taskAcceptanceSha256": "fd4c38d489135db00ce0655a56fd8774516b1dfc0a8c0dbbc9579960e4e9a8a5",
+  "sampleSizePairs": 1,
+  "conditions": {
+    "baseline": {
+      "fixCorrect": true,
+      "postcheckPassed": true,
+      "changedPaths": ["managed/Workflows/OrderImportWorkflow.cs"],
+      "actionableFindings": {"expected": 10, "truePositives": 8, "falsePositives": 9, "falseNegatives": 2, "recall": 0.8, "precision": 0.4706},
+      "byCategory": {
+        "managed-call": {"expected": 7, "truePositives": 7, "falsePositives": 9, "recall": 1.0, "precision": 0.4375},
+        "architecture-candidate": {"expected": 2, "truePositives": 0, "falsePositives": 0, "recall": 0.0, "precision": 0.0},
+        "test-identification": {"expected": 1, "truePositives": 1, "falsePositives": 0, "recall": 1.0, "precision": 1.0}
+      },
+      "tokens": {"input": 417949, "cachedInput": 384256, "output": 5880, "reasoningOutput": 1367},
+      "durationSeconds": 199.82
+    },
+    "assisted": {
+      "fixCorrect": true,
+      "postcheckPassed": true,
+      "changedPaths": ["managed/Workflows/OrderImportWorkflow.cs"],
+      "actionableFindings": {"expected": 10, "truePositives": 10, "falsePositives": 9, "falseNegatives": 0, "recall": 1.0, "precision": 0.5263},
+      "byCategory": {
+        "managed-call": {"expected": 7, "truePositives": 7, "falsePositives": 6, "recall": 1.0, "precision": 0.5385},
+        "architecture-candidate": {"expected": 2, "truePositives": 2, "falsePositives": 3, "recall": 1.0, "precision": 0.4},
+        "test-identification": {"expected": 1, "truePositives": 1, "falsePositives": 0, "recall": 1.0, "precision": 1.0}
+      },
+      "tokens": {"input": 182177, "cachedInput": 149120, "output": 4188, "reasoningOutput": 369},
+      "durationSeconds": 112.15
+    }
+  },
+  "advantageRule": {"minimumRecallGainPercentagePoints": 20, "precisionMustNotDecrease": true, "bothFixesMustPass": true},
+  "result": {"recallGainPercentagePoints": 20, "precisionChangePercentagePoints": 5.57, "thresholdMet": true, "gainSource": "The two DI architecture candidates were found only in the assisted run.", "fixQualityDifference": "Both runs made the same correct one-file fix and passed the same independent check."},
+  "limitations": [
+    "One paired run is only a demonstration; it does not establish a general advantage.",
+    "The assisted run did not improve managed-call or test-identification recall; both were already complete in baseline.",
+    "The assisted run added three architecture-candidate false positives.",
+    "Static DI evidence does not prove runtime container activation.",
+    "Baseline ran first; order and cache effects may influence duration and token counts.",
+    "Paths and equivalent constructor signatures were normalized as described in the protocol."
+  ],
+  "excludedHarnessIncident": "An initial result schema failed Codex strict JSON validation before any agent work. The schema was corrected and the same corrected schema was used for both measured runs."
+}

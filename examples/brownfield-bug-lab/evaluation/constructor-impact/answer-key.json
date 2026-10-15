@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "advantageRule": {
+    "minimumRecallGainPercentagePoints": 20,
+    "precisionMustNotDecrease": true,
+    "actionableCategories": ["managed-call", "architecture-candidate", "test-identification"]
+  },
+  "expectedCode": {
+    "path": "managed/Workflows/OrderImportWorkflow.cs",
+    "requiredText": "=> _repository = repository;",
+    "forbiddenText": "=> _repository = new OrderRepository<T>();",
+    "allowedChangedPaths": ["managed/Workflows/OrderImportWorkflow.cs"]
+  },
+  "expectedFindings": [
+    {
+      "category": "managed-call",
+      "relationshipKind": "constructor",
+      "path": "Workflows/OrderImportWorkflow.cs",
+      "line": 23,
+      "callerSignature": "global::LegacyOrderDesk.Workflows.OrderBatchFactory.Create(global::LegacyOrderDesk.Persistence.OrderRepository<global::LegacyOrderDesk.Domain.Order>)",
+      "targetSignature": "global::LegacyOrderDesk.Workflows.OrderImportWorkflow<global::LegacyOrderDesk.Domain.Order>..ctor(global::LegacyOrderDesk.Persistence.OrderRepository<global::LegacyOrderDesk.Domain.Order>)",
+      "status": "resolved"
+    },
+    {
+      "category": "managed-call",
+      "relationshipKind": "constructor",
+      "path": "tests/Program.cs",
+      "line": 10,
+      "callerSignature": "global::Program.Main()",
+      "targetSignature": "global::LegacyOrderDesk.Workflows.OrderImportWorkflow<global::LegacyOrderDesk.Domain.Order>..ctor(global::LegacyOrderDesk.Persistence.OrderRepository<global::LegacyOrderDesk.Domain.Order>)",
+      "status": "resolved"
+    },
+    {
+      "category": "managed-call",
+      "relationshipKind": "constructor",
+      "path": "tests/Program.cs",
+      "line": 21,
+      "callerSignature": "global::Program.Main()",
+      "targetSignature": "global::LegacyOrderDesk.Workflows.OrderImportWorkflow<global::LegacyOrderDesk.Domain.Order>..ctor(global::LegacyOrderDesk.Persistence.OrderRepository<global::LegacyOrderDesk.Domain.Order>)",
+      "status": "resolved"
+    },
+    {
+      "category": "managed-call",
+      "relationshipKind": "method",
+      "path": "Workflows/OrderImportWorkflow.cs",
+      "line": 26,
+      "callerSignature": "global::LegacyOrderDesk.Workflows.OrderBatchFactory.Register(global::LegacyOrderDesk.Workflows.WorkScope)",
+      "targetSignature": "global::LegacyOrderDesk.Workflows.WorkScope.AddTransient<global::LegacyOrderDesk.Workflows.OrderImportWorkflow<global::LegacyOrderDesk.Domain.Order>>(global::System.Func<global::LegacyOrderDesk.Workflows.WorkScope, global::LegacyOrderDesk.Workflows.OrderImportWorkflow<global::LegacyOrderDesk.Domain.Order>>)",
+      "status": "resolved"
+    },
+    {
+      "category": "managed-call",
+      "relationshipKind": "method",
+      "path": "tests/Program.cs",
+      "line": 11,
+      "callerSignature": "global::Program.Main()",
+      "targetSignature": "global::LegacyOrderDesk.Workflows.OrderImportWorkflow<global::LegacyOrderDesk.Domain.Order>.ImportOne(global::LegacyOrderDesk.Domain.Order)",
+      "status": "resolved"
+    },
+    {
+      "category": "managed-call",
+      "relationshipKind": "method",
+      "path": "tests/Program.cs",
+      "line": 16,
+      "callerSignature": "global::Program.Main()",
+      "targetSignature": "global::LegacyOrderDesk.Workflows.OrderImportWorkflow<global::LegacyOrderDesk.Domain.Order>.ImportBatch(global::System.Collections.Generic.IEnumerable<global::LegacyOrderDesk.Domain.Order>)",
+      "status": "resolved"
+    },
+    {
+      "category": "managed-call",
+      "relationshipKind": "method",
+      "path": "tests/Program.cs",
+      "line": 23,
+      "callerSignature": "global::Program.Main()",
+      "targetSignature": "global::LegacyOrderDesk.Workflows.OrderImportWorkflow<global::LegacyOrderDesk.Domain.Order>.ImportMapped<global::LegacyOrderDesk.Domain.ImportedRow>(global::System.Collections.Generic.IEnumerable<global::LegacyOrderDesk.Domain.ImportedRow>, global::System.Func<global::LegacyOrderDesk.Domain.ImportedRow, global::LegacyOrderDesk.Domain.Order>)",
+      "status": "resolved"
+    },
+    {
+      "category": "architecture-candidate",
+      "relationshipKind": "candidate",
+      "path": "Workflows/OrderImportWorkflow.cs",
+      "line": 26,
+      "signal": "DI registration",
+      "status": "candidate"
+    },
+    {
+      "category": "architecture-candidate",
+      "relationshipKind": "candidate",
+      "path": "Workflows/OrderImportWorkflow.cs",
+      "line": 27,
+      "signal": "DI resolution",
+      "status": "candidate"
+    },
+    {
+      "category": "test-identification",
+      "relationshipKind": "test",
+      "path": "tests/Program.cs",
+      "line": 13,
+      "status": "candidate"
+    }
+  ],
+  "decoys": [
+    {
+      "category": "managed-call",
+      "path": "Workflows/OrderImportWorkflow.cs",
+      "line": 36,
+      "targetContains": "AuditJournal.Save"
+    }
+  ]
+}
