@@ -149,7 +149,7 @@ public sealed record SemanticCompilerDiagnostic(string Project, string? Path, in
 public sealed record CSharpSemanticDeclaration(string Project, string Path, int Line, string Symbol);
 
 public sealed record CSharpResolvedCall(string Project, string Path, int Line, string Expression, string Caller, string Target,
-    string? TargetPath = null, int? TargetLine = null, string RelationshipKind = "method");
+    string? TargetPath = null, int? TargetLine = null, string RelationshipKind = "method", string? TargetIdentity = null);
 
 public sealed record CSharpUnresolvedCall(
     string Project,

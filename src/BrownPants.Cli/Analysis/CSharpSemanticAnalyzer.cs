@@ -188,7 +188,8 @@ public static class CSharpSemanticAnalyzer
                             EnclosingMethod(semanticModel.GetEnclosingSymbol(invocationNode.SpanStart)),
                             ResolvedTarget(method),
                             sourceLocation.Location is not null ? sourceLocation.Path : null,
-                            sourceLocation.Location?.GetLineSpan().StartLinePosition.Line + 1), sampleLimit);
+                            sourceLocation.Location?.GetLineSpan().StartLinePosition.Line + 1, "method",
+                            ResolvedTarget(method.OriginalDefinition)), sampleLimit);
                     }
                     else
                     {
@@ -229,7 +230,8 @@ public static class CSharpSemanticAnalyzer
                             Normalize(expression),
                             EnclosingMethod(semanticModel.GetEnclosingSymbol(constructionNode.SpanStart)),
                             ResolvedTarget(method), sourceLocation.Location is not null ? sourceLocation.Path : null,
-                            sourceLocation.Location?.GetLineSpan().StartLinePosition.Line + 1, "constructor"), sampleLimit);
+                            sourceLocation.Location?.GetLineSpan().StartLinePosition.Line + 1, "constructor",
+                            ResolvedTarget(method.OriginalDefinition)), sampleLimit);
                     }
                     else
                     {

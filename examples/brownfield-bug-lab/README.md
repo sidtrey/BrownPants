@@ -32,6 +32,17 @@ The handoff is task-neutral, so agents should use the bug report to select relev
 
 The impact report connects `ImportBatch<T>` to the `Save(IEnumerable<T>)` overload and shows how `ImportMapped<TSource>` forwards through `SaveMapped<TSource>`. Inventory also locates factory/DI wiring, MFC message-map and runtime-type markers, a C++/CLI bridge, and NHibernate dependency/session/configuration/mapping evidence. Those native and ORM findings are candidates; this fixture does not prove runtime relationships or database behavior.
 
+### Trace a generic factory constructor
+
+To see constructor-aware impact in the same fixture, inspect the workflow file's explicit constructors and callers:
+
+```powershell
+dotnet run --project src/BrownPants.Cli -- impact examples/brownfield-bug-lab/managed `
+  --changed Workflows/OrderImportWorkflow.cs --format markdown --limit 1000
+```
+
+The report resolves the target-typed factory expression `new(repository)` to the closed generic constructor `OrderImportWorkflow<Order>..ctor(OrderRepository<Order>)`, while matching it to the open generic declaration. The observed graph has four direct callers and one transitive caller across two projects; one caller is in the test candidate path. The DI registration is visible in the path, but static source analysis does not prove runtime container activation.
+
 ## Reproduce the seeded bug comparison
 
 `evaluation/` contains the frozen task, seed script, answer key, prompt, and evaluator. `Prepare-Comparison.ps1` creates matched copies in a new output directory, injects the same bug into both, captures the expected failing check, and writes BrownPants reports only into the assisted copy. It invokes this repository's CLI project so an older globally installed command cannot change the evidence.

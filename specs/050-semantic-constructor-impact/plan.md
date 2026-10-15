@@ -38,12 +38,12 @@ Add `RelationshipKind` to resolved and unresolved edge records with stable value
 ### Supported syntax
 
 - C#: explicit `new T(...)`, target-typed `new(...)`, and `this(...)`/`base(...)` constructor initializers.
-- Visual Basic: `New T(...)` object creation and `Me.New`/`MyBase.New` constructor initializers where Roslyn binds an `IMethodSymbol` with `MethodKind.Constructor`.
+- Visual Basic: `New T(...)` object creation where Roslyn binds an `IMethodSymbol` with `MethodKind.Constructor`.
 - Ignore array creation, delegate construction, and implicit runtime/container activation unless Roslyn reports an explicit constructor edge covered above.
 
 ### Impact and output
 
-The impact graph matches constructor targets to constructor declarations using the same fully qualified symbol identity as method edges. Add a relationship-kind field to impact JSON and readable labels to Markdown. Keep existing method invocation totals unchanged; show separate constructor totals, unresolved counts, and sample omissions. Ensure `evidence` distinguishes resolved constructors in its finding signal and counts constructor completeness.
+The impact graph matches compiler-bound targets to declarations using canonical original-definition identity. This lets a call through `OrderImportWorkflow<Order>` match its open generic declaration `OrderImportWorkflow<T>` while retaining the constructed signature in the edge. Add a relationship-kind field to impact JSON and readable labels to Markdown. Keep existing method invocation totals unchanged; show separate constructor totals, unresolved counts, and sample omissions. Ensure `evidence` distinguishes resolved constructors in its finding signal and counts constructor completeness.
 
 ## Risks and Mitigations
 

@@ -33,9 +33,9 @@ public sealed class CallImpactAnalyzerTests
     {
         var trees = new[]
         {
-            CSharpSyntaxTree.ParseText("namespace Demo; public class Core { public Core(int value) { } }", path: "src/Core.cs", cancellationToken: TestContext.Current.CancellationToken),
-            CSharpSyntaxTree.ParseText("namespace Demo; public class Factory { public Core Create() => new Core(1); }", path: "src/Factory.cs", cancellationToken: TestContext.Current.CancellationToken),
-            CSharpSyntaxTree.ParseText("namespace Demo; public class CoreTests { public Core Create(Factory factory) => factory.Create(); }", path: "tests/CoreTests.cs", cancellationToken: TestContext.Current.CancellationToken)
+            CSharpSyntaxTree.ParseText("namespace Demo; public class Core<T> { public Core(int value) { } }", path: "src/Core.cs", cancellationToken: TestContext.Current.CancellationToken),
+            CSharpSyntaxTree.ParseText("namespace Demo; public class Factory { public Core<int> Create() => new Core<int>(1); }", path: "src/Factory.cs", cancellationToken: TestContext.Current.CancellationToken),
+            CSharpSyntaxTree.ParseText("namespace Demo; public class CoreTests { public Core<int> Create(Factory factory) => factory.Create(); }", path: "tests/CoreTests.cs", cancellationToken: TestContext.Current.CancellationToken)
         };
         var compilation = CSharpCompilation.Create("ConstructorImpactFixture", trees,
             new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },

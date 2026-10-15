@@ -113,7 +113,7 @@ public static class CallImpactAnalyzer
                 {
                     var target = queue.Dequeue();
                     var depth = visited[target];
-                    foreach (var call in calls.Where(item => string.Equals(item.Target, target, StringComparison.Ordinal))
+                    foreach (var call in calls.Where(item => string.Equals(item.TargetIdentity ?? item.Target, target, StringComparison.Ordinal))
                         .OrderBy(item => item.Path, StringComparer.Ordinal).ThenBy(item => item.Line).ThenBy(item => item.Caller, StringComparer.Ordinal))
                     {
                         var callerDepth = depth + 1;
