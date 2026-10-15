@@ -137,11 +137,54 @@ jobs:
         run: |
           $toolPath = Join-Path $env:RUNNER_TEMP 'brownpants-tools'
           New-Item -ItemType Directory -Path $toolPath -Force | Out-Null
-          dotnet tool install --tool-path $toolPath --add-source ./artifacts BrownPants.Cli --version 0.1.0
+          $artifactPath = [System.Security.SecurityElement]::Escape((Resolve-Path ./artifacts).Path)
+          $smokeConfig = Join-Path $env:RUNNER_TEMP 'brownpants-smoke-nuget.config'
+          @"
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <packageSources>
+              <clear />
+              <add key="nuget.org" value="https://api.nuget.org/v3/index.json" protocolVersion="3" />
+              <add key="local-artifacts" value="$artifactPath" />
+            </packageSources>
+            <packageSourceMapping>
+              <packageSource key="nuget.org"><package pattern="*" /></packageSource>
+              <packageSource key="local-artifacts"><package pattern="BrownPants.Cli" /></packageSource>
+            </packageSourceMapping>
+            <signatureValidationMode>require</signatureValidationMode>
+            <trustedSigners>
+              <repository name="nuget.org" serviceIndex="https://api.nuget.org/v3/index.json">
+                <certificate fingerprint="1F4B311D9ACC115C8DC8018B5A49E00FCE6DA8E2855F9F014CA6F34570BC482D" hashAlgorithm="SHA256" allowUntrustedRoot="false" />
+                <certificate fingerprint="5A2901D6ADA3D18260B9C6DFE2133C95D74B9EEF6AE0E5DC334C8454D1477DF4" hashAlgorithm="SHA256" allowUntrustedRoot="false" />
+                <certificate fingerprint="0E5F38F57DC1BCC806D8494F4F90FBCEDD988B46760709CBEEC6F4219AA6157D" hashAlgorithm="SHA256" allowUntrustedRoot="false" />
+              </repository>
+            </trustedSigners>
+          </configuration>
+          "@ | Set-Content -LiteralPath $smokeConfig -Encoding utf8
+          dotnet tool install --tool-path $toolPath --configfile $smokeConfig BrownPants.Cli --version 0.1.0
+          if ($LASTEXITCODE -ne 0) { throw "Packed tool installation failed with exit code $LASTEXITCODE." }
           $toolName = if ($IsWindows) { 'brownpants.exe' } else { 'brownpants' }
           $tool = Join-Path $toolPath $toolName
           & $tool --help
           if ($LASTEXITCODE -ne 0) { throw "Packed tool help failed with exit code $LASTEXITCODE." }
+          New-Item -ItemType Directory -Path ./TestResults -Force | Out-Null
+          @'
+          ```brownpants-flow
+          flowchart ci
+          node start start "Start"
+          node finish end "Done"
+          edge start -> finish
+          ```
+          '@ | Set-Content -LiteralPath ./TestResults/packed-smoke-flow.md -Encoding utf8
+          & $tool diagram . TestResults/packed-smoke-flow.md --output TestResults/packed-smoke.png
+          if ($LASTEXITCODE -ne 0) { throw "Packed tool PNG rendering failed with exit code $LASTEXITCODE." }
+          $pngBytes = [System.IO.File]::ReadAllBytes((Join-Path (Get-Location) 'TestResults/packed-smoke.png'))
+          if ($pngBytes.Length -lt 8 -or (($pngBytes[0..7] -join ',') -ne '137,80,78,71,13,10,26,10')) { throw 'Packed tool did not produce a PNG signature.' }
+          & $tool diagram . TestResults/packed-smoke-flow.md --output TestResults/packed-smoke.drawio --format drawio
+          if ($LASTEXITCODE -ne 0) { throw "Packed tool draw.io rendering failed with exit code $LASTEXITCODE." }
+          $diagramXml = [xml][System.IO.File]::ReadAllText((Join-Path (Get-Location) 'TestResults/packed-smoke.drawio'))
+          if ($diagramXml.SelectNodes('//mxCell[@vertex="1"]').Count -ne 2 -or $diagramXml.SelectNodes('//mxCell[@edge="1"]').Count -ne 1) { throw 'Packed tool draw.io output does not contain the expected nodes and edge.' }
+          if ($diagramXml.SelectNodes('//script | //*[@href] | //*[@src]').Count -ne 0) { throw 'Packed tool draw.io output contains external or executable content.' }
           $report = & $tool inspect . --format json --limit 10 | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0) { throw "Packed tool inspection failed with exit code $LASTEXITCODE." }
           if ($report.SchemaVersion -ne 1) { throw "Expected schema version 1, got '$($report.SchemaVersion)' instead." }

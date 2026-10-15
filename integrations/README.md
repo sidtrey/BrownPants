@@ -11,3 +11,7 @@ BrownPants keeps repository scanning and the JSON/Markdown evidence contract ind
 - [`azure-devops/`](azure-devops/README.md): Opt-in Azure DevOps Services traceability with system-browser Entra sign-in, plus explicit headless token support and a separate draft PR handoff.
 
 Adapters must state their invocation model, tool prerequisites, supported workflows, and evidence limits. Do not describe a manual skill as an automatic hook or claim analysis that the core report does not provide.
+
+## Local diagrams
+
+The core `brownpants diagram` command renders the project's own `brownpants-flow` format to PNG or native `.drawio` XML. It is not an SDD-engine adapter and does not parse Mermaid. Rendering stays in the process, reads and writes only repository-relative paths, and does not contact a service or invoke another renderer. See the [flowchart guide](../specs/032-local-text-flowcharts/quickstart.md) for syntax, limits, and commands.

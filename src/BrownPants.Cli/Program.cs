@@ -46,6 +46,9 @@ public static class Program
         if (string.Equals(args[0], "devops", StringComparison.OrdinalIgnoreCase))
             return RunDevOps(args.Skip(1).ToArray(), output, error);
 
+        if (string.Equals(args[0], "diagram", StringComparison.OrdinalIgnoreCase))
+            return LocalFlowchartCommand.Run(args.Skip(1).ToArray(), output, error);
+
         if (!string.Equals(args[0], "inspect", StringComparison.OrdinalIgnoreCase))
         {
             error.WriteLine($"Unknown command '{args[0]}'. Use --help for usage.");
@@ -444,6 +447,8 @@ public static class Program
             output.WriteLine("  --format             Report as markdown (default) or json.");
             return 0;
         }
+        if (command.Equals("diagram", StringComparison.OrdinalIgnoreCase))
+            return LocalFlowchartCommand.WriteHelp(output);
         if (command.Equals("frame", StringComparison.OrdinalIgnoreCase))
         {
             if (frameOperation.Equals("create", StringComparison.OrdinalIgnoreCase))
@@ -483,6 +488,7 @@ public static class Program
         output.WriteLine("  frame         Create or validate a context frame.");
         output.WriteLine("  placement     Classify whether guidance belongs in a constitution or a spec.");
         output.WriteLine("  devops        Trace Azure DevOps work items and delivery references.");
+        output.WriteLine("  diagram       Render a local BrownPants flow block as PNG or diagrams.net XML.");
         output.WriteLine("Usage: brownpants inspect [path] [--format markdown|json] [--limit 1..10000] [--semantic]");
         output.WriteLine("       brownpants investigate [path] --clue <text> [--clue <text> ...] [--format markdown|json] [--limit 1..10000]");
         output.WriteLine("       brownpants impact <repository> --changed <relative-source-path> [--changed <relative-source-path> ...] [--format markdown|json] [--limit 1..10000]");
@@ -491,6 +497,7 @@ public static class Program
         output.WriteLine("       brownpants frame validate <repository> <frame.md>");
         output.WriteLine("       brownpants placement --rule <text> [--scope repository|feature|unknown] [--durability enduring|feature|unknown] [--purpose principle|outcome|agent-workflow|mixed|unknown] [--format markdown|json]");
         output.WriteLine("       brownpants devops trace <repository> --feature <relative-feature-path> --online [--format markdown|json]");
+        output.WriteLine("       brownpants diagram <repository> <relative-markdown-path> --output <relative-path> [--format png|drawio] [--overwrite]");
         output.WriteLine("Run 'brownpants <command> --help' for command options. Use -h as an alias.");
         output.WriteLine("Use 'brownpants inspect --help' to understand syntax-only inventory and semantic target resolution.");
     }

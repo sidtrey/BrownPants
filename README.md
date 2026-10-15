@@ -45,6 +45,28 @@ Pass `--semantic` to opt in to MSBuildWorkspace project loading. When the requir
 
 `impact` accepts one or more changed C# or Visual Basic source paths and follows resolved method calls backward to direct and transitive callers. It summarizes affected files, projects, test-path candidates, and observed caller depth in deterministic Markdown or JSON. For machine-readable output, add `--format json`; use `--limit` (1–10000) to bound graph samples and findings. Partial project loads, unresolved calls, unsupported or unmapped paths, and truncation are shown as completeness limitations. Candidate test paths do not prove coverage, and graph size is not an effort estimate. The command explicitly loads projects through MSBuildWorkspace, which may evaluate project imports and design-time targets. See the [impact report contract](specs/023-call-impact-report/contracts/impact-report.md).
 
+`diagram` renders a repository-local `brownpants-flow` Markdown block as a deterministic PNG, or as editable native diagrams.net XML with `--format drawio`. It uses a BrownPants-owned grammar rather than Mermaid, packages no graphics engine, and makes no network requests. Both source and output paths must stay inside the selected repository; output is preserved unless `--overwrite` is explicit. For example:
+
+````markdown
+```brownpants-flow
+flowchart approval
+node start start "Start request"
+node review decision "Approved?"
+node grant process "Grant access"
+node reject end "Show rejection"
+edge start -> review
+edge review -> grant label "yes"
+edge review -> reject label "no"
+```
+````
+
+```powershell
+dotnet run --project src/BrownPants.Cli -- diagram . docs/approval.md --output docs/approval.png
+dotnet run --project src/BrownPants.Cli -- diagram . docs/approval.md --output docs/approval.drawio --format drawio
+```
+
+The format supports `start`, `process`, `decision`, and `end` nodes, directed edges, and optional edge labels. Input is limited to 1 MiB, 200 nodes, 500 edges, and images up to 4096 pixels per side and 16 million pixels total. Labels must use printable ASCII. See `brownpants diagram --help` and the [flowchart contract](specs/032-local-text-flowcharts/contracts/local-flowchart.md).
+
 Native coverage includes `.vcxproj` and legacy `.vcproj` markers, MFC/CLR project settings, and source-located signals for MFC class inheritance from common framework types, runtime macros, object factories, message maps, COM activation and marshalling, COM interface metadata, C++/CLI, C#/VB interop attributes, factory types and calls, `Func<T>` factory delegates, constructor-injected interface/factory parameters, and DI APIs such as `AddTransient`, `RegisterType`, `RegisterInstance`, `Bind`, `GetRequiredService`, `GetInstance`, and container-scoped `Resolve`/`Get<T>`. Context checks on generic `Get`, `GetObject`, and `Resolve` names reduce matches from unrelated object APIs. Pattern findings carry `EvidenceKind: Candidate` in JSON and are labeled in Markdown; they are not proof of runtime relationships. C# and VB.NET patterns are syntax-based. Native C++ matches are lexical candidates, not a full C++ parse. Inspect both sides of managed/native boundaries and the cited build configuration.
 
 ## Workflow integrations
