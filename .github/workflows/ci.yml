@@ -170,7 +170,7 @@ jobs:
             </trustedSigners>
           </configuration>
           "@ | Set-Content -LiteralPath $smokeConfig -Encoding utf8
-          dotnet tool install --tool-path $toolPath --configfile $smokeConfig BrownPants.Cli --version 0.2.1
+          dotnet tool install --tool-path $toolPath --configfile $smokeConfig BrownPants.Cli --version 0.3.0
           if ($LASTEXITCODE -ne 0) { throw "Packed tool installation failed with exit code $LASTEXITCODE." }
           $toolName = if ($IsWindows) { 'brownpants.exe' } else { 'brownpants' }
           $tool = Join-Path $toolPath $toolName

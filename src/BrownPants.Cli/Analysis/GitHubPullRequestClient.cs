@@ -34,7 +34,7 @@ public sealed class GitHubPullRequestClient : IDisposable
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         _http.DefaultRequestHeaders.Add("X-GitHub-Api-Version", ApiVersion);
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("BrownPants/0.2.1");
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd("BrownPants/0.3.0");
     }
 
     public async Task<GitHubPullRequestResult> CreateDraftAsync(
