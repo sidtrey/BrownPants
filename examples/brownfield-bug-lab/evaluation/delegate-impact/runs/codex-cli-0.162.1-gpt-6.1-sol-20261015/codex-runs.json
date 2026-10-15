@@ -1,0 +1,216 @@
+{
+  "schemaVersion": 1,
+  "codexVersion": "codex-cli 0.162.1",
+  "model": "gpt-6.1-sol",
+  "sandbox": "workspace-write",
+  "conditionOrder": [
+    "baseline/assisted",
+    "assisted/baseline",
+    "baseline/assisted"
+  ],
+  "taskSpecDigest": "3d5469a244e1a08c602e01b140af98da5c89d165b83e89b201a00493565032f3",
+  "answerKeyDigest": "eb212b96228435f94b0d9d4396964d5eb8a6b0c48ebf79d65e3560d5ab0a9fc0",
+  "promptDigest": "82e0ffd7231e3cda6650a1d3d147e7a99b1b55add98aab0730a119600bd24c09",
+  "schemaDigest": "8c5d66e486a12337b0b01fb5e9ed29b8ba340955d6de92d1ca668407c817c912",
+  "preparation": {
+    "schemaVersion": 1,
+    "taskSpecDigest": "3d5469a244e1a08c602e01b140af98da5c89d165b83e89b201a00493565032f3",
+    "answerKeyDigest": "eb212b96228435f94b0d9d4396964d5eb8a6b0c48ebf79d65e3560d5ab0a9fc0",
+    "promptDigest": "82e0ffd7231e3cda6650a1d3d147e7a99b1b55add98aab0730a119600bd24c09",
+    "schemaDigest": "8c5d66e486a12337b0b01fb5e9ed29b8ba340955d6de92d1ca668407c817c912",
+    "sourceFiles": [
+      {
+        "path": "DelegateImpact.Fixture.csproj",
+        "sha256": "a5627c860db69c76e8b522741c475d85f82257bbe64a25fa21eb3919599c949f"
+      },
+      {
+        "path": "packages.lock.json",
+        "sha256": "a4364d81a6de2707d66fbced18fbbc926c882ab96e1d1aebbb17e871285b9d75"
+      },
+      {
+        "path": "src/ImportWorkflow.cs",
+        "sha256": "6b5ba5bea925165e43c500eb5ff9fedf95fa8090dc34b9cd8624aad7ed7bfbe0"
+      },
+      {
+        "path": "src/WorkRepository.cs",
+        "sha256": "60bc68c61e3e22853a9172b1a08852ec360e1d14a540f4d3baffa638b0811f3e"
+      },
+      {
+        "path": "tests/Program.cs",
+        "sha256": "e824b36f1360b6b029a3ca29e9daab479e88330e03b0fc46901cd30cd48ec9b0"
+      }
+    ],
+    "pairs": [
+      {
+        "pair": 1,
+        "sourceDigest": "59d53be2fe46a27140a1c0065f1030481eb746d4205dfae4dd436ebacf101c29",
+        "impactPath": "pair-01/assisted-source/BrownPantsEvidence/impact.json"
+      },
+      {
+        "pair": 2,
+        "sourceDigest": "59d53be2fe46a27140a1c0065f1030481eb746d4205dfae4dd436ebacf101c29",
+        "impactPath": "pair-02/assisted-source/BrownPantsEvidence/impact.json"
+      },
+      {
+        "pair": 3,
+        "sourceDigest": "59d53be2fe46a27140a1c0065f1030481eb746d4205dfae4dd436ebacf101c29",
+        "impactPath": "pair-03/assisted-source/BrownPantsEvidence/impact.json"
+      }
+    ],
+    "cleanChecksPassed": true,
+    "seededChecksFailedAsExpected": true,
+    "identicalSeededCode": true
+  },
+  "runs": [
+    {
+      "pair": 1,
+      "condition": "baseline",
+      "codexVersion": "codex-cli 0.162.1",
+      "model": "gpt-6.1-sol",
+      "sandbox": "workspace-write",
+      "startedUtc": "2026-10-15T21:29:37.9929330+00:00",
+      "completedUtc": "2026-10-15T21:30:13.2000594+00:00",
+      "codexExitCode": 0,
+      "resultPath": "pair-01/agent-results/baseline-result.json",
+      "eventLogPath": "pair-01/agent-results/baseline-events.jsonl",
+      "postcheckExitCode": 0,
+      "postcheckLogPath": "pair-01/agent-results/baseline-postcheck.txt",
+      "changedPaths": [
+        "src/WorkRepository.cs"
+      ],
+      "changedPathsAllowed": true,
+      "usage": {
+        "input_tokens": 129865,
+        "cached_input_tokens": 102016,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 738,
+        "reasoning_output_tokens": 20
+      }
+    },
+    {
+      "pair": 1,
+      "condition": "assisted",
+      "codexVersion": "codex-cli 0.162.1",
+      "model": "gpt-6.1-sol",
+      "sandbox": "workspace-write",
+      "startedUtc": "2026-10-15T21:30:16.8613728+00:00",
+      "completedUtc": "2026-10-15T21:30:50.0857660+00:00",
+      "codexExitCode": 0,
+      "resultPath": "pair-01/agent-results/assisted-result.json",
+      "eventLogPath": "pair-01/agent-results/assisted-events.jsonl",
+      "postcheckExitCode": 0,
+      "postcheckLogPath": "pair-01/agent-results/assisted-postcheck.txt",
+      "changedPaths": [
+        "src/WorkRepository.cs"
+      ],
+      "changedPathsAllowed": true,
+      "usage": {
+        "input_tokens": 108214,
+        "cached_input_tokens": 87552,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 744,
+        "reasoning_output_tokens": 25
+      }
+    },
+    {
+      "pair": 2,
+      "condition": "assisted",
+      "codexVersion": "codex-cli 0.162.1",
+      "model": "gpt-6.1-sol",
+      "sandbox": "workspace-write",
+      "startedUtc": "2026-10-15T21:30:54.6938590+00:00",
+      "completedUtc": "2026-10-15T21:31:31.3949500+00:00",
+      "codexExitCode": 0,
+      "resultPath": "pair-02/agent-results/assisted-result.json",
+      "eventLogPath": "pair-02/agent-results/assisted-events.jsonl",
+      "postcheckExitCode": 0,
+      "postcheckLogPath": "pair-02/agent-results/assisted-postcheck.txt",
+      "changedPaths": [
+        "src/WorkRepository.cs"
+      ],
+      "changedPathsAllowed": true,
+      "usage": {
+        "input_tokens": 107766,
+        "cached_input_tokens": 87296,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 763,
+        "reasoning_output_tokens": 18
+      }
+    },
+    {
+      "pair": 2,
+      "condition": "baseline",
+      "codexVersion": "codex-cli 0.162.1",
+      "model": "gpt-6.1-sol",
+      "sandbox": "workspace-write",
+      "startedUtc": "2026-10-15T21:31:34.8936859+00:00",
+      "completedUtc": "2026-10-15T21:32:07.9595198+00:00",
+      "codexExitCode": 0,
+      "resultPath": "pair-02/agent-results/baseline-result.json",
+      "eventLogPath": "pair-02/agent-results/baseline-events.jsonl",
+      "postcheckExitCode": 0,
+      "postcheckLogPath": "pair-02/agent-results/baseline-postcheck.txt",
+      "changedPaths": [
+        "src/WorkRepository.cs"
+      ],
+      "changedPathsAllowed": true,
+      "usage": {
+        "input_tokens": 107075,
+        "cached_input_tokens": 87296,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 707,
+        "reasoning_output_tokens": 76
+      }
+    },
+    {
+      "pair": 3,
+      "condition": "baseline",
+      "codexVersion": "codex-cli 0.162.1",
+      "model": "gpt-6.1-sol",
+      "sandbox": "workspace-write",
+      "startedUtc": "2026-10-15T21:32:11.6807177+00:00",
+      "completedUtc": "2026-10-15T21:32:46.0829413+00:00",
+      "codexExitCode": 0,
+      "resultPath": "pair-03/agent-results/baseline-result.json",
+      "eventLogPath": "pair-03/agent-results/baseline-events.jsonl",
+      "postcheckExitCode": 0,
+      "postcheckLogPath": "pair-03/agent-results/baseline-postcheck.txt",
+      "changedPaths": [
+        "src/WorkRepository.cs"
+      ],
+      "changedPathsAllowed": true,
+      "usage": {
+        "input_tokens": 129787,
+        "cached_input_tokens": 114432,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 745,
+        "reasoning_output_tokens": 59
+      }
+    },
+    {
+      "pair": 3,
+      "condition": "assisted",
+      "codexVersion": "codex-cli 0.162.1",
+      "model": "gpt-6.1-sol",
+      "sandbox": "workspace-write",
+      "startedUtc": "2026-10-15T21:32:49.6166908+00:00",
+      "completedUtc": "2026-10-15T21:33:25.0158093+00:00",
+      "codexExitCode": 0,
+      "resultPath": "pair-03/agent-results/assisted-result.json",
+      "eventLogPath": "pair-03/agent-results/assisted-events.jsonl",
+      "postcheckExitCode": 0,
+      "postcheckLogPath": "pair-03/agent-results/assisted-postcheck.txt",
+      "changedPaths": [
+        "src/WorkRepository.cs"
+      ],
+      "changedPathsAllowed": true,
+      "usage": {
+        "input_tokens": 110606,
+        "cached_input_tokens": 102528,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 729,
+        "reasoning_output_tokens": 17
+      }
+    }
+  ]
+}

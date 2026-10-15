@@ -9,6 +9,48 @@ namespace BrownPants.Tests;
 public sealed class CallImpactAnalyzerTests
 {
     [Fact]
+    public void Analyze_TracesMethodImpactThroughLocalDelegateAndLambdaCaller()
+    {
+        var trees = new[]
+        {
+            CSharpSyntaxTree.ParseText("namespace Demo; public class Store { public void Save() { } }",
+                path: "src/Store.cs", cancellationToken: TestContext.Current.CancellationToken),
+            CSharpSyntaxTree.ParseText("""
+                using System;
+                namespace Demo;
+                public class Workflow
+                {
+                    public void Run(Store store)
+                    {
+                        Action callback = () => store.Save();
+                        callback();
+                    }
+                }
+                """, path: "src/Workflow.cs", cancellationToken: TestContext.Current.CancellationToken)
+        };
+        var compilation = CSharpCompilation.Create("DelegateImpactFixture", trees,
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var semantic = CSharpSemanticAnalyzer.AnalyzeCompilations(
+            new[] { ("fixture.csproj", (Compilation)compilation) }, 1, 100, ".");
+
+        var report = CallImpactAnalyzer.Analyze(".", new[] { "src/Store.cs" },
+            new[] { "src/Store.cs", "src/Workflow.cs" }, semantic, 100);
+
+        Assert.True(report.IsComplete);
+        Assert.Equal(2, report.Impacts.Count);
+        Assert.Contains(report.Impacts, impact => impact.Depth == 1
+            && impact.Caller.Contains("::<lambda@src/Workflow.cs:", StringComparison.Ordinal)
+            && impact.RelationshipKind == "method");
+        Assert.Contains(report.Impacts, impact => impact.Depth == 2
+            && impact.Caller.Contains("Workflow.Run", StringComparison.Ordinal)
+            && impact.RelationshipKind == "delegate");
+        Assert.Equal(1, report.Summary.DirectCallerCount);
+        Assert.Equal(1, report.Summary.TransitiveCallerCount);
+        Assert.Contains("dispatches to", CallImpactReportRenderer.Render(report), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ImpactRetainsRelevantEdgesBeyondPublicSemanticSample()
     {
         var trees = new[]
@@ -504,6 +546,19 @@ public sealed class CallImpactAnalyzerTests
         Assert.Contains(report.Issues, issue => issue.Contains("declarations were sampled", StringComparison.Ordinal));
         var rendered = CallImpactReportRenderer.Render(report);
         Assert.True(rendered.Contains("## Completeness limitations", StringComparison.Ordinal), rendered);
+    }
+
+    [Fact]
+    public void Analyze_MarksUnresolvedDelegateTargetsIncomplete()
+    {
+        var semantic = CompileFixtureGraph() with { UnresolvedDelegateTargetCount = 1 };
+
+        var report = CallImpactAnalyzer.Analyze(".", new[] { "src/Core.cs" },
+            new[] { "src/Core.cs", "src/Service.cs", "tests/CoreTests.cs" }, semantic, 100);
+
+        Assert.False(report.IsComplete);
+        Assert.Contains(report.Issues, issue => issue.Contains("delegate target", StringComparison.Ordinal));
+        Assert.Contains("Analysis complete: **no**", CallImpactReportRenderer.Render(report), StringComparison.Ordinal);
     }
 
     [Fact]

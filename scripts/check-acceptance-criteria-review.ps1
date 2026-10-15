@@ -100,3 +100,4 @@ foreach ($path in $baselinePaths) {
     Write-Output "Reviewed acceptance baseline amendment: $path"
 }
 Write-Output 'Acceptance baseline review policy verified.'
+$global:LASTEXITCODE = 0

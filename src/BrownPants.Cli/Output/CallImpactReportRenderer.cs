@@ -49,7 +49,12 @@ public static class CallImpactReportRenderer
                 foreach (var impact in report.Impacts)
                 {
                     var candidate = impact.IsTestCandidate ? " — test-path candidate" : string.Empty;
-                    var relation = impact.RelationshipKind == "constructor" ? "constructs" : "calls";
+                    var relation = impact.RelationshipKind switch
+                    {
+                        "constructor" => "constructs",
+                        "delegate" => "dispatches to",
+                        _ => "calls"
+                    };
                     output.AppendLine($"- Depth {impact.Depth}: `{Escape(impact.Caller)}` {relation} `{Escape(impact.Target)}` on the path to changed member `{Escape(impact.ChangedMethod)}` at `{Escape(impact.Path)}:{impact.Line}` (project `{Escape(impact.Project)}`){candidate}");
                 }
             }
@@ -84,7 +89,7 @@ public static class CallImpactReportRenderer
         output.AppendLine();
         output.AppendLine("## Evidence limits");
         output.AppendLine();
-        output.Append("Managed entries are statically resolved C# and Visual Basic method and explicit constructor relationships. Native entries are lexical MFC/native-flow candidates and are not compiler-resolved calls. Neither category proves runtime activation, dependency injection behavior, reflection, dynamic dispatch, or exhaustive impact. Test-path candidates do not prove test coverage. Graph counts and depth describe observed evidence; they are not effort estimates.");
+        output.Append("Managed entries are statically resolved C# and Visual Basic method, explicit constructor, and conservative local-delegate relationships. Native entries are lexical MFC/native-flow candidates and are not compiler-resolved calls. Neither category proves runtime activation, dependency injection behavior, reflection, dynamic dispatch, or exhaustive impact. Test-path candidates do not prove test coverage. Graph counts and depth describe observed evidence; they are not effort estimates.");
         return output.ToString().TrimEnd();
     }
 

@@ -1,0 +1,73 @@
+{
+  "SchemaVersion": 1,
+  "Root": "C:\\Users\\sidtr\\AppData\\Local\\Temp\\brownpants-delegate-final-76ec9b195bb74dca866e56a2b7100c31\\pair-01\\assisted-source",
+  "ChangedPaths": [
+    "src/WorkRepository.cs"
+  ],
+  "IsComplete": true,
+  "Summary": {
+    "DirectCallerCount": 2,
+    "TransitiveCallerCount": 1,
+    "AffectedFileCount": 2,
+    "AffectedProjectCount": 1,
+    "TestCandidateCount": 1,
+    "MaximumCallerDepth": 2
+  },
+  "Impacts": [
+    {
+      "ChangedMethod": "global::DelegateImpact.Fixture.WorkRepository.Save(global::DelegateImpact.Fixture.WorkItem)",
+      "Target": "global::DelegateImpact.Fixture.WorkRepository.Save(global::DelegateImpact.Fixture.WorkItem)",
+      "Caller": "global::DelegateImpact.Fixture.ImportWorkflow.ImportOne(global::DelegateImpact.Fixture.WorkItem)",
+      "Path": "src/ImportWorkflow.cs",
+      "Line": 10,
+      "Depth": 1,
+      "Project": "DelegateImpact.Fixture.csproj",
+      "IsTestCandidate": false,
+      "RelationshipKind": "delegate",
+      "EvidenceKind": "managed-compiler-resolved"
+    },
+    {
+      "ChangedMethod": "global::DelegateImpact.Fixture.WorkRepository..ctor()",
+      "Target": "global::DelegateImpact.Fixture.WorkRepository..ctor()",
+      "Caller": "global::Program.\u003CMain\u003E$(string[])",
+      "Path": "tests/Program.cs",
+      "Line": 3,
+      "Depth": 1,
+      "Project": "DelegateImpact.Fixture.csproj",
+      "IsTestCandidate": true,
+      "RelationshipKind": "constructor",
+      "EvidenceKind": "managed-compiler-resolved"
+    },
+    {
+      "ChangedMethod": "global::DelegateImpact.Fixture.WorkItem..ctor(int)",
+      "Target": "global::DelegateImpact.Fixture.WorkItem..ctor(int)",
+      "Caller": "global::Program.\u003CMain\u003E$(string[])",
+      "Path": "tests/Program.cs",
+      "Line": 5,
+      "Depth": 1,
+      "Project": "DelegateImpact.Fixture.csproj",
+      "IsTestCandidate": true,
+      "RelationshipKind": "constructor",
+      "EvidenceKind": "managed-compiler-resolved"
+    },
+    {
+      "ChangedMethod": "global::DelegateImpact.Fixture.WorkRepository.Save(global::DelegateImpact.Fixture.WorkItem)",
+      "Target": "global::DelegateImpact.Fixture.ImportWorkflow.ImportOne(global::DelegateImpact.Fixture.WorkItem)",
+      "Caller": "global::Program.\u003CMain\u003E$(string[])",
+      "Path": "tests/Program.cs",
+      "Line": 5,
+      "Depth": 2,
+      "Project": "DelegateImpact.Fixture.csproj",
+      "IsTestCandidate": true,
+      "RelationshipKind": "method",
+      "EvidenceKind": "managed-compiler-resolved"
+    }
+  ],
+  "Issues": [],
+  "SampleLimit": 1000,
+  "NativeImpacts": [],
+  "NativeCandidateCount": 0,
+  "NativeUnresolvedCount": 0,
+  "NativeAmbiguousCount": 0,
+  "NativeAffectedFileCount": 0
+}

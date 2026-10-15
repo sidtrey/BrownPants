@@ -128,7 +128,12 @@ public static class EvidenceReportAnalyzer
         {
             foreach (var call in semantic.ResolvedCalls)
             {
-                var signal = call.RelationshipKind == "constructor" ? "resolved constructor" : "resolved call";
+                var signal = call.RelationshipKind switch
+                {
+                    "constructor" => "resolved constructor",
+                    "delegate" => "resolved local delegate target",
+                    _ => "resolved call"
+                };
                 findings.Add(CreateFinding("managed-call", "resolved", signal, call.Path, call.Line,
                     call.Caller, call.Target, call.Expression, column: call.SourceColumn));
             }
@@ -154,7 +159,7 @@ public static class EvidenceReportAnalyzer
         var ordered = uniqueOrdered
             .Take(sampleLimit).ToArray();
         var semanticTotal = semanticRequested && semantic is not null
-            ? semantic.ResolvedInvocationCount + semantic.ResolvedConstructorCount
+            ? semantic.ResolvedInvocationCount + semantic.ResolvedConstructorCount + semantic.ResolvedDelegateTargetCount
             : 0;
         var knownTotal = inventory.ArchitecturePatterns.SignalCount + semanticTotal
             + inventory.TestPaths.Count(IsSourceTestPath) + (nativeFlow?.RelationCount ?? 0);
@@ -162,7 +167,7 @@ public static class EvidenceReportAnalyzer
         var limitations = new SortedSet<string>(StringComparer.Ordinal)
         {
             "Architecture, framework, and test-path findings are candidates and require source review.",
-            "Native, ORM, reflection, and runtime relationships are not inferred as managed edges; constructor edges require explicit compiler-bound source construction."
+            "Native, ORM, reflection, and runtime relationships are not inferred as managed edges; constructor and local-delegate edges require explicit compiler-bound source evidence."
         };
         if (!semanticRequested)
             limitations.Add("Semantic analysis was not requested; no resolved managed call findings are included.");
@@ -170,9 +175,10 @@ public static class EvidenceReportAnalyzer
         {
             if (!semantic.ProjectCoverageComplete)
                 limitations.Add($"Semantic project coverage is incomplete: {semantic.ProjectsLoaded} of {semantic.ProjectsDiscovered} projects loaded.");
-            var unresolvedTotal = semantic.UnresolvedInvocationCount + semantic.UnresolvedConstructorCount;
+            var unresolvedTotal = semantic.UnresolvedInvocationCount + semantic.UnresolvedConstructorCount
+                + semantic.UnresolvedDelegateTargetCount;
             if (unresolvedTotal > 0)
-                limitations.Add($"{semantic.UnresolvedInvocationCount} managed invocation(s) and {semantic.UnresolvedConstructorCount} constructor relationship(s) remain unresolved.");
+                limitations.Add($"{semantic.UnresolvedInvocationCount} managed invocation(s), {semantic.UnresolvedConstructorCount} constructor relationship(s), and {semantic.UnresolvedDelegateTargetCount} delegate target(s) remain unresolved.");
             foreach (var issue in semantic.Issues.OrderBy(value => value, StringComparer.Ordinal))
                 limitations.Add(issue);
         }
@@ -198,11 +204,11 @@ public static class EvidenceReportAnalyzer
                     || inventory.ArchitecturePatterns.SignalCount > inventory.ArchitecturePatterns.Signals.Count
                     || nativeFlow is { OmittedCount: > 0 }
                     || (semanticRequested && semantic is not null
-                        && semantic.ResolvedInvocationCount + semantic.ResolvedConstructorCount > semantic.ResolvedCalls.Count),
+                        && semantic.ResolvedInvocationCount + semantic.ResolvedConstructorCount + semantic.ResolvedDelegateTargetCount > semantic.ResolvedCalls.Count),
                 semanticRequested,
                 semanticRequested ? semantic?.ProjectCoverageComplete : null,
                 semanticRequested && semantic is not null
-                    ? semantic.UnresolvedInvocationCount + semantic.UnresolvedConstructorCount
+                    ? semantic.UnresolvedInvocationCount + semantic.UnresolvedConstructorCount + semantic.UnresolvedDelegateTargetCount
                     : 0),
             limitations.ToArray());
         return report with { RepeatedCandidateGroups = CreateRepeatedCandidateGroups(ordered) };

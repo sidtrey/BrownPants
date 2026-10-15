@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "expectedCode": {
+    "path": "src/WorkRepository.cs",
+    "requiredText": "public void Save(WorkItem item) => _saved.Add(item);",
+    "forbiddenText": "public void Save(WorkItem item) { }",
+    "allowedChangedPaths": ["src/WorkRepository.cs"]
+  },
+  "expectedFindings": [
+    {
+      "relationshipKind": "delegate",
+      "path": "src/ImportWorkflow.cs",
+      "callerSignature": "global::DelegateImpact.Fixture.ImportWorkflow.ImportOne(global::DelegateImpact.Fixture.WorkItem)",
+      "targetSignature": "global::DelegateImpact.Fixture.WorkRepository.Save(global::DelegateImpact.Fixture.WorkItem)"
+    },
+    {
+      "relationshipKind": "method",
+      "path": "tests/Program.cs",
+      "callerSignature": "global::Program.<Main>$(string[])",
+      "targetSignature": "global::DelegateImpact.Fixture.ImportWorkflow.ImportOne(global::DelegateImpact.Fixture.WorkItem)"
+    }
+  ],
+  "excludedFileLevelFindings": [
+    "Constructor calls in tests are not relevant to changing WorkRepository.Save(WorkItem)."
+  ]
+}

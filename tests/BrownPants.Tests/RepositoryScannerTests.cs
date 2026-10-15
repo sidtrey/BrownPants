@@ -2641,6 +2641,75 @@ public sealed class RepositoryScannerTests : IDisposable
     }
 
     [Fact]
+    public void SemanticAnalyzer_ResolvesLocalDelegateMethodGroupAndSelectedOverload()
+    {
+        var tree = CSharpSyntaxTree.ParseText("""
+            using System;
+            namespace Demo;
+            public class Workflow
+            {
+                public void Save(int value) { }
+                public void Save(string value) { }
+                public void Run()
+                {
+                    Action<int> callback = Save;
+                    callback(1);
+                    callback.Invoke(2);
+                }
+            }
+            """, path: "src/Workflow.cs", cancellationToken: TestContext.Current.CancellationToken);
+        var compilation = CSharpCompilation.Create("DelegateMethodGroupFixture", new[] { tree },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.Empty(compilation.GetDiagnostics(TestContext.Current.CancellationToken)
+            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+
+        var analysis = CSharpSemanticAnalyzer.AnalyzeCompilations(
+            new[] { ("DelegateMethodGroupFixture.csproj", (Compilation)compilation) }, 1, 100, _root);
+
+        Assert.True(analysis.ResolvedInvocationCount == 2, System.Text.Json.JsonSerializer.Serialize(analysis));
+        var delegateCalls = analysis.ResolvedCalls.Where(call => call.RelationshipKind == "delegate").ToArray();
+        Assert.Equal(2, delegateCalls.Length);
+        Assert.All(delegateCalls, call => Assert.Contains("Workflow.Save(int)", call.Target, StringComparison.Ordinal));
+        Assert.All(delegateCalls, call => Assert.Equal("src/Workflow.cs", call.TargetPath));
+        Assert.All(delegateCalls, call => Assert.Contains("Workflow.Run()", call.Caller, StringComparison.Ordinal));
+        Assert.All(delegateCalls, call => Assert.True(call.Line > 0 && call.SourceColumn > 0));
+        Assert.DoesNotContain(delegateCalls, call => call.Target.Contains("Save(string)", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void SemanticAnalyzer_ResolvesLocalDelegateLambdaTargetWithoutChangingInvocationCount()
+    {
+        var tree = CSharpSyntaxTree.ParseText("""
+            using System;
+            namespace Demo;
+            public class Workflow
+            {
+                private int Convert(int value) => value;
+                public int Run()
+                {
+                    Func<int, int> callback = value => Convert(value);
+                    return callback(1);
+                }
+            }
+            """, path: "src/Workflow.cs", cancellationToken: TestContext.Current.CancellationToken);
+        var compilation = CSharpCompilation.Create("DelegateLambdaFixture", new[] { tree },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var analysis = CSharpSemanticAnalyzer.AnalyzeCompilations(
+            new[] { ("DelegateLambdaFixture.csproj", (Compilation)compilation) }, 1, 100, _root);
+
+        Assert.Equal(2, analysis.ResolvedInvocationCount);
+        var lambdaBodyCall = Assert.Single(analysis.ResolvedCalls,
+            call => call.Target.Contains("Workflow.Convert(int)", StringComparison.Ordinal));
+        Assert.Contains("::<lambda@src/Workflow.cs:", lambdaBodyCall.Caller, StringComparison.Ordinal);
+        var delegateCall = Assert.Single(analysis.ResolvedCalls, call => call.RelationshipKind == "delegate");
+        Assert.Equal(lambdaBodyCall.Caller, delegateCall.Target);
+        Assert.Contains("Workflow.Run()", delegateCall.Caller, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SemanticAnalyzer_ResolvesVisualBasicLambdaCallerIdentity()
     {
         var tree = Microsoft.CodeAnalysis.VisualBasic.VisualBasicSyntaxTree.ParseText("""
@@ -2669,6 +2738,117 @@ public sealed class RepositoryScannerTests : IDisposable
         Assert.Contains("::<lambda@src/Workflow.vb:", call.Caller, StringComparison.Ordinal);
         Assert.DoesNotContain(".(", call.Caller, StringComparison.Ordinal);
         Assert.Equal(1, analysis.ResolvedInvocationCount);
+    }
+
+    [Fact]
+    public void SemanticAnalyzer_ResolvesVisualBasicLocalDelegateMethodGroup()
+    {
+        var tree = Microsoft.CodeAnalysis.VisualBasic.VisualBasicSyntaxTree.ParseText("""
+            Imports System
+            Namespace Legacy.App
+                Public Class Workflow
+                    Public Sub Save(value As Integer)
+                    End Sub
+                    Public Sub Save(value As String)
+                    End Sub
+                    Public Sub Run()
+                        Dim callback As Action(Of Integer) = AddressOf Save
+                        callback(1)
+                    End Sub
+                End Class
+            End Namespace
+            """, path: "src/Workflow.vb", cancellationToken: TestContext.Current.CancellationToken);
+        var compilation = Microsoft.CodeAnalysis.VisualBasic.VisualBasicCompilation.Create("DelegateMethodGroupVbFixture",
+            new[] { tree }, new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new Microsoft.CodeAnalysis.VisualBasic.VisualBasicCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var analysis = CSharpSemanticAnalyzer.AnalyzeCompilations(
+            new[] { ("DelegateMethodGroupVbFixture.vbproj", (Compilation)compilation) }, 1, 100, _root);
+
+        Assert.Equal(1, analysis.ResolvedInvocationCount);
+        var call = Assert.Single(analysis.ResolvedCalls, item => item.RelationshipKind == "delegate");
+        Assert.Contains("Workflow.Save(Integer)", call.Target, StringComparison.Ordinal);
+        Assert.Equal("src/Workflow.vb", call.TargetPath);
+        Assert.Contains("Workflow.Run", call.Caller, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SemanticAnalyzer_LeavesReassignedCapturedAndEscapedDelegateTargetsUnresolved()
+    {
+        var tree = CSharpSyntaxTree.ParseText("""
+            using System;
+            namespace Demo;
+            public class Workflow
+            {
+                private Action field = () => { };
+                private static void Consume(Action callback) { }
+                public void First() { }
+                public void Second() { }
+                public void Run(Action external)
+                {
+                    Action reassigned = First;
+                    reassigned = Second;
+                    reassigned();
+                    Action captured = First;
+                    Action nested = () => captured();
+                    external();
+                    field();
+                    Action escaped = First;
+                    Consume(escaped);
+                    escaped();
+                }
+            }
+            """, path: "src/Workflow.cs", cancellationToken: TestContext.Current.CancellationToken);
+        var compilation = CSharpCompilation.Create("UnsafeDelegateFixture", new[] { tree },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.Empty(compilation.GetDiagnostics(TestContext.Current.CancellationToken)
+            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+
+        var analysis = CSharpSemanticAnalyzer.AnalyzeCompilations(
+            new[] { ("UnsafeDelegateFixture.csproj", (Compilation)compilation) }, 1, 100, _root);
+
+        Assert.Equal(5, analysis.UnresolvedDelegateTargetCount);
+        Assert.DoesNotContain(analysis.ResolvedCalls, call => call.RelationshipKind == "delegate");
+        Assert.Equal(5, analysis.UnresolvedDelegateCalls.Count);
+    }
+
+    [Fact]
+    public void SemanticAnalyzer_RedactsExternalDelegateTargetPathsAndIsDeterministic()
+    {
+        var externalPath = Path.Combine(Path.GetTempPath(), "brownpants-external-delegate-target.cs");
+        var trees = new[]
+        {
+            CSharpSyntaxTree.ParseText("namespace External; public class Target { public void Run() { } }",
+                path: externalPath, cancellationToken: TestContext.Current.CancellationToken),
+            CSharpSyntaxTree.ParseText("""
+                using System;
+                namespace Demo;
+                public class Workflow
+                {
+                    public void Run()
+                    {
+                        Action callback = new External.Target().Run;
+                        callback();
+                    }
+                }
+                """, path: "src/Workflow.cs", cancellationToken: TestContext.Current.CancellationToken)
+        };
+        var compilation = CSharpCompilation.Create("ExternalDelegateFixture", trees,
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.Empty(compilation.GetDiagnostics(TestContext.Current.CancellationToken)
+            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+
+        var input = new[] { ("ExternalDelegateFixture.csproj", (Compilation)compilation) };
+        var first = CSharpSemanticAnalyzer.AnalyzeCompilations(input, 1, 100, _root);
+        var second = CSharpSemanticAnalyzer.AnalyzeCompilations(input, 1, 100, _root);
+        var delegateCall = Assert.Single(first.ResolvedCalls, call => call.RelationshipKind == "delegate");
+        Assert.Null(delegateCall.TargetPath);
+        Assert.Null(delegateCall.TargetLine);
+        var firstJson = System.Text.Json.JsonSerializer.Serialize(first);
+        Assert.DoesNotContain(externalPath, firstJson, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(firstJson, System.Text.Json.JsonSerializer.Serialize(second));
     }
 
     [Fact]

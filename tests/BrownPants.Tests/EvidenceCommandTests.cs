@@ -501,6 +501,25 @@ public sealed class EvidenceCommandTests : IDisposable
     }
 
     [Fact]
+    public void Evidence_LabelsCompilerResolvedLocalDelegateTargets()
+    {
+        Write("DelegateFixture.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>");
+        Write("src/Calls.cs", "using System; namespace Sample; public class Store { public void Save() { } } public class Runner { private readonly Store _store = new(); public void Run() { Action callback = _store.Save; callback(); } }");
+
+        var result = Run("evidence", _root, "--semantic", "--format", "json", "--limit", "1000");
+
+        Assert.Equal(0, result.ExitCode);
+        using var json = JsonDocument.Parse(result.Output);
+        var finding = Assert.Single(json.RootElement.GetProperty("findings").EnumerateArray(), item =>
+            item.GetProperty("signal").GetString() == "resolved local delegate target");
+        Assert.Equal("managed-call", finding.GetProperty("category").GetString());
+        Assert.Equal("resolved", finding.GetProperty("status").GetString());
+        Assert.Equal("src/Calls.cs", finding.GetProperty("path").GetString());
+        Assert.Contains("Store.Save", finding.GetProperty("targetSignature").GetString());
+        Assert.Contains("Runner.Run", finding.GetProperty("callerSignature").GetString());
+    }
+
+    [Fact]
     public void Evidence_EmitsUniqueSameLineConstructorFindings()
     {
         Write("Fixture.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>");

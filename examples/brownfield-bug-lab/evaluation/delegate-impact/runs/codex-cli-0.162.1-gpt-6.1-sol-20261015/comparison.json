@@ -1,0 +1,283 @@
+{
+  "schemaVersion": 1,
+  "taskSpecDigest": "3d5469a244e1a08c602e01b140af98da5c89d165b83e89b201a00493565032f3",
+  "answerKeyDigest": "eb212b96228435f94b0d9d4396964d5eb8a6b0c48ebf79d65e3560d5ab0a9fc0",
+  "promptDigest": "82e0ffd7231e3cda6650a1d3d147e7a99b1b55add98aab0730a119600bd24c09",
+  "schemaDigest": "8c5d66e486a12337b0b01fb5e9ed29b8ba340955d6de92d1ca668407c817c912",
+  "model": "gpt-6.1-sol",
+  "codexVersion": "codex-cli 0.162.1",
+  "sandbox": "workspace-write",
+  "conditionOrder": [
+    "baseline/assisted",
+    "assisted/baseline",
+    "baseline/assisted"
+  ],
+  "sourceDigests": [
+    {
+      "pair": 1,
+      "sourceDigest": "59d53be2fe46a27140a1c0065f1030481eb746d4205dfae4dd436ebacf101c29",
+      "impactPath": "pair-01/assisted-source/BrownPantsEvidence/impact.json"
+    },
+    {
+      "pair": 2,
+      "sourceDigest": "59d53be2fe46a27140a1c0065f1030481eb746d4205dfae4dd436ebacf101c29",
+      "impactPath": "pair-02/assisted-source/BrownPantsEvidence/impact.json"
+    },
+    {
+      "pair": 3,
+      "sourceDigest": "59d53be2fe46a27140a1c0065f1030481eb746d4205dfae4dd436ebacf101c29",
+      "impactPath": "pair-03/assisted-source/BrownPantsEvidence/impact.json"
+    }
+  ],
+  "expectedFindings": [
+    {
+      "relationshipKind": "delegate",
+      "path": "src/ImportWorkflow.cs",
+      "callerSignature": "global::DelegateImpact.Fixture.ImportWorkflow.ImportOne(global::DelegateImpact.Fixture.WorkItem)",
+      "targetSignature": "global::DelegateImpact.Fixture.WorkRepository.Save(global::DelegateImpact.Fixture.WorkItem)"
+    },
+    {
+      "relationshipKind": "method",
+      "path": "tests/Program.cs",
+      "callerSignature": "global::Program.<Main>$(string[])",
+      "targetSignature": "global::DelegateImpact.Fixture.ImportWorkflow.ImportOne(global::DelegateImpact.Fixture.WorkItem)"
+    }
+  ],
+  "scoreNormalization": [
+    "Path separators and leading ./ are normalized.",
+    "C# global qualification and the fixture namespace prefix are removed from signatures.",
+    "delegate invocation and delegate-reference are accepted as delegate relationship labels.",
+    "Duplicate or unmatched submitted findings count as false positives."
+  ],
+  "pooled": {
+    "assisted": {
+      "expected": 6,
+      "submitted": 6.0,
+      "truePositives": 6.0,
+      "falsePositives": 0.0,
+      "falseNegatives": 0.0,
+      "precision": 1.0,
+      "recall": 1.0
+    },
+    "baseline": {
+      "expected": 6,
+      "submitted": 3.0,
+      "truePositives": 3.0,
+      "falsePositives": 0.0,
+      "falseNegatives": 3.0,
+      "precision": 1.0,
+      "recall": 0.5
+    }
+  },
+  "pairs": [
+    {
+      "pair": 1,
+      "baselineRecall": 0.5,
+      "assistedRecall": 1.0,
+      "recallGain": 0.5,
+      "brownPantsImproved": true
+    },
+    {
+      "pair": 2,
+      "baselineRecall": 0.5,
+      "assistedRecall": 1.0,
+      "recallGain": 0.5,
+      "brownPantsImproved": true
+    },
+    {
+      "pair": 3,
+      "baselineRecall": 0.5,
+      "assistedRecall": 1.0,
+      "recallGain": 0.5,
+      "brownPantsImproved": true
+    }
+  ],
+  "gate": {
+    "pooledRecallGainPercentagePoints": 50.0,
+    "precisionDidNotDecrease": true,
+    "pairsFavoringBrownPants": 3,
+    "allSixRepairsPassed": true,
+    "passed": true
+  },
+  "runs": [
+    {
+      "pair": 1,
+      "condition": "baseline",
+      "score": {
+        "expected": 2,
+        "submitted": 1,
+        "truePositives": 1,
+        "falsePositives": 0,
+        "falseNegatives": 1,
+        "precision": 1.0,
+        "recall": 0.5
+      },
+      "fixVerified": true,
+      "usage": {
+        "input_tokens": 129865,
+        "cached_input_tokens": 102016,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 738,
+        "reasoning_output_tokens": 20
+      },
+      "codexVersion": "codex-cli 0.162.1",
+      "model": "gpt-6.1-sol",
+      "resultPath": "pair-01/agent-results/baseline-result.json",
+      "eventLogPath": "pair-01/agent-results/baseline-events.jsonl",
+      "postcheckLogPath": "pair-01/agent-results/baseline-postcheck.txt",
+      "changedPaths": [
+        "src/WorkRepository.cs"
+      ]
+    },
+    {
+      "pair": 1,
+      "condition": "assisted",
+      "score": {
+        "expected": 2,
+        "submitted": 2,
+        "truePositives": 2,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "fixVerified": true,
+      "usage": {
+        "input_tokens": 108214,
+        "cached_input_tokens": 87552,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 744,
+        "reasoning_output_tokens": 25
+      },
+      "codexVersion": "codex-cli 0.162.1",
+      "model": "gpt-6.1-sol",
+      "resultPath": "pair-01/agent-results/assisted-result.json",
+      "eventLogPath": "pair-01/agent-results/assisted-events.jsonl",
+      "postcheckLogPath": "pair-01/agent-results/assisted-postcheck.txt",
+      "changedPaths": [
+        "src/WorkRepository.cs"
+      ]
+    },
+    {
+      "pair": 2,
+      "condition": "assisted",
+      "score": {
+        "expected": 2,
+        "submitted": 2,
+        "truePositives": 2,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "fixVerified": true,
+      "usage": {
+        "input_tokens": 107766,
+        "cached_input_tokens": 87296,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 763,
+        "reasoning_output_tokens": 18
+      },
+      "codexVersion": "codex-cli 0.162.1",
+      "model": "gpt-6.1-sol",
+      "resultPath": "pair-02/agent-results/assisted-result.json",
+      "eventLogPath": "pair-02/agent-results/assisted-events.jsonl",
+      "postcheckLogPath": "pair-02/agent-results/assisted-postcheck.txt",
+      "changedPaths": [
+        "src/WorkRepository.cs"
+      ]
+    },
+    {
+      "pair": 2,
+      "condition": "baseline",
+      "score": {
+        "expected": 2,
+        "submitted": 1,
+        "truePositives": 1,
+        "falsePositives": 0,
+        "falseNegatives": 1,
+        "precision": 1.0,
+        "recall": 0.5
+      },
+      "fixVerified": true,
+      "usage": {
+        "input_tokens": 107075,
+        "cached_input_tokens": 87296,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 707,
+        "reasoning_output_tokens": 76
+      },
+      "codexVersion": "codex-cli 0.162.1",
+      "model": "gpt-6.1-sol",
+      "resultPath": "pair-02/agent-results/baseline-result.json",
+      "eventLogPath": "pair-02/agent-results/baseline-events.jsonl",
+      "postcheckLogPath": "pair-02/agent-results/baseline-postcheck.txt",
+      "changedPaths": [
+        "src/WorkRepository.cs"
+      ]
+    },
+    {
+      "pair": 3,
+      "condition": "baseline",
+      "score": {
+        "expected": 2,
+        "submitted": 1,
+        "truePositives": 1,
+        "falsePositives": 0,
+        "falseNegatives": 1,
+        "precision": 1.0,
+        "recall": 0.5
+      },
+      "fixVerified": true,
+      "usage": {
+        "input_tokens": 129787,
+        "cached_input_tokens": 114432,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 745,
+        "reasoning_output_tokens": 59
+      },
+      "codexVersion": "codex-cli 0.162.1",
+      "model": "gpt-6.1-sol",
+      "resultPath": "pair-03/agent-results/baseline-result.json",
+      "eventLogPath": "pair-03/agent-results/baseline-events.jsonl",
+      "postcheckLogPath": "pair-03/agent-results/baseline-postcheck.txt",
+      "changedPaths": [
+        "src/WorkRepository.cs"
+      ]
+    },
+    {
+      "pair": 3,
+      "condition": "assisted",
+      "score": {
+        "expected": 2,
+        "submitted": 2,
+        "truePositives": 2,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "fixVerified": true,
+      "usage": {
+        "input_tokens": 110606,
+        "cached_input_tokens": 102528,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 729,
+        "reasoning_output_tokens": 17
+      },
+      "codexVersion": "codex-cli 0.162.1",
+      "model": "gpt-6.1-sol",
+      "resultPath": "pair-03/agent-results/assisted-result.json",
+      "eventLogPath": "pair-03/agent-results/assisted-events.jsonl",
+      "postcheckLogPath": "pair-03/agent-results/assisted-postcheck.txt",
+      "changedPaths": [
+        "src/WorkRepository.cs"
+      ]
+    }
+  ],
+  "limitations": [
+    "Static call impact is source evidence and does not establish runtime execution.",
+    "Only the seeded single-item persistence defect is evaluated.",
+    "Results apply to the recorded Codex CLI/model/sandbox and this frozen fixture."
+  ]
+}
