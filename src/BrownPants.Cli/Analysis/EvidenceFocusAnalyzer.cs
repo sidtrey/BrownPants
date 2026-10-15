@@ -40,8 +40,12 @@ public static class EvidenceFocusAnalyzer
         var foundPaths = new HashSet<string>(changedCounts.Keys.Where(discovered.Contains), PathComparer());
         var impactIssues = new List<string>();
         var impactComplete = false;
+        var impactAnalyzed = false;
         var semanticImpactAnalyzed = false;
-        var declarations = inventory.CSharp.Semantic?.Declarations ?? Array.Empty<CSharpSemanticDeclaration>();
+        var semantic = inventory.CSharp.Semantic;
+        var declarations = semantic?.Declarations ?? Array.Empty<CSharpSemanticDeclaration>();
+        var managedChanged = normalizedChanged.Any(path => path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".vb", StringComparison.OrdinalIgnoreCase));
 
         foreach (var path in normalizedChanged)
         {
@@ -52,13 +56,18 @@ public static class EvidenceFocusAnalyzer
             }
         }
 
-        if (normalizedChanged.Length > 0 && inventory.CSharp.Semantic is not null)
+        if (normalizedChanged.Length > 0)
         {
-            semanticImpactAnalyzed = true;
+            semanticImpactAnalyzed = semantic is not null;
+            impactAnalyzed = true;
+            var semanticForImpact = semantic ?? new CSharpSemanticAnalysis(0, 0, 0, 0,
+                Array.Empty<CSharpResolvedCall>(), Array.Empty<CSharpUnresolvedCall>(), Array.Empty<string>());
             var impact = CallImpactAnalyzer.Analyze(inventory.Root, normalizedChanged, discovered.ToArray(),
-                inventory.CSharp.Semantic, 10_000);
-            impactComplete = impact.IsComplete;
+                semanticForImpact, 10_000, inventory.ArchitecturePatterns.NativeFlow);
+            impactComplete = impact.IsComplete && (!managedChanged || semantic is not null);
             impactIssues.AddRange(impact.Issues);
+            if (managedChanged && semantic is null)
+                impactIssues.Add("Managed caller impact was not analyzed; pass --semantic to resolve direct and transitive C#/VB callers.");
 
             foreach (var item in impact.Impacts)
             {
@@ -92,10 +101,20 @@ public static class EvidenceFocusAnalyzer
                     }
                 }
             }
-        }
-        else if (normalizedChanged.Length > 0)
-        {
-            impactIssues.Add("Semantic caller impact was not analyzed; pass --semantic to resolve direct and transitive C#/VB callers.");
+
+            foreach (var item in impact.NativeImpacts)
+            {
+                var finding = fullReport.Findings.FirstOrDefault(candidate =>
+                    candidate.Category == "native-flow-candidate"
+                    && candidate.RelationKind == item.RelationshipKind
+                    && PathEquals(candidate.Path, item.SourcePath)
+                    && candidate.Line == item.SourceLine
+                    && candidate.SourceSymbol == item.SourceSymbol
+                    && candidate.TargetSymbol == item.TargetSymbol);
+                if (finding is null) continue;
+                if (changedCounts.TryGetValue(item.ChangedPath, out var counts)) counts[1]++;
+                Add(finding.Id, [$"changed-path:{item.ChangedPath}:native-caller-impact"]);
+            }
         }
 
         var findingById = fullReport.Findings.ToDictionary(item => item.Id, StringComparer.Ordinal);
@@ -120,7 +139,7 @@ public static class EvidenceFocusAnalyzer
             clueFocus,
             pathFocus,
             semanticImpactAnalyzed,
-            normalizedChanged.Length == 0 || semanticImpactAnalyzed && impactComplete,
+            normalizedChanged.Length == 0 || impactAnalyzed && impactComplete,
             impactIssues.Distinct(StringComparer.Ordinal).OrderBy(value => value, StringComparer.Ordinal).ToArray(),
             clueReadIssueCount,
             clueMatchTruncated,
@@ -129,8 +148,8 @@ public static class EvidenceFocusAnalyzer
             emitted.Length,
             omitted);
         var limitations = fullReport.Limitations.ToList();
-        if (normalizedChanged.Length > 0 && !semanticImpactAnalyzed)
-            limitations.Add("Changed-path focus selected source-local candidates only; caller impact was not analyzed because --semantic was not requested.");
+        if (normalizedChanged.Length > 0 && managedChanged && !semanticImpactAnalyzed)
+            limitations.Add("Caller impact was not analyzed for managed changed paths; pass --semantic to resolve managed callers. Native candidate impact may still be included.");
         if (clueReadIssueCount > 0)
             limitations.Add($"Clue matching skipped or could not read {clueReadIssueCount} file(s); see investigator rules for bounded reads.");
         if (clueMatchTruncated)

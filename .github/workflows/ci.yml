@@ -186,6 +186,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Packed tool WinForms analysis smoke failed with exit code $LASTEXITCODE." }
           & pwsh -NoProfile -File ./tests/PackedNativeFlowSmoke.ps1 -ToolPath $tool
           if ($LASTEXITCODE -ne 0) { throw "Packed tool native flow smoke failed with exit code $LASTEXITCODE." }
+          & pwsh -NoProfile -File ./tests/PackedNativeImpactSmoke.ps1 -ToolPath $tool
+          if ($LASTEXITCODE -ne 0) { throw "Packed tool native impact smoke failed with exit code $LASTEXITCODE." }
           New-Item -ItemType Directory -Path ./TestResults -Force | Out-Null
           @'
           ```brownpants-flow

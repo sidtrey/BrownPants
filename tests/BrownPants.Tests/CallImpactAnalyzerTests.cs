@@ -9,6 +9,105 @@ namespace BrownPants.Tests;
 public sealed class CallImpactAnalyzerTests
 {
     [Fact]
+    public void Analyze_TracesChangedNativeBridgeBackToMfcDispatchAsCandidates()
+    {
+        var semantic = new CSharpSemanticAnalysis(1, 0, 5, 3, Array.Empty<CSharpResolvedCall>(),
+            Array.Empty<CSharpUnresolvedCall>(), new[] { "unrelated managed workspace failure" });
+        var native = new NativeFlowAnalysis(2, 2, 0, 0, 0, new[]
+        {
+            new NativeFlowRelation("dispatch", "mfc-dispatch", "candidate", "legacy/Native/View.cpp", 6,
+                "MFC message map CView", "legacy/Native/View.cpp", 9, "CView::OnImport", "ID_IMPORT", 1, "ON_COMMAND"),
+            new NativeFlowRelation("bridge", "qualified-native-call", "candidate", "legacy/Native/View.cpp", 11,
+                "CView::OnImport", "legacy/Bridge/Bridge.cpp", 4, "CBridge::Import", null, 1, "CBridge::Import()")
+        }, new[] { "Native flow links are lexical candidates, not compiler-resolved calls." });
+
+        var report = CallImpactAnalyzer.Analyze(".", new[] { "legacy/Bridge/Bridge.cpp" },
+            new[] { "legacy/Native/View.cpp", "legacy/Bridge/Bridge.cpp" }, semantic, 100, native);
+
+        Assert.True(report.IsComplete);
+        Assert.Equal(2, report.NativeImpacts.Count);
+        Assert.Contains(report.NativeImpacts, item => item.RelationshipKind == "qualified-native-call"
+            && item.SourcePath == "legacy/Native/View.cpp" && item.Depth == 1 && item.Status == "candidate");
+        Assert.Contains(report.NativeImpacts, item => item.RelationshipKind == "mfc-dispatch"
+            && item.TargetSymbol == "CView::OnImport" && item.Depth == 2 && item.Status == "candidate");
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(report));
+        Assert.Equal("native-lexical", json.RootElement.GetProperty("NativeImpacts")[0].GetProperty("EvidenceKind").GetString());
+        Assert.Contains("Native impact candidates", CallImpactReportRenderer.Render(report), StringComparison.Ordinal);
+        Assert.Equal(report.NativeImpacts, CallImpactAnalyzer.Analyze(".", new[] { "legacy/Bridge/Bridge.cpp" },
+            new[] { "legacy/Native/View.cpp", "legacy/Bridge/Bridge.cpp" }, semantic, 100, native).NativeImpacts);
+    }
+
+    [Fact]
+    public void Analyze_RetainsAmbiguousAndUnresolvedNativeEvidenceAsIncomplete()
+    {
+        var semantic = new CSharpSemanticAnalysis(0, 0, 0, 0, Array.Empty<CSharpResolvedCall>(),
+            Array.Empty<CSharpUnresolvedCall>(), Array.Empty<string>());
+        var native = new NativeFlowAnalysis(1, 2, 1, 1, 0, new[]
+        {
+            new NativeFlowRelation("unresolved", "qualified-native-call", "unresolved", "native/View.cpp", 10,
+                "CView::Run", null, null, "CBridge::Missing", null, 0, "CBridge::Missing()"),
+            new NativeFlowRelation("ambiguous", "mfc-dispatch", "ambiguous", "native/View.cpp", 4,
+                "MFC message map CView", null, null, "CView::OnRun", "ID_RUN", 2, "ON_COMMAND(ID_RUN, CView::OnRun)")
+        }, Array.Empty<string>());
+
+        var report = CallImpactAnalyzer.Analyze(".", new[] { "native/View.cpp" },
+            new[] { "native/View.cpp" }, semantic, 100, native);
+
+        Assert.False(report.IsComplete);
+        Assert.Equal(2, report.NativeImpacts.Count);
+        Assert.Equal(1, report.NativeUnresolvedCount);
+        Assert.Equal(1, report.NativeAmbiguousCount);
+        Assert.All(report.NativeImpacts, item => Assert.Null(item.TargetPath));
+        Assert.Contains(report.Issues, issue => issue.Contains("unresolved relation", StringComparison.Ordinal));
+        Assert.Contains(report.Issues, issue => issue.Contains("ambiguous relation", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Analyze_SeparatesManagedResolvedCallsFromNativeCandidatesInMixedRequest()
+    {
+        var native = new NativeFlowAnalysis(2, 2, 0, 0, 0, new[]
+        {
+            new NativeFlowRelation("dispatch", "mfc-dispatch", "candidate", "legacy/View.cpp", 4,
+                "MFC message map CView", "native/View.cpp", 8, "CView::OnImport", "ID_IMPORT", 1, "ON_COMMAND"),
+            new NativeFlowRelation("bridge", "qualified-native-call", "candidate", "native/View.cpp", 10,
+                "CView::OnImport", "legacy/Bridge.cpp", 3, "CBridge::Import", null, 1, "CBridge::Import()")
+        }, Array.Empty<string>());
+        var discovered = new[] { "src/Core.cs", "src/Service.cs", "tests/CoreTests.cs", "legacy/View.cpp", "native/View.cpp", "legacy/Bridge.cpp" };
+
+        var report = CallImpactAnalyzer.Analyze(".", new[] { "src/Core.cs", "legacy/Bridge.cpp" }, discovered,
+            CompileFixtureGraph(), 100, native);
+
+        Assert.NotEmpty(report.Impacts);
+        Assert.NotEmpty(report.NativeImpacts);
+        Assert.All(report.Impacts, item => Assert.Contains(item.Path, discovered));
+        Assert.All(report.NativeImpacts, item => Assert.Equal("candidate", item.Status));
+    }
+
+    [Fact]
+    public void Analyze_StopsNativeCyclesAndDeduplicatesRelations()
+    {
+        var semantic = new CSharpSemanticAnalysis(0, 0, 0, 0, Array.Empty<CSharpResolvedCall>(),
+            Array.Empty<CSharpUnresolvedCall>(), Array.Empty<string>());
+        var native = new NativeFlowAnalysis(2, 3, 0, 0, 0, new[]
+        {
+            new NativeFlowRelation("direct", "qualified-native-call", "candidate", "native/Caller.cpp", 4,
+                "CNative::Caller", "native/Changed.cpp", 2, "CBridge::Changed", null, 1, "CBridge::Changed()"),
+            new NativeFlowRelation("cycle-a", "qualified-native-call", "candidate", "native/Caller.cpp", 5,
+                "CNative::Caller", "native/Caller.cpp", 1, "CNative::Other", null, 1, "CNative::Other()"),
+            new NativeFlowRelation("cycle-b", "qualified-native-call", "candidate", "native/Caller.cpp", 6,
+                "CNative::Other", "native/Caller.cpp", 1, "CNative::Caller", null, 1, "CNative::Caller()")
+        }, Array.Empty<string>());
+
+        var report = CallImpactAnalyzer.Analyze(".", new[] { "native/Changed.cpp" },
+            new[] { "native/Changed.cpp", "native/Caller.cpp" }, semantic, 100, native);
+
+        Assert.True(report.IsComplete);
+        Assert.Equal(3, report.NativeImpacts.Count);
+        Assert.Equal(3, report.NativeImpacts.Select(item => item.RelationshipId).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(3, report.NativeImpacts.Max(item => item.Depth));
+    }
+
+    [Fact]
     public void Analyze_ReportsDirectTransitiveAndTestPathCallers()
     {
         var semantic = CompileFixtureGraph();
@@ -85,11 +184,11 @@ public sealed class CallImpactAnalyzerTests
     public void Analyze_MarksUnmappedAndUnsupportedPathsIncomplete()
     {
         var report = CallImpactAnalyzer.Analyze(".", new[] { "src/Missing.cs", "native/file.cpp", "../outside.cs" },
-            new[] { "src/Core.cs" }, CompileFixtureGraph(), 100);
+            new[] { "src/Core.cs", "native/file.cpp" }, CompileFixtureGraph(), 100);
 
         Assert.False(report.IsComplete);
         Assert.Contains(report.Issues, issue => issue.Contains("not found", StringComparison.Ordinal));
-        Assert.Contains(report.Issues, issue => issue.Contains("supports C# and Visual Basic", StringComparison.Ordinal));
+        Assert.Contains(report.Issues, issue => issue.Contains("native flow evidence was unavailable", StringComparison.Ordinal));
         Assert.Contains(report.Issues, issue => issue.Contains("repository-relative", StringComparison.Ordinal));
     }
 
@@ -159,6 +258,7 @@ public sealed class CallImpactAnalyzerTests
         Assert.StartsWith("{\"SchemaVersion\":1,", json, StringComparison.Ordinal);
         Assert.Equal(2, parsed.RootElement.GetProperty("Impacts").GetArrayLength());
         Assert.Equal("method", parsed.RootElement.GetProperty("Impacts")[0].GetProperty("RelationshipKind").GetString());
+        Assert.Equal("managed-compiler-resolved", parsed.RootElement.GetProperty("Impacts")[0].GetProperty("EvidenceKind").GetString());
         Assert.Equal(json, JsonSerializer.Serialize(repeated));
         Assert.Equal(markdown, CallImpactReportRenderer.Render(repeated));
         Assert.Contains("Depth 1", markdown, StringComparison.Ordinal);

@@ -196,6 +196,33 @@ public sealed class EvidenceCommandTests : IDisposable
     }
 
     [Fact]
+    public void Evidence_FocusByChangedNativePathIncludesMfcImpactWithoutLoadingManagedProjects()
+    {
+        Write("legacy/Native/View.cpp", """
+            void CView::OnImport() { CBridge::Import(); }
+            BEGIN_MESSAGE_MAP(CView, CView)
+                ON_COMMAND(ID_IMPORT, &CView::OnImport)
+            END_MESSAGE_MAP()
+            """);
+        Write("legacy/Bridge/Bridge.cpp", "void CBridge::Import() { }");
+
+        var result = Run("evidence", _root, "--changed", "legacy/Bridge/Bridge.cpp", "--limit", "1000");
+
+        Assert.Equal(0, result.ExitCode);
+        using var json = JsonDocument.Parse(result.Output);
+        var focus = json.RootElement.GetProperty("focus");
+        Assert.False(focus.GetProperty("semanticImpactAnalyzed").GetBoolean());
+        Assert.True(focus.GetProperty("impactComplete").GetBoolean());
+        var native = json.RootElement.GetProperty("findings").EnumerateArray()
+            .Where(item => item.GetProperty("category").GetString() == "native-flow-candidate").ToArray();
+        Assert.Equal(2, native.Length);
+        Assert.All(native, item => Assert.Contains(item.GetProperty("matchedBy").EnumerateArray(), reason =>
+            reason.GetString()!.EndsWith(":native-caller-impact", StringComparison.Ordinal)));
+        Assert.Contains(native, item => item.GetProperty("relationKind").GetString() == "mfc-dispatch");
+        Assert.Contains(native, item => item.GetProperty("relationKind").GetString() == "qualified-native-call");
+    }
+
+    [Fact]
     public void Evidence_FocusPreservesDotPrefixedRepositoryPathSegments()
     {
         Write("Legacy.csproj", """

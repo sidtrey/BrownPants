@@ -474,7 +474,7 @@ public static class Program
         if (command.Equals("impact", StringComparison.OrdinalIgnoreCase))
         {
             output.WriteLine("Usage: brownpants impact <repository> --changed <relative-source-path> [--changed <relative-source-path> ...] [--format markdown|json] [--limit 1..10000]");
-            output.WriteLine("  --changed            Repository-relative C# or Visual Basic source path; repeatable.");
+            output.WriteLine("  --changed            Repository-relative C#, Visual Basic, or C/C++ source path; repeatable.");
             output.WriteLine("  --format             Report as markdown (default) or json.");
             output.WriteLine("  --limit              Maximum sampled entries, from 1 to 10000 (default: 200).");
             return 0;
@@ -1011,7 +1011,7 @@ public static class Program
             {
                 if (++index >= args.Length || string.IsNullOrWhiteSpace(args[index]) || args[index].StartsWith("--", StringComparison.Ordinal))
                 {
-                    error.WriteLine("Missing value for --changed. Provide a repository-relative C# or Visual Basic source path.");
+                    error.WriteLine("Missing value for --changed. Provide a repository-relative C#, Visual Basic, or C/C++ source path.");
                     return 2;
                 }
                 changedPaths.Add(args[index]);
@@ -1061,9 +1061,14 @@ public static class Program
         }
         try
         {
-            var inventory = RepositoryScanner.Scan(root, sampleLimit, analyzeSemantics: true);
+            var analyzeManagedImpact = changedPaths.Any(changed =>
+                Path.GetExtension(changed).Equals(".cs", StringComparison.OrdinalIgnoreCase)
+                || Path.GetExtension(changed).Equals(".vb", StringComparison.OrdinalIgnoreCase));
+            var inventory = RepositoryScanner.Scan(root, sampleLimit, analyzeSemantics: analyzeManagedImpact);
+            var semantic = inventory.CSharp.Semantic ?? new CSharpSemanticAnalysis(0, 0, 0, 0,
+                Array.Empty<CSharpResolvedCall>(), Array.Empty<CSharpUnresolvedCall>(), Array.Empty<string>());
             var report = CallImpactAnalyzer.Analyze(inventory.Root, changedPaths, RepositoryScanner.DiscoverFiles(inventory.Root),
-                inventory.CSharp.Semantic!, sampleLimit);
+                semantic, sampleLimit, inventory.ArchitecturePatterns.NativeFlow);
             output.WriteLine(format == "json"
                 ? JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true })
                 : CallImpactReportRenderer.Render(report));

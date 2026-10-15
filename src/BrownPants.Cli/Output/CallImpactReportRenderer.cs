@@ -13,27 +13,62 @@ public static class CallImpactReportRenderer
         output.AppendLine($"- Repository: `{Escape(report.Root)}`");
         output.AppendLine($"- Changed paths: {string.Join(", ", report.ChangedPaths.Select(path => $"`{Escape(path)}`"))}");
         output.AppendLine($"- Analysis complete: **{(report.IsComplete ? "yes" : "no")}**");
-        output.AppendLine();
-        output.AppendLine("## Observed graph measures");
-        output.AppendLine();
-        output.AppendLine($"- Direct callers: {report.Summary.DirectCallerCount}");
-        output.AppendLine($"- Transitive callers: {report.Summary.TransitiveCallerCount}");
-        output.AppendLine($"- Affected files: {report.Summary.AffectedFileCount}");
-        output.AppendLine($"- Affected projects: {report.Summary.AffectedProjectCount}");
-        output.AppendLine($"- Test-candidate files: {report.Summary.TestCandidateCount}");
-        output.AppendLine($"- Maximum observed caller depth: {report.Summary.MaximumCallerDepth}");
-        output.AppendLine();
-        output.AppendLine("## Callers");
-        output.AppendLine();
-        if (report.Impacts.Count == 0)
-            output.AppendLine(report.IsComplete ? "No callers were found in the loaded graph." : "No callers were found in the sampled graph; incomplete analysis prevents a no-impact conclusion.");
-        else
+        var hasManagedPaths = report.ChangedPaths.Any(path => path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".vb", StringComparison.OrdinalIgnoreCase));
+        if (hasManagedPaths)
         {
-            foreach (var impact in report.Impacts)
+            output.AppendLine();
+            output.AppendLine("## Managed resolved graph measures");
+            output.AppendLine();
+            output.AppendLine($"- Direct callers: {report.Summary.DirectCallerCount}");
+            output.AppendLine($"- Transitive callers: {report.Summary.TransitiveCallerCount}");
+            output.AppendLine($"- Affected files: {report.Summary.AffectedFileCount}");
+            output.AppendLine($"- Affected projects: {report.Summary.AffectedProjectCount}");
+            output.AppendLine($"- Test-candidate files: {report.Summary.TestCandidateCount}");
+            output.AppendLine($"- Maximum observed caller depth: {report.Summary.MaximumCallerDepth}");
+        }
+        if (report.ChangedPaths.Any(path => Path.GetExtension(path).ToLowerInvariant() is
+                ".c" or ".cc" or ".cpp" or ".cxx" or ".h" or ".hh" or ".hpp" or ".hxx" or ".inl" or ".ipp"))
+        {
+            output.AppendLine();
+            output.AppendLine("## Native candidate measures");
+            output.AppendLine();
+            output.AppendLine($"- Candidate relations: {report.NativeCandidateCount}");
+            output.AppendLine($"- Unresolved relations: {report.NativeUnresolvedCount}");
+            output.AppendLine($"- Ambiguous relations: {report.NativeAmbiguousCount}");
+            output.AppendLine($"- Source files in retained relations: {report.NativeAffectedFileCount}");
+        }
+        if (hasManagedPaths)
+        {
+            output.AppendLine();
+            output.AppendLine("## Managed callers");
+            output.AppendLine();
+            if (report.Impacts.Count == 0)
+                output.AppendLine(report.IsComplete ? "No managed callers were found in the loaded graph." : "No managed callers were retained; incomplete analysis prevents a no-impact conclusion.");
+            else
             {
-                var candidate = impact.IsTestCandidate ? " — test-path candidate" : string.Empty;
-                var relation = impact.RelationshipKind == "constructor" ? "constructs" : "calls";
-                output.AppendLine($"- Depth {impact.Depth}: `{Escape(impact.Caller)}` {relation} `{Escape(impact.Target)}` on the path to changed member `{Escape(impact.ChangedMethod)}` at `{Escape(impact.Path)}:{impact.Line}` (project `{Escape(impact.Project)}`){candidate}");
+                foreach (var impact in report.Impacts)
+                {
+                    var candidate = impact.IsTestCandidate ? " — test-path candidate" : string.Empty;
+                    var relation = impact.RelationshipKind == "constructor" ? "constructs" : "calls";
+                    output.AppendLine($"- Depth {impact.Depth}: `{Escape(impact.Caller)}` {relation} `{Escape(impact.Target)}` on the path to changed member `{Escape(impact.ChangedMethod)}` at `{Escape(impact.Path)}:{impact.Line}` (project `{Escape(impact.Project)}`){candidate}");
+                }
+            }
+        }
+        if (report.ChangedPaths.Any(path => Path.GetExtension(path).ToLowerInvariant() is
+                ".c" or ".cc" or ".cpp" or ".cxx" or ".h" or ".hh" or ".hpp" or ".hxx" or ".inl" or ".ipp"))
+        {
+            output.AppendLine();
+            output.AppendLine("## Native impact candidates");
+            output.AppendLine();
+            if (report.NativeImpacts.Count == 0)
+                output.AppendLine(report.IsComplete ? "No native-flow candidate relations were found for the changed paths." : "No native-flow candidate relations were retained; incomplete analysis prevents a no-impact conclusion.");
+            foreach (var impact in report.NativeImpacts)
+            {
+                var command = impact.CommandId is null ? string.Empty : $" command `{Escape(impact.CommandId)}`";
+                var targetLocation = impact.TargetPath is null ? "target location unresolved"
+                    : $"target `{Escape(impact.TargetPath)}:{impact.TargetLine}`";
+                output.AppendLine($"- Depth {impact.Depth} **{Escape(impact.Status)}** {Escape(impact.RelationshipKind)}{command}: `{Escape(impact.SourceSymbol)}` at `{Escape(impact.SourcePath)}:{impact.SourceLine}` → `{Escape(impact.TargetSymbol)}` ({targetLocation}; {impact.CandidateTargetCount} candidate target(s); changed `{Escape(impact.ChangedPath)}`)");
             }
         }
         if (report.Issues.Count > 0)
@@ -47,7 +82,7 @@ public static class CallImpactReportRenderer
         output.AppendLine();
         output.AppendLine("## Evidence limits");
         output.AppendLine();
-        output.Append("These are observed statically resolved C# and Visual Basic method and explicit constructor relationships. Constructor relationships cover compiler-bound source construction only; they do not prove runtime activation through dependency injection, reflection, dynamic dispatch, or native C++/MFC. Test-path candidates do not prove test coverage. Graph counts and depth describe observed evidence; they are not effort estimates.");
+        output.Append("Managed entries are statically resolved C# and Visual Basic method and explicit constructor relationships. Native entries are lexical MFC/native-flow candidates and are not compiler-resolved calls. Neither category proves runtime activation, dependency injection behavior, reflection, dynamic dispatch, or exhaustive impact. Test-path candidates do not prove test coverage. Graph counts and depth describe observed evidence; they are not effort estimates.");
         return output.ToString().TrimEnd();
     }
 

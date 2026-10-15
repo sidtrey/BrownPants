@@ -13,6 +13,13 @@ public sealed record CallImpactReport(
 {
     [JsonPropertyOrder(-1)]
     public int SchemaVersion => 1;
+
+    public IReadOnlyList<NativeCallImpact> NativeImpacts { get; init; } = Array.Empty<NativeCallImpact>();
+    public int NativeCandidateCount => NativeImpacts.Count(item => item.Status == "candidate");
+    public int NativeUnresolvedCount => NativeImpacts.Count(item => item.Status == "unresolved");
+    public int NativeAmbiguousCount => NativeImpacts.Count(item => item.Status == "ambiguous");
+    public int NativeAffectedFileCount => NativeImpacts.Select(item => item.SourcePath).Distinct(
+        OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal).Count();
 }
 
 public sealed record CallImpactSummary(
@@ -32,12 +39,35 @@ public sealed record CallImpact(
     int Depth,
     string Project,
     bool IsTestCandidate,
-    string RelationshipKind = "method");
+    string RelationshipKind = "method")
+{
+    public string EvidenceKind => "managed-compiler-resolved";
+}
+
+public sealed record NativeCallImpact(
+    string ChangedPath,
+    string RelationshipId,
+    string RelationshipKind,
+    string Status,
+    string SourceSymbol,
+    string TargetSymbol,
+    string SourcePath,
+    int SourceLine,
+    string? TargetPath,
+    int? TargetLine,
+    string? CommandId,
+    int CandidateTargetCount,
+    int Depth,
+    string Evidence)
+{
+    public string EvidenceKind => "native-lexical";
+}
 
 public static class CallImpactAnalyzer
 {
     public static CallImpactReport Analyze(string root, IReadOnlyList<string> changedPaths,
-        IReadOnlyList<string> discoveredFiles, CSharpSemanticAnalysis semantic, int sampleLimit)
+        IReadOnlyList<string> discoveredFiles, CSharpSemanticAnalysis semantic, int sampleLimit,
+        NativeFlowAnalysis? nativeFlow = null)
     {
         if (changedPaths.Count == 0)
             throw new ArgumentException("At least one --changed path is required.", nameof(changedPaths));
@@ -57,10 +87,13 @@ public static class CallImpactAnalyzer
                 continue;
             }
             var relative = NormalizePath(input);
-            if (!relative.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
-                && !relative.EndsWith(".vb", StringComparison.OrdinalIgnoreCase))
+            var isManagedSource = relative.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
+                || relative.EndsWith(".vb", StringComparison.OrdinalIgnoreCase);
+            var isNativeSource = Path.GetExtension(relative).ToLowerInvariant() is
+                ".c" or ".cc" or ".cpp" or ".cxx" or ".h" or ".hh" or ".hpp" or ".hxx" or ".inl" or ".ipp";
+            if (!isManagedSource && !isNativeSource)
             {
-                issues.Add($"Unsupported changed path '{relative}': semantic impact currently supports C# and Visual Basic source files.");
+                issues.Add($"Unsupported changed path '{relative}': impact supports C#, Visual Basic, and C/C++ source files.");
                 continue;
             }
             if (!discovered.Contains(relative))
@@ -77,26 +110,34 @@ public static class CallImpactAnalyzer
             .ToDictionary(group => group.Key, group => group.Select(item => item.Symbol).ToHashSet(StringComparer.Ordinal), pathComparer);
         foreach (var changed in normalizedChanged)
         {
+            if (IsNativeSource(changed) && nativeFlow is null)
+                issues.Add($"Native impact for '{changed}' was not analyzed because native flow evidence was unavailable.");
             if (!declarationGroups.TryGetValue(changed, out var symbols) || symbols.Count == 0)
+            {
+                if (IsNativeSource(changed)) continue;
                 issues.Add($"Changed path '{changed}' has no mapped method declarations in the loaded semantic graph.");
+            }
         }
 
-        if (semantic.ProjectsLoaded != semantic.ProjectsDiscovered)
-            issues.Add($"Only {semantic.ProjectsLoaded} of {semantic.ProjectsDiscovered} discovered managed projects loaded.");
-        if (semantic.Issues.Count > 0)
-            issues.Add($"Semantic workspace reported {semantic.Issues.Count} load or workspace issue(s).");
-        if (semantic.UnresolvedInvocationCount > 0)
-            issues.Add($"{semantic.UnresolvedInvocationCount} invocation(s) were unresolved.");
-        if (semantic.UnresolvedConstructorCount > 0)
-            issues.Add($"{semantic.UnresolvedConstructorCount} constructor relationship(s) were unresolved.");
-        var resolvedTotal = semantic.ResolvedInvocationCount + semantic.ResolvedConstructorCount;
-        var unresolvedTotal = semantic.UnresolvedInvocationCount + semantic.UnresolvedConstructorCount;
-        if (semantic.ResolvedCalls.Count < resolvedTotal)
-            issues.Add($"Resolved relationship edges were sampled: {semantic.ResolvedCalls.Count} of {resolvedTotal} retained.");
-        if (semantic.UnresolvedCalls.Count < unresolvedTotal)
-            issues.Add($"Unresolved relationship details were sampled: {semantic.UnresolvedCalls.Count} of {unresolvedTotal} retained.");
-        if (declarations.Count < semantic.DeclarationCount)
-            issues.Add($"Method declarations were sampled: {declarations.Count} of {semantic.DeclarationCount} retained.");
+        if (normalizedChanged.Any(path => !IsNativeSource(path)))
+        {
+            if (semantic.ProjectsLoaded != semantic.ProjectsDiscovered)
+                issues.Add($"Only {semantic.ProjectsLoaded} of {semantic.ProjectsDiscovered} discovered managed projects loaded.");
+            if (semantic.Issues.Count > 0)
+                issues.Add($"Semantic workspace reported {semantic.Issues.Count} load or workspace issue(s).");
+            if (semantic.UnresolvedInvocationCount > 0)
+                issues.Add($"{semantic.UnresolvedInvocationCount} invocation(s) were unresolved.");
+            if (semantic.UnresolvedConstructorCount > 0)
+                issues.Add($"{semantic.UnresolvedConstructorCount} constructor relationship(s) were unresolved.");
+            var resolvedTotal = semantic.ResolvedInvocationCount + semantic.ResolvedConstructorCount;
+            var unresolvedTotal = semantic.UnresolvedInvocationCount + semantic.UnresolvedConstructorCount;
+            if (semantic.ResolvedCalls.Count < resolvedTotal)
+                issues.Add($"Resolved relationship edges were sampled: {semantic.ResolvedCalls.Count} of {resolvedTotal} retained.");
+            if (semantic.UnresolvedCalls.Count < unresolvedTotal)
+                issues.Add($"Unresolved relationship details were sampled: {semantic.UnresolvedCalls.Count} of {unresolvedTotal} retained.");
+            if (declarations.Count < semantic.DeclarationCount)
+                issues.Add($"Method declarations were sampled: {declarations.Count} of {semantic.DeclarationCount} retained.");
+        }
 
         var calls = semantic.ResolvedCalls;
         var impacts = new Dictionary<string, CallImpact>(StringComparer.Ordinal);
@@ -141,6 +182,8 @@ public static class CallImpactAnalyzer
             .Take(sampleLimit).ToArray();
         if (impacts.Count > orderedImpacts.Length)
             issues.Add($"Impact findings were sampled: {orderedImpacts.Length} of {impacts.Count} retained.");
+
+        var nativeImpacts = AnalyzeNativeImpacts(normalizedChanged, nativeFlow, sampleLimit, issues);
         var summary = new CallImpactSummary(
             impacts.Values.Where(item => item.Depth == 1).Select(item => item.Caller).Distinct(StringComparer.Ordinal).Count(),
             impacts.Values.Where(item => item.Depth > 1).Select(item => item.Caller).Distinct(StringComparer.Ordinal).Count(),
@@ -149,8 +192,90 @@ public static class CallImpactAnalyzer
             impacts.Values.Where(item => item.IsTestCandidate).Select(item => item.Path).Distinct(pathComparer).Count(),
             impacts.Values.Select(item => item.Depth).DefaultIfEmpty(0).Max());
         return new CallImpactReport(root, normalizedChanged.ToArray(), issues.Count == 0, summary, orderedImpacts,
-            issues.ToArray(), sampleLimit);
+            issues.ToArray(), sampleLimit) { NativeImpacts = nativeImpacts };
     }
+
+    private static NativeCallImpact[] AnalyzeNativeImpacts(IReadOnlyCollection<string> changedPaths,
+        NativeFlowAnalysis? nativeFlow, int sampleLimit, ISet<string> issues)
+    {
+        var nativeChanged = changedPaths.Where(IsNativeSource).ToArray();
+        if (nativeChanged.Length == 0 || nativeFlow is null) return [];
+
+        if (nativeFlow.UnresolvedCount > 0)
+            issues.Add($"Native flow contains {nativeFlow.UnresolvedCount} unresolved relation(s); native impact may be incomplete.");
+        if (nativeFlow.AmbiguousCount > 0)
+            issues.Add($"Native flow contains {nativeFlow.AmbiguousCount} ambiguous relation(s); native impact may be incomplete.");
+        if (nativeFlow.OmittedCount > 0)
+            issues.Add($"Native flow relations were sampled: {nativeFlow.Relations.Count} retained and {nativeFlow.OmittedCount} omitted.");
+
+        var incomingBySymbol = nativeFlow.Relations.Where(item => item.Status == "candidate")
+            .GroupBy(item => item.TargetSymbol, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.OrderBy(item => item.SourcePath, StringComparer.Ordinal)
+                .ThenBy(item => item.SourceLine).ThenBy(item => item.Id, StringComparer.Ordinal).ToArray(), StringComparer.Ordinal);
+        var results = new Dictionary<string, NativeCallImpact>(StringComparer.Ordinal);
+        foreach (var changed in nativeChanged)
+        {
+            var incoming = nativeFlow.Relations
+                .Where(relation => relation.Status == "candidate" && relation.TargetPath is not null
+                    && PathEquals(relation.TargetPath, changed))
+                .OrderBy(relation => relation.SourcePath, StringComparer.Ordinal)
+                .ThenBy(relation => relation.SourceLine)
+                .ThenBy(relation => relation.Id, StringComparer.Ordinal)
+                .ToArray();
+            var queue = new Queue<(string Symbol, int Depth)>();
+            var visited = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (var relation in incoming)
+            {
+                Add(relation, changed, 1);
+                queue.Enqueue((relation.SourceSymbol, 1));
+            }
+
+            while (queue.Count > 0)
+            {
+                var (symbol, depth) = queue.Dequeue();
+                if (string.IsNullOrWhiteSpace(symbol) || symbol.StartsWith("MFC message map ", StringComparison.Ordinal))
+                    continue;
+                if (visited.TryGetValue(symbol, out var priorDepth) && priorDepth <= depth) continue;
+                visited[symbol] = depth;
+                if (!incomingBySymbol.TryGetValue(symbol, out var related)) continue;
+                foreach (var relation in related)
+                {
+                    Add(relation, changed, depth + 1);
+                    queue.Enqueue((relation.SourceSymbol, depth + 1));
+                }
+            }
+
+            foreach (var relation in nativeFlow.Relations.Where(item => item.Status is "unresolved" or "ambiguous"
+                         && (PathEquals(item.SourcePath, changed)
+                             || item.TargetPath is not null && PathEquals(item.TargetPath, changed)))
+                     .OrderBy(item => item.SourcePath, StringComparer.Ordinal).ThenBy(item => item.SourceLine)
+                     .ThenBy(item => item.Id, StringComparer.Ordinal))
+                Add(relation, changed, 1);
+
+            void Add(NativeFlowRelation relation, string changedPath, int depth)
+            {
+                var item = new NativeCallImpact(changedPath, relation.Id, relation.Kind, relation.Status,
+                    relation.SourceSymbol, relation.TargetSymbol, NormalizePath(relation.SourcePath),
+                    relation.SourceLine, relation.TargetPath is null ? null : NormalizePath(relation.TargetPath),
+                    relation.TargetLine, relation.CommandId, relation.CandidateTargetCount, depth, relation.Evidence);
+                results.TryAdd(string.Join("\n", changedPath, relation.Id), item);
+            }
+        }
+
+        var ordered = results.Values.OrderBy(item => item.ChangedPath, StringComparer.Ordinal)
+            .ThenBy(item => item.Depth).ThenBy(item => item.SourcePath, StringComparer.Ordinal)
+            .ThenBy(item => item.SourceLine).ThenBy(item => item.RelationshipId, StringComparer.Ordinal)
+            .Take(sampleLimit).ToArray();
+        if (results.Count > ordered.Length)
+            issues.Add($"Native impact findings were sampled: {ordered.Length} of {results.Count} retained.");
+        return ordered;
+    }
+
+    private static bool IsNativeSource(string path) => Path.GetExtension(path).ToLowerInvariant() is
+        ".c" or ".cc" or ".cpp" or ".cxx" or ".h" or ".hh" or ".hpp" or ".hxx" or ".inl" or ".ipp";
+
+    private static bool PathEquals(string left, string right) => string.Equals(NormalizePath(left), NormalizePath(right),
+        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 
     private static string NormalizePath(string path)
     {
