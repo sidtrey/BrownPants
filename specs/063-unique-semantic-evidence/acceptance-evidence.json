@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    { "taskId": "T001", "criterionIds": ["AC-001", "AC-002", "AC-003", "SC-001"], "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~Evidence_EmitsUniqueSameLineConstructorFindings", "evidencePaths": ["tests/BrownPants.Tests/EvidenceCommandTests.cs"], "result": "passed" },
+    { "taskId": "T002", "criterionIds": ["AC-001", "SC-001"], "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~Evidence_EmitsUniqueSameLineConstructorFindings", "evidencePaths": ["src/BrownPants.Cli/Analysis/CSharpSemanticAnalyzer.cs", "src/BrownPants.Cli/Analysis/RepositoryInventory.cs", "tests/BrownPants.Tests/EvidenceCommandTests.cs"], "result": "passed" },
+    { "taskId": "T003", "criterionIds": ["AC-002", "AC-003", "AC-004", "SC-002"], "verificationCommand": "dotnet test BrownPants.sln -c Release --filter FullyQualifiedName~Evidence_EmitsUniqueSameLineConstructorFindings", "evidencePaths": ["src/BrownPants.Cli/Analysis/EvidenceReport.cs", "src/BrownPants.Cli/Analysis/EvidenceFocusAnalyzer.cs", "tests/BrownPants.Tests/EvidenceCommandTests.cs"], "result": "passed" },
+    { "taskId": "T004", "criterionIds": ["AC-001", "SC-001", "SC-002"], "verificationCommand": "dotnet run --project src/BrownPants.Cli -c Release -- evidence examples/brownfield-bug-lab --semantic --format json --limit 1000", "evidencePaths": ["README.md", "specs/063-unique-semantic-evidence/verification.md"], "result": "passed" },
+    { "taskId": "T005", "criterionIds": ["SC-003"], "verificationCommand": "dotnet build BrownPants.sln -c Release; dotnet test BrownPants.sln -c Release", "evidencePaths": ["specs/063-unique-semantic-evidence/verification.md"], "result": "passed" }
+  ]
+}

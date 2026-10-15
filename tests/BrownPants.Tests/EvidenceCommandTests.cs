@@ -456,6 +456,71 @@ public sealed class EvidenceCommandTests : IDisposable
     }
 
     [Fact]
+    public void Evidence_EmitsUniqueSameLineConstructorFindings()
+    {
+        Write("Fixture.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>");
+        const string oneCall = "namespace Sample; public sealed class Box { public Box(int value) { } } public sealed class Item { public Item(int value) { } public void Save(int value) { } } public static class Runner { public static void Run() { _ = new Box(1); } }";
+        Write("Calls.cs", oneCall);
+
+        var singleCallResult = Run("evidence", _root, "--semantic", "--limit", "1000");
+
+        Assert.Equal(0, singleCallResult.ExitCode);
+        using var singleCallJson = JsonDocument.Parse(singleCallResult.Output);
+        Assert.Equal(1, singleCallJson.RootElement.GetProperty("schemaVersion").GetInt32());
+        var boxBefore = Assert.Single(singleCallJson.RootElement.GetProperty("findings").EnumerateArray(), finding =>
+            finding.GetProperty("category").GetString() == "managed-call"
+            && finding.GetProperty("path").GetString() == "Calls.cs"
+            && finding.GetProperty("targetSignature").GetString()!.Contains("Sample.Box..ctor", StringComparison.Ordinal));
+        var boxBeforeId = boxBefore.GetProperty("id").GetString();
+
+        Write("Calls.cs", oneCall.Replace("new Box(1); }", "new Box(1); new Item(2).Save(4); new Item(2).Save(4); }", StringComparison.Ordinal));
+        var fullResult = Run("evidence", _root, "--semantic", "--limit", "1000");
+        var focusedResult = Run("evidence", _root, "--changed", "Calls.cs", "--semantic", "--limit", "1000");
+        var repeatedFullResult = Run("evidence", _root, "--semantic", "--limit", "1000");
+
+        Assert.Equal(0, fullResult.ExitCode);
+        Assert.Equal(0, focusedResult.ExitCode);
+        Assert.Equal(fullResult.Output, repeatedFullResult.Output);
+        using var fullJson = JsonDocument.Parse(fullResult.Output);
+        using var focusedJson = JsonDocument.Parse(focusedResult.Output);
+        Assert.Equal(1, fullJson.RootElement.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal(1, focusedJson.RootElement.GetProperty("schemaVersion").GetInt32());
+        var findings = fullJson.RootElement.GetProperty("findings").EnumerateArray()
+            .Where(finding => finding.GetProperty("category").GetString() == "managed-call"
+                && finding.GetProperty("path").GetString() == "Calls.cs")
+            .ToArray();
+        var boxAfter = Assert.Single(findings, finding =>
+            finding.GetProperty("targetSignature").GetString()!.Contains("Sample.Box..ctor", StringComparison.Ordinal));
+        var itemFindings = findings.Where(finding =>
+            finding.GetProperty("targetSignature").GetString()!.Contains("Sample.Item..ctor", StringComparison.Ordinal)).ToArray();
+        var saveFindings = findings.Where(finding =>
+            finding.GetProperty("targetSignature").GetString()!.Contains("Sample.Item.Save", StringComparison.Ordinal)).ToArray();
+
+        Assert.Equal(boxBeforeId, boxAfter.GetProperty("id").GetString());
+        Assert.Equal(2, itemFindings.Length);
+        Assert.Equal(2, itemFindings.Select(finding => finding.GetProperty("id").GetString()).Distinct().Count());
+        Assert.Equal(2, itemFindings.Select(finding => finding.GetProperty("column").GetInt32()).Distinct().Count());
+        Assert.All(itemFindings, finding => Assert.Equal("new Item(2)", finding.GetProperty("evidence").GetString()));
+        Assert.Equal(2, saveFindings.Length);
+        Assert.Equal(2, saveFindings.Select(finding => finding.GetProperty("id").GetString()).Distinct().Count());
+        Assert.Equal(2, saveFindings.Select(finding => finding.GetProperty("column").GetInt32()).Distinct().Count());
+        var completeness = fullJson.RootElement.GetProperty("completeness");
+        Assert.Equal(5, completeness.GetProperty("totalFindingCount").GetInt32());
+        Assert.Equal(5, completeness.GetProperty("emittedFindingCount").GetInt32());
+        Assert.False(completeness.GetProperty("findingsTruncated").GetBoolean());
+
+        var focusedFindings = focusedJson.RootElement.GetProperty("findings").EnumerateArray()
+            .Where(finding => finding.GetProperty("category").GetString() == "managed-call"
+                && finding.GetProperty("path").GetString() == "Calls.cs")
+            .ToArray();
+        Assert.Equal(5, focusedFindings.Length);
+        Assert.Equal(5, focusedFindings.Select(finding => finding.GetProperty("id").GetString()).Distinct().Count());
+        Assert.Equal(findings.Select(finding => finding.GetProperty("id").GetString()).Order(StringComparer.Ordinal),
+            focusedFindings.Select(finding => finding.GetProperty("id").GetString()).Order(StringComparer.Ordinal));
+        Assert.All(focusedFindings, finding => Assert.NotEmpty(finding.GetProperty("matchedBy").EnumerateArray()));
+    }
+
+    [Fact]
     public void Evidence_ReportsWhenUnifiedFindingLimitTruncatesOutput()
     {
         Write("src/OrderFactory.cs", "namespace Sample; public class AFactory { } public class BFactory { } public class CFactory { }");

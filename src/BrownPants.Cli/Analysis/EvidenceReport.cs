@@ -53,6 +53,9 @@ public sealed record EvidenceFinding(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<NativeFlowTarget>? CandidateTargets = null)
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? Column { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<string>? MatchedBy { get; init; }
 }
 
@@ -127,7 +130,7 @@ public static class EvidenceReportAnalyzer
             {
                 var signal = call.RelationshipKind == "constructor" ? "resolved constructor" : "resolved call";
                 findings.Add(CreateFinding("managed-call", "resolved", signal, call.Path, call.Line,
-                    call.Caller, call.Target, call.Expression));
+                    call.Caller, call.Target, call.Expression, column: call.SourceColumn));
             }
         }
 
@@ -138,15 +141,18 @@ public static class EvidenceReportAnalyzer
         }
 
         var allOrdered = findings
-            .DistinctBy(item => item.Id, StringComparer.Ordinal)
             .OrderBy(item => item.Category, StringComparer.Ordinal)
             .ThenBy(item => item.Path, StringComparer.Ordinal)
             .ThenBy(item => item.Line)
             .ThenBy(item => item.Signal, StringComparer.Ordinal)
             .ThenBy(item => item.CallerSignature, StringComparer.Ordinal)
             .ThenBy(item => item.TargetSignature, StringComparer.Ordinal)
+            .ThenBy(item => item.Evidence, StringComparer.Ordinal)
+            .ThenBy(item => item.Column)
             .ToArray();
-        var ordered = allOrdered.Take(sampleLimit).ToArray();
+        var uniqueOrdered = EnsureUniqueIds(allOrdered);
+        var ordered = uniqueOrdered
+            .Take(sampleLimit).ToArray();
         var semanticTotal = semanticRequested && semantic is not null
             ? semantic.ResolvedInvocationCount + semantic.ResolvedConstructorCount
             : 0;
@@ -221,10 +227,46 @@ public static class EvidenceReportAnalyzer
                 locations.Length, locations);
         }).ToArray();
 
+    private static IReadOnlyList<EvidenceFinding> EnsureUniqueIds(IReadOnlyList<EvidenceFinding> findings)
+    {
+        var originalIds = findings.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
+        var usedIds = new HashSet<string>(StringComparer.Ordinal);
+        var collisionOrdinals = new Dictionary<string, int>(StringComparer.Ordinal);
+        var results = new EvidenceFinding[findings.Count];
+
+        for (var index = 0; index < findings.Count; index++)
+        {
+            var finding = findings[index];
+            if (usedIds.Add(finding.Id))
+            {
+                results[index] = finding;
+                continue;
+            }
+
+            var ordinal = collisionOrdinals.GetValueOrDefault(finding.Id) + 1;
+            string uniqueId;
+            do
+            {
+                var identity = string.Join("\n", finding.Id,
+                    finding.Column?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
+                    finding.Evidence, ordinal.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                uniqueId = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)))[..16].ToLowerInvariant();
+                ordinal++;
+            }
+            while (originalIds.Contains(uniqueId) || !usedIds.Add(uniqueId));
+
+            collisionOrdinals[finding.Id] = ordinal - 1;
+            results[index] = finding with { Id = uniqueId };
+        }
+
+        return results;
+    }
+
     private static EvidenceFinding CreateFinding(string category, string status, string signal, string path, int? line,
         string? caller, string? target, string evidence, string? targetPath = null, int? targetLine = null,
         string? relationKind = null, string? sourceSymbol = null, string? targetSymbol = null,
-        string? commandId = null, int? candidateTargetCount = null, IReadOnlyList<NativeFlowTarget>? candidateTargets = null)
+        string? commandId = null, int? candidateTargetCount = null, IReadOnlyList<NativeFlowTarget>? candidateTargets = null,
+        int? column = null)
     {
         var normalizedPath = path.Replace('\\', '/');
         var identity = relationKind is null
@@ -238,7 +280,7 @@ public static class EvidenceReportAnalyzer
         var id = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)))[..16].ToLowerInvariant();
         return new EvidenceFinding(id, category, status, signal, normalizedPath, line, caller, target, evidence,
             targetPath?.Replace('\\', '/'), targetLine, relationKind, sourceSymbol, targetSymbol, commandId,
-            candidateTargetCount, candidateTargets);
+            candidateTargetCount, candidateTargets) { Column = column };
     }
 
     private static bool IsSourceTestPath(string path) =>

@@ -221,7 +221,8 @@ public static class CSharpSemanticAnalyzer
                             ResolvedTarget(method),
                             sourceLocation.Location is not null ? sourceLocation.Path : null,
                             sourceLocation.Location?.GetLineSpan().StartLinePosition.Line + 1, "method",
-                            ResolvedTarget(method.OriginalDefinition)));
+                            ResolvedTarget(method.OriginalDefinition),
+                            invocationNode.GetLocation().GetLineSpan().StartLinePosition.Character + 1));
                     }
                     else
                     {
@@ -263,7 +264,8 @@ public static class CSharpSemanticAnalyzer
                             EnclosingMethod(semanticModel.GetEnclosingSymbol(constructionNode.SpanStart)),
                             ResolvedTarget(method), sourceLocation.Location is not null ? sourceLocation.Path : null,
                             sourceLocation.Location?.GetLineSpan().StartLinePosition.Line + 1, "constructor",
-                            ResolvedTarget(method.OriginalDefinition)));
+                            ResolvedTarget(method.OriginalDefinition),
+                            constructionNode.GetLocation().GetLineSpan().StartLinePosition.Character + 1));
                     }
                     else
                     {

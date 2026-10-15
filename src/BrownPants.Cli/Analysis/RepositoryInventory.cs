@@ -196,7 +196,8 @@ public sealed record SemanticCompilerDiagnosticGroup(string Project, string Code
 public sealed record CSharpSemanticDeclaration(string Project, string Path, int Line, string Symbol);
 
 public sealed record CSharpResolvedCall(string Project, string Path, int Line, string Expression, string Caller, string Target,
-    string? TargetPath = null, int? TargetLine = null, string RelationshipKind = "method", string? TargetIdentity = null);
+    string? TargetPath = null, int? TargetLine = null, string RelationshipKind = "method", string? TargetIdentity = null,
+    int? SourceColumn = null);
 
 public sealed record CSharpUnresolvedCall(
     string Project,
