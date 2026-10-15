@@ -14,4 +14,5 @@
 
 ## Hosted checks
 
-Cross-platform CI is pending for this commit. Task T008 remains incomplete until the Windows, Linux, and macOS jobs complete successfully. Local checks do not launch either agent desktop host; vendor support boundaries are documented in the integration guide.
+- GitHub Actions run [38668853147](https://github.com/sidtrey/BrownPants/actions/runs/38668853147) for commit `181a23d` — passed on `windows-latest`, `macos-latest`, and `ubuntu-latest`.
+- Local checks do not launch either agent desktop host; vendor support boundaries are documented in the integration guide.

@@ -39,7 +39,7 @@
 ## Phase 3: Polish and verification
 
 - [x] T007 [P] Wire the integration test into `.github/workflows/ci.yml`
-- [ ] T008 Run PowerShell adapter checks, Release build, xUnit suite, acceptance hash/evidence checks, and cross-platform CI; record observed outcomes in `specs/029-local-agent-context-skills/verification.md`
+- [x] T008 Run PowerShell adapter checks, Release build, xUnit suite, acceptance hash/evidence checks, and cross-platform CI; record observed outcomes in `specs/029-local-agent-context-skills/verification.md`
 
 ## Dependencies
 
