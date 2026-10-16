@@ -5,6 +5,7 @@
 - `dotnet build BrownPants.sln -c Release --no-restore` passed with zero warnings and errors; `scripts/test.ps1 -Configuration Release` passed all 386 tests.
 - QA regressions verify same-class-only `this.method()` resolution (including duplicate class names), imported parameter, local-variable, destructured-binding, catch-parameter, and function-scoped `var` shadowing, generic parameters with return annotations, control-flow blocks that must not look like callable scopes, indexed imported-call resolution, exact `*` and recursive `**` workspace glob depth, each of the eight advertised extensions, and visible aggregate source, token, record, metadata-byte, diagnostic, and early-stop file-count limits.
 - A QA-role review of the final analyzer diff found no release-blocking issue. It noted the remaining general limitation that token-based scope handling is an approximation for less common JS/TS syntax.
+- Cross-platform CI exposed a Linux-only failure in the semantic caller-chart test during the first run. A full Linux-container rerun passed 386/386; the semantic workspace setup now guards the process-global `MSBuildLocator` registration against parallel first use. A subsequent Ubuntu run passed the test suite and exposed a case-sensitive evidence-path typo in feature 068 (`NuGet.Config`), which has been corrected. Cross-platform CI must rerun against the combined fixes before release readiness is claimed.
 - `tests/TestRunArtifactsTests.ps1` passed; the wrapper also passed and cleaned its managed test run while preserving all 524 legacy unmanaged `TestResults` entries.
 - Cyclic barrel export coverage verifies two resolvable module edges, a deterministic report, and an unresolved imported call with no fabricated target.
 - Acceptance hash verified: `1fb91210eebfc19a53e4883965a3585abffb4a4023c15339b04bd454d98cab52`.
@@ -18,6 +19,6 @@
 
 ## Release candidate checks pending
 
-- Run the updated release commit through Windows, Ubuntu, and macOS CI and verify tag artifact validation before publishing the GitHub release. The previous 809b9d run exposed the cleanup-script exit-code bug fixed above; one Ubuntu semantic test also failed once and passed on the parallel rerun, so the updated CI must confirm cross-platform stability.
+- Run the updated release commit through Windows, Ubuntu, and macOS CI and verify tag artifact validation before publishing the GitHub release. CI must confirm both the semantic workspace initialization and case-sensitive evidence paths on the combined fix.
 
 The acceptance hash remains `1fb91210eebfc19a53e4883965a3585abffb4a4023c15339b04bd454d98cab52`; the evidence validator passed for 7 tasks and 10 criteria. These checks establish local implementation and packaging behavior. They do not establish cross-platform release readiness until updated CI completes and the release tag artifact is validated.

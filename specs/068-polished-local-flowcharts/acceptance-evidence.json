@@ -432,7 +432,7 @@
         "specs/068-polished-local-flowcharts/acceptance-evidence.json",
         "tests/BrownPants.Tests/LocalFlowchartTests.cs",
         "src/BrownPants.Cli/BrownPants.Cli.csproj",
-        "nuget.config",
+        "NuGet.Config",
         "Directory.Build.props"
       ],
       "result": "passed"
