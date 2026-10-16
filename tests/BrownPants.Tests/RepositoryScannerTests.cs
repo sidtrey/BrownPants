@@ -125,6 +125,17 @@ public sealed class RepositoryScannerTests : IDisposable
     }
 
     [Fact]
+    public void DiscoverFiles_IncludesPackagesOnlyWhenAJavaScriptWorkspaceDeclaresThem()
+    {
+        Write("packages/sample/index.ts", "export function run() {}\n");
+        Assert.DoesNotContain("packages/sample/index.ts", RepositoryScanner.DiscoverFiles(_root));
+
+        Write("package.json", "{\"private\":true,\"workspaces\":[\"packages/*\"]}");
+
+        Assert.Contains("packages/sample/index.ts", RepositoryScanner.DiscoverFiles(_root));
+    }
+
+    [Fact]
     public void DiscoverFiles_DoesNotFollowDirectorySymlinksWhenSupported()
     {
         var scanRoot = Path.Combine(_root, "repository");
@@ -554,11 +565,11 @@ public sealed class RepositoryScannerTests : IDisposable
         Assert.Equal("Roslyn syntax and candidate patterns", languages["C#"].AnalysisLevel);
         Assert.Equal("Lexical candidate patterns", languages["Python"].AnalysisLevel);
         Assert.Equal(1, languages["TypeScript"].SourceFileCount);
-        Assert.Equal("Lexical candidate patterns", languages["TypeScript"].AnalysisLevel);
+        Assert.Equal("Bounded syntax and lexical candidate patterns", languages["TypeScript"].AnalysisLevel);
         Assert.Equal(2, languages["Kotlin"].SourceFileCount);
         Assert.Equal("Lexical candidate patterns", languages["Kotlin"].AnalysisLevel);
         Assert.Equal(1, languages["JavaScript"].SourceFileCount);
-        Assert.Equal("Lexical candidate patterns", languages["JavaScript"].AnalysisLevel);
+        Assert.Equal("Bounded syntax and lexical candidate patterns", languages["JavaScript"].AnalysisLevel);
         Assert.Equal(1, languages["Go"].SourceFileCount);
         Assert.Equal("Lexical candidate patterns", languages["Go"].AnalysisLevel);
         Assert.Equal(1, languages["Swift"].SourceFileCount);
@@ -1523,6 +1534,438 @@ public sealed class RepositoryScannerTests : IDisposable
     }
 
     [Fact]
+    public void Scan_ReportsJavaScriptExtensionsOverloadAmbiguityAndBoundedSamples()
+    {
+        foreach (var extension in new[] { ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts" })
+            Write("sources/sample" + extension, "export function sample() { return 1; }\n");
+        Write("sources/use.js", "import { sample } from './sample.js'; import { sample as second } from './sample.ts'; sample(); second();\n");
+        Write("sources/overloads.ts", """
+            export function pick(value: string): string;
+            export function pick(value: number): number;
+            export function pick(value: unknown): unknown { return value; }
+            export function use() { return pick(1); }
+            """);
+
+        var analysis = RepositoryScanner.Scan(_root, sampleLimit: 1).JavaScriptTypeScript;
+        Assert.Equal(10, analysis.ScannedFileCount);
+        Assert.Single(analysis.Declarations);
+        Assert.Equal(analysis.DeclarationCount - 1, analysis.OmittedDeclarationCount);
+        Assert.True(analysis.OmittedDeclarationCount > 0);
+        Assert.Single(analysis.ModuleRelationships);
+        Assert.Equal(1, analysis.OmittedModuleRelationshipCount);
+        Assert.Contains(analysis.CallRelationships, item => item.Expression == "pick" && item.Status == "ambiguous"
+            && item.CandidateTargets.Count == 3);
+        Assert.Single(analysis.CallRelationships);
+        Assert.Equal(analysis.CallRelationshipCount - 1, analysis.OmittedCallRelationshipCount);
+        Assert.Contains("declarations omitted by the sample limit",
+            MarkdownReport.Render(RepositoryScanner.Scan(_root, sampleLimit: 1)));
+
+        foreach (var extension in new[] { ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts" })
+        {
+            var path = "sources/sample" + extension;
+            var singleExtension = JavaScriptTypeScriptAnalyzer.Analyze(_root, new[] { path }, sampleLimit: 10);
+            var declaration = Assert.Single(singleExtension.Declarations);
+            Assert.Equal(path, declaration.Path);
+            Assert.Equal("sample", declaration.Name);
+            Assert.Equal(1, declaration.Line);
+        }
+    }
+
+    [Fact]
+    public void Scan_ResolvesPnpmWorkspacePackagesAndReportsMalformedTypeScriptConfiguration()
+    {
+        Write("pnpm-workspace.yaml", "packages:\n  - 'services/*'\n");
+        Write("services/data/package.json", "{\"name\":\"@acme/data\",\"main\":\"src/index.js\"}");
+        Write("services/data/src/index.js", "export function getRecord() { return {}; }\n");
+        Write("apps/server/tsconfig.json", "{ this is not valid json }");
+        Write("apps/client/tsconfig.json", "{ also invalid }");
+        Write("apps/server/index.mts", "import { getRecord } from '@acme/data'; getRecord();\n");
+
+        var analysis = RepositoryScanner.Scan(_root, sampleLimit: 1).JavaScriptTypeScript;
+
+        Assert.Contains(analysis.ModuleRelationships, item => item.Specifier == "@acme/data"
+            && item.Status == "syntax-resolved" && item.TargetPath == "services/data/src/index.js");
+        Assert.Contains(analysis.CallRelationships, item => item.Expression == "getRecord"
+            && item.Status == "syntax-resolved" && item.TargetPath == "services/data/src/index.js");
+        Assert.Contains(analysis.Issues, item => item.Path == "apps/client/tsconfig.json"
+            && item.Code == "InvalidTsConfig");
+        Assert.Equal(2, analysis.IssueCount);
+        Assert.Single(analysis.Issues);
+        Assert.Equal(1, analysis.OmittedIssueCount);
+    }
+
+    [Fact]
+    public void Scan_LeavesDuplicateWorkspacePackageNamesAmbiguous()
+    {
+        Write("package.json", "{\"workspaces\":[\"packages/*\"]}");
+        Write("packages/one/package.json", "{\"name\":\"@demo/shared\",\"main\":\"index.js\"}");
+        Write("packages/one/index.js", "export function open() {}\n");
+        Write("packages/two/package.json", "{\"name\":\"@demo/shared\",\"main\":\"index.js\"}");
+        Write("packages/two/index.js", "export function open() {}\n");
+        Write("app/main.ts", "import { open } from '@demo/shared'; open();\n");
+
+        var analysis = RepositoryScanner.Scan(_root).JavaScriptTypeScript;
+
+        Assert.Contains(analysis.ModuleRelationships, item => item.Specifier == "@demo/shared"
+            && item.Status == "ambiguous" && item.CandidateTargetPaths.Count == 2);
+        Assert.Contains(analysis.CallRelationships, item => item.Expression == "open" && item.Status == "unresolved");
+    }
+
+    [Fact]
+    public void Scan_WorkspaceGlobStarMatchesOneSegmentAndDoubleStarMatchesNestedPackages()
+    {
+        Write("package.json", "{\"workspaces\":[\"packages/*\"]}");
+        Write("packages/direct/package.json", "{\"name\":\"@demo/direct\"}");
+        Write("packages/nested/deep/package.json", "{\"name\":\"@demo/nested\"}");
+        var paths = RepositoryScanner.DiscoverFiles(_root);
+        var issues = new List<JavaScriptTypeScriptIssue>();
+
+        var oneSegment = JavaScriptTypeScriptAnalyzer.ReadWorkspacePackages(_root, paths, issues);
+
+        Assert.Contains("@demo/direct", oneSegment.Keys);
+        Assert.DoesNotContain("@demo/nested", oneSegment.Keys);
+
+        Write("package.json", "{\"workspaces\":[\"packages/**\"]}");
+        var recursive = JavaScriptTypeScriptAnalyzer.ReadWorkspacePackages(_root,
+            RepositoryScanner.DiscoverFiles(_root), new List<JavaScriptTypeScriptIssue>());
+        Assert.Contains("@demo/direct", recursive.Keys);
+        Assert.Contains("@demo/nested", recursive.Keys);
+    }
+
+    [Fact]
+    public void Scan_DoesNotResolveThisAcrossClassesOrImportedBindingsShadowedByParameters()
+    {
+        Write("lib.ts", "export function save() {}\n");
+        Write("main.ts", """
+            import { save } from './lib';
+            function render(save) { save(); }
+            save();
+            class A { run() { this.persist(); } }
+            class B { persist() {} }
+            class C { persist() {} run() { this.persist(); } }
+            class Dup { run() { this.persist(); } }
+            class Dup { persist() {} }
+            """);
+
+        var analysis = RepositoryScanner.Scan(_root, sampleLimit: 50).JavaScriptTypeScript;
+
+        Assert.Contains(analysis.CallRelationships, item => item.SourcePath == "main.ts" && item.Expression == "save"
+            && item.SourceLine == 2 && item.Status == "unresolved");
+        Assert.Contains(analysis.CallRelationships, item => item.SourcePath == "main.ts" && item.Expression == "save"
+            && item.SourceLine == 3 && item.Status == "syntax-resolved" && item.TargetPath == "lib.ts");
+        Assert.Contains(analysis.CallRelationships, item => item.SourcePath == "main.ts" && item.Expression == "this.persist"
+            && item.SourceLine == 4 && item.Status == "unresolved");
+        Assert.Contains(analysis.CallRelationships, item => item.SourcePath == "main.ts" && item.Expression == "this.persist"
+            && item.SourceLine == 6 && item.Status == "syntax-resolved" && item.TargetName == "persist");
+        Assert.Contains(analysis.CallRelationships, item => item.SourcePath == "main.ts" && item.Expression == "this.persist"
+            && item.SourceLine == 7 && item.Status == "unresolved");
+    }
+
+    [Fact]
+    public void Scan_DoesNotResolveImportedCallsShadowedByLocalVariablesOrAnnotatedGenericParameters()
+    {
+        Write("lib.ts", "export function save() {}\n");
+        Write("main.ts", """
+            import { save } from './lib';
+            function parameter<T>(save: T): Promise<void> { save(); }
+            function local() { const save = createLocal(); save(); }
+            save();
+            """);
+
+        var calls = RepositoryScanner.Scan(_root).JavaScriptTypeScript.CallRelationships
+            .Where(item => item.SourcePath == "main.ts" && item.Expression == "save").ToArray();
+
+        Assert.Equal(3, calls.Length);
+        Assert.Equal("unresolved", calls.Single(item => item.SourceLine == 2).Status);
+        Assert.Equal("unresolved", calls.Single(item => item.SourceLine == 3).Status);
+        Assert.Equal("syntax-resolved", calls.Single(item => item.SourceLine == 4).Status);
+    }
+
+    [Fact]
+    public void Scan_TracksDestructuredBindingsWithoutTreatingControlConditionsAsParameters()
+    {
+        Write("lib.ts", "export function save() {}\n");
+        Write("main.ts", """
+            import { save } from './lib';
+            function destructured() { const { save } = createLocal(); save(); }
+            function aliased() { const { save: localSave } = createLocal(); save(); localSave(); }
+            if (save) { save(); }
+            save();
+            """);
+
+        var calls = RepositoryScanner.Scan(_root).JavaScriptTypeScript.CallRelationships
+            .Where(item => item.SourcePath == "main.ts" && item.Expression is "save" or "localSave").ToArray();
+
+        Assert.Equal("unresolved", calls.Single(item => item.SourceLine == 2).Status);
+        Assert.Equal("syntax-resolved", calls.Single(item => item.SourceLine == 3 && item.Expression == "save").Status);
+        Assert.Equal("unresolved", calls.Single(item => item.SourceLine == 3 && item.Expression == "localSave").Status);
+        Assert.Equal("syntax-resolved", calls.Single(item => item.SourceLine == 4).Status);
+        Assert.Equal("syntax-resolved", calls.Single(item => item.SourceLine == 5).Status);
+    }
+
+    [Fact]
+    public void Scan_LeavesTypeOnlyAndUnsupportedThisTargetsUnresolved()
+    {
+        Write("lib.ts", "export function save() {}\n");
+        Write("defaults.ts", "export default function load() {}\n");
+        Write("type-import.ts", "import type { save } from './lib'; save();\n");
+        Write("inline-type-import.ts", "import { type save } from './lib'; save();\n");
+        Write("runtime-import.ts", "import { save } from './lib'; save();\n");
+        Write("type-barrel.ts", "export type { save } from './lib';\n");
+        Write("type-barrel-user.ts", "import { save } from './type-barrel'; save();\n");
+        Write("default-barrel.ts", "export * from './defaults';\n");
+        Write("default-barrel-user.ts", "import load from './default-barrel'; load();\n");
+        Write("catch-user.ts", "import { save } from './lib'; try {} catch (save) { save(); } save();\n");
+        Write("parameter-user.ts", "import { save as localSave } from './lib'; function run({ value: localSave }) { localSave(); }\n");
+        Write("this-user.ts", "class Example { run() { function callback() { this.persist(); } const arrow = () => this.persist(); } persist() {} }\n");
+
+        var analysis = RepositoryScanner.Scan(_root).JavaScriptTypeScript;
+
+        Assert.Equal("unresolved", Assert.Single(analysis.CallRelationships, item => item.SourcePath == "type-import.ts").Status);
+        Assert.Equal("unresolved", Assert.Single(analysis.CallRelationships, item => item.SourcePath == "inline-type-import.ts").Status);
+        Assert.Equal("syntax-resolved", Assert.Single(analysis.CallRelationships, item => item.SourcePath == "runtime-import.ts").Status);
+        Assert.Equal("unresolved", Assert.Single(analysis.CallRelationships, item => item.SourcePath == "type-barrel-user.ts").Status);
+        Assert.Equal("unresolved", Assert.Single(analysis.CallRelationships, item => item.SourcePath == "default-barrel-user.ts").Status);
+        var catchCalls = analysis.CallRelationships.Where(item => item.SourcePath == "catch-user.ts").OrderBy(item => item.SourceColumn).ToArray();
+        Assert.Equal(2, catchCalls.Length);
+        Assert.Equal("unresolved", catchCalls[0].Status);
+        Assert.Equal("syntax-resolved", catchCalls[1].Status);
+        Assert.Equal("unresolved", Assert.Single(analysis.CallRelationships, item => item.SourcePath == "parameter-user.ts").Status);
+        Assert.Equal(2, analysis.CallRelationships.Count(item => item.SourcePath == "this-user.ts" && item.Expression == "this.persist"));
+        Assert.Contains(analysis.CallRelationships, item => item.SourcePath == "this-user.ts" && item.Expression == "this.persist" && item.Status == "unresolved");
+        Assert.Contains(analysis.CallRelationships, item => item.SourcePath == "this-user.ts" && item.Expression == "this.persist" && item.Status == "syntax-resolved");
+    }
+
+    [Fact]
+    public void Scan_UsesFunctionScopeForVarBindingsWithoutLeakingAcrossFunctions()
+    {
+        Write("lib.ts", "export function save() {}\n");
+        Write("main.ts", "import { save } from './lib';\nfunction run() { { var save = local; } save(); }\nfunction other() { save(); }\n");
+
+        var calls = RepositoryScanner.Scan(_root).JavaScriptTypeScript.CallRelationships
+            .Where(item => item.SourcePath == "main.ts" && item.Expression == "save")
+            .OrderBy(item => item.SourceLine).ToArray();
+
+        Assert.Equal(2, calls.Length);
+        Assert.Equal("unresolved", calls[0].Status);
+        Assert.Equal("syntax-resolved", calls[1].Status);
+    }
+
+    [Fact]
+    public void Scan_EnforcesAggregateFileTokenAndRecordLimitsWithVisibleIssues()
+    {
+        Write("a.js", "export function first() {}\n");
+        Write("b.js", "export function second() {}\n");
+        Write("c.js", "export function third() {}\n");
+        var files = RepositoryScanner.DiscoverFiles(_root);
+
+        var analysis = JavaScriptTypeScriptAnalyzer.Analyze(_root, files, sampleLimit: 50,
+            maxSourceFiles: 2, maxTotalSourceCharacters: 10_000, maxTotalTokens: 1_000,
+            maxRecordsPerKind: 1, maxIssues: 10);
+
+        Assert.Equal(2, analysis.ScannedFileCount);
+        Assert.Equal(1, analysis.DeclarationCount);
+        Assert.Contains(analysis.Issues, issue => issue.Code == "SourceFileLimit" && issue.Path == "c.js");
+        Assert.Contains(analysis.Issues, issue => issue.Code == "AggregateRecordLimit");
+
+        var diagnosticLimited = JavaScriptTypeScriptAnalyzer.Analyze(_root, files, sampleLimit: 50,
+            maxSourceFiles: 2, maxTotalSourceCharacters: 10_000, maxTotalTokens: 1_000,
+            maxRecordsPerKind: 1, maxIssues: 1);
+        Assert.Equal(1, diagnosticLimited.IssueCount);
+        Assert.Equal("IssueLimit", Assert.Single(diagnosticLimited.Issues).Code);
+
+        var tokenLimited = JavaScriptTypeScriptAnalyzer.Analyze(_root, files, sampleLimit: 50,
+            maxSourceFiles: 10, maxTotalSourceCharacters: 10_000, maxTotalTokens: 1,
+            maxRecordsPerKind: 10, maxIssues: 10);
+        Assert.Contains(tokenLimited.Issues, issue => issue.Code == "TotalTokenLimit");
+        Assert.Contains(tokenLimited.EvidenceLimits, text => text.Contains("total tokens", StringComparison.Ordinal));
+
+        var sourceLimited = JavaScriptTypeScriptAnalyzer.Analyze(_root, files, sampleLimit: 50,
+            maxSourceFiles: 10, maxTotalSourceCharacters: 10, maxTotalTokens: 1_000,
+            maxRecordsPerKind: 10, maxIssues: 10);
+        Assert.Contains(sourceLimited.Issues, issue => issue.Code == "TotalSourceSizeLimit");
+
+        var earlySourceLimited = JavaScriptTypeScriptAnalyzer.Analyze(_root, files, sampleLimit: 50,
+            maxSourceFiles: 10, maxTotalSourceCharacters: 1, maxTotalTokens: 1_000,
+            maxRecordsPerKind: 10, maxIssues: 10);
+        Assert.Equal(1, earlySourceLimited.ScannedFileCount);
+
+        var oversizedMetadata = "{\"workspaces\":[\"packages/*\"],\"pad\":\"" + new string('x', 1024 * 1024) + "\"}";
+        File.WriteAllText(Path.Combine(_root, "package.json"), oversizedMetadata);
+        var metadataIssues = new List<JavaScriptTypeScriptIssue>();
+        JavaScriptTypeScriptAnalyzer.ReadWorkspacePackages(_root, new[] { "package.json" }, metadataIssues);
+        Assert.Contains(metadataIssues, issue => issue.Path == "package.json" && issue.Code == "MetadataFileSizeLimit");
+
+        Write("package.json", "{\"workspaces\":[\"packages/*\"]}");
+        Write("packages/one/package.json", "{\"name\":\"@demo/one\"}");
+        Write("packages/two/package.json", "{\"name\":\"@demo/two\"}");
+        var totalMetadataIssues = new List<JavaScriptTypeScriptIssue>();
+        JavaScriptTypeScriptAnalyzer.ReadWorkspacePackages(_root, RepositoryScanner.DiscoverFiles(_root),
+            totalMetadataIssues, maxMetadataFileBytes: 1_000, maxTotalMetadataBytes: 60);
+        Assert.Contains(totalMetadataIssues, issue => issue.Code == "TotalMetadataSizeLimit");
+
+        Write("m1.ts", "export function one() {}\n");
+        Write("m2.ts", "export function two() {}\n");
+        Write("use.ts", "import { one } from './m1'; import { two } from './m2'; one(); two();\n");
+        var relationLimited = JavaScriptTypeScriptAnalyzer.Analyze(_root, RepositoryScanner.DiscoverFiles(_root),
+            sampleLimit: 50, maxSourceFiles: 20, maxTotalSourceCharacters: 10_000,
+            maxTotalTokens: 1_000, maxRecordsPerKind: 1, maxIssues: 10);
+        Assert.Equal(1, relationLimited.ModuleRelationshipCount);
+        Assert.Equal(1, relationLimited.CallRelationshipCount);
+        Assert.Contains(relationLimited.Issues, issue => issue.Code == "AggregateRecordLimit");
+    }
+
+    [Fact]
+    public void Scan_DoesNotGuessConditionalPackageExportsOrReadAliasesOutsideTheRoot()
+    {
+        Write("package.json", "{\"workspaces\":[\"packages/*\"]}");
+        Write("packages/conditional/package.json", "{\"name\":\"@demo/conditional\",\"exports\":{\".\":{\"import\":\"./esm.js\",\"require\":\"./cjs.js\"}}}");
+        Write("packages/conditional/esm.js", "export function create() {}\n");
+        Write("packages/conditional/cjs.js", "export function create() {}\n");
+        Write("app/tsconfig.json", "{\"compilerOptions\":{\"baseUrl\":\"../../../outside\",\"paths\":{\"@unsafe/*\":[\"*\"]}}}");
+        Write("app/main.ts", "import { create } from '@demo/conditional'; create(); import { outside } from '@unsafe/module'; outside();\n");
+
+        var analysis = RepositoryScanner.Scan(_root).JavaScriptTypeScript;
+
+        Assert.Contains(analysis.ModuleRelationships, item => item.Specifier == "@demo/conditional"
+            && item.Status == "unresolved" && item.Reason == "PackageExportsSelectionUnsupported");
+        Assert.Contains(analysis.Issues, item => item.Path == "app/tsconfig.json" && item.Code == "TsConfigPathOutsideRoot");
+        Assert.DoesNotContain(analysis.ModuleRelationships, item => item.TargetPath?.Contains("outside", StringComparison.Ordinal) == true);
+    }
+
+    [Fact]
+    public void Scan_StopsCyclicBarrelResolutionWithoutInventingCallTargets()
+    {
+        Write("src/a.ts", "export { value } from './b';\n");
+        Write("src/b.ts", "export { value } from './a';\n");
+        Write("src/use.ts", "import { value } from './a'; value();\n");
+
+        var first = RepositoryScanner.Scan(_root);
+        var second = RepositoryScanner.Scan(_root);
+
+        Assert.Equal(3, first.JavaScriptTypeScript.ScannedFileCount);
+        Assert.Equal(3, first.JavaScriptTypeScript.ModuleRelationshipCount);
+        Assert.All(first.JavaScriptTypeScript.ModuleRelationships, relationship =>
+            Assert.Equal("syntax-resolved", relationship.Status));
+        var call = Assert.Single(first.JavaScriptTypeScript.CallRelationships);
+        Assert.Equal("value", call.Expression);
+        Assert.Equal("unresolved", call.Status);
+        Assert.Equal("NoUniqueInRepositoryDeclaration", call.Reason);
+        Assert.Equal(MarkdownReport.Render(first), MarkdownReport.Render(second));
+    }
+
+    [Fact]
+    public void Scan_PreservesDeclarationAndCallLinesAcrossCrLfAndIgnoresTemplateContents()
+    {
+        Write("src/module.js", ToCrLf("function first() { return 1; }\nfunction second() { return first(); }\nconst sample = `templateFake()`;\n"));
+        Write("src/broken.js", "/* unterminated function hidden() {}\n");
+        Write("src/unbalanced.ts", "export function incomplete(value: string\n");
+
+        var analysis = RepositoryScanner.Scan(_root).JavaScriptTypeScript;
+
+        Assert.Contains(analysis.Declarations, item => item.Name == "first" && item.Line == 1 && item.Column == 10);
+        Assert.Contains(analysis.Declarations, item => item.Name == "second" && item.Line == 2 && item.Column == 10);
+        Assert.Contains(analysis.CallRelationships, item => item.Expression == "first" && item.SourceLine == 2
+            && item.Status == "syntax-resolved");
+        Assert.DoesNotContain(analysis.CallRelationships, item => item.Expression == "templateFake");
+        Assert.DoesNotContain(analysis.Declarations, item => item.Name == "hidden");
+        Assert.Contains(analysis.Issues, item => item.Path == "src/broken.js" && item.Code == "UnterminatedBlockComment");
+        Assert.Contains(analysis.Issues, item => item.Path == "src/unbalanced.ts" && item.Code == "UnbalancedDelimiter");
+    }
+
+    [Fact]
+    public void Scan_ReportsSourceLocatedJavaScriptTypeScriptDeclarationsAndStaticRelationships()
+    {
+        Write("package.json", "{\"private\":true,\"workspaces\":[\"packages/*\"]}");
+        Write("packages/core/package.json", "{\"name\":\"@demo/core\",\"source\":\"src/index.ts\"}");
+        Write("packages/core/src/loader.ts", "export function load<T>(value: T) { return value; }\nexport class Loader { save() {} run<T>(value: T) { this.save(); unknown.save(); return load<T>(value); } }\n");
+        Write("packages/core/src/default-loader.ts", "export default function defaultLoader(value: number) { return value; }\n");
+        Write("packages/core/src/index.ts", "export { load as loadRecord } from './loader';\n");
+        Write("apps/tsconfig.base.json", "{\"compilerOptions\":{\"baseUrl\":\".\",\"paths\":{\"@app/*\":[\"web/src/*\"]}}}");
+        Write("apps/web/tsconfig.json", "{\"extends\":\"../tsconfig.base.json\"}");
+        Write("packages/app/src/main.tsx", """
+            import { load } from '../../core/src/loader.js';
+            import { loadRecord as runLoad } from '@demo/core';
+            import { loadRecord as runLoadFromBarrel } from '../../core/src';
+            import defaultLoader from '../../core/src/default-loader';
+            import { absent } from './absent';
+            export const render = <T,>(value: T) => load(value);
+            render(1);
+            runLoad(2);
+            runLoadFromBarrel(4);
+            defaultLoader(3);
+            absent();
+            const lazy = import('./lazy');
+            const pattern = /regexFake\(\)/;
+            const view = <div>jsxFake()</div>;
+            // load(fake);
+            const text = "load(fake)";
+            """);
+        Write("packages/app/src/lazy.ts", "export const lazyValue = 1;\n");
+        Write("apps/web/src/main.ts", "import { helper } from '@app/helper'; helper();\n");
+        Write("apps/web/src/helper.ts", "export function helper() { return true; }\n");
+
+        var first = RepositoryScanner.Scan(_root, sampleLimit: 50);
+        var analysis = first.JavaScriptTypeScript;
+
+        Assert.Equal(11, RepositoryScanner.DiscoverFiles(_root).Count);
+        Assert.Contains("@demo/core", JavaScriptTypeScriptAnalyzer.ReadWorkspacePackages(_root,
+            RepositoryScanner.DiscoverFiles(_root), new List<JavaScriptTypeScriptIssue>()).Keys);
+        Assert.Equal(7, JavaScriptTypeScriptAnalyzer.Analyze(_root, RepositoryScanner.DiscoverFiles(_root), 50).ScannedFileCount);
+        Assert.Equal(7, analysis.ScannedFileCount);
+        Assert.Contains(analysis.Declarations, item => item.Path == "packages/core/src/loader.ts"
+            && item.Name == "load" && item.Line == 1 && item.Kind == "function");
+        Assert.Contains(analysis.Declarations, item => item.Path == "packages/core/src/loader.ts"
+            && item.Name == "run" && item.Kind == "method" && item.Container == "Loader");
+        Assert.Contains(analysis.Declarations, item => item.Path == "packages/app/src/main.tsx"
+            && item.Name == "render" && item.Kind == "callable variable");
+        Assert.Contains(analysis.ModuleRelationships, item => item.Specifier == "../../core/src/loader.js"
+            && item.Status == "syntax-resolved" && item.TargetPath == "packages/core/src/loader.ts");
+        Assert.Contains(analysis.ModuleRelationships, item => item.Specifier == "@demo/core"
+            && item.Status == "syntax-resolved" && item.TargetPath == "packages/core/src/index.ts");
+        Assert.Contains(analysis.ModuleRelationships, item => item.Specifier == "../../core/src"
+            && item.Status == "syntax-resolved" && item.TargetPath == "packages/core/src/index.ts");
+        Assert.Contains(analysis.ModuleRelationships, item => item.Specifier == "@app/helper"
+            && item.Status == "syntax-resolved" && item.TargetPath == "apps/web/src/helper.ts");
+        Assert.Contains(analysis.ModuleRelationships, item => item.Specifier == "./absent"
+            && item.Status == "unresolved" && item.Reason == "ModuleTargetNotFound");
+        Assert.Contains(analysis.ModuleRelationships, item => item.Specifier == "./lazy"
+            && item.Status == "unresolved" && item.Reason == "DynamicImport");
+        Assert.Contains(analysis.CallRelationships, item => item.Expression == "load" && item.Status == "syntax-resolved"
+            && item.TargetPath == "packages/core/src/loader.ts" && item.TargetName == "load");
+        Assert.Contains(analysis.CallRelationships, item => item.Expression == "runLoad" && item.Status == "syntax-resolved"
+            && item.TargetPath == "packages/core/src/loader.ts" && item.TargetName == "load");
+        Assert.Contains(analysis.CallRelationships, item => item.Expression == "runLoadFromBarrel" && item.Status == "syntax-resolved"
+            && item.TargetPath == "packages/core/src/loader.ts" && item.TargetName == "load");
+        Assert.Contains(analysis.CallRelationships, item => item.Expression == "this.save" && item.Status == "syntax-resolved"
+            && item.TargetPath == "packages/core/src/loader.ts" && item.TargetName == "save");
+        Assert.Contains(analysis.CallRelationships, item => item.Expression == "unknown.save" && item.Status == "unresolved"
+            && item.Reason == "ReceiverTypeNotResolved");
+        Assert.Contains(analysis.CallRelationships, item => item.Expression == "defaultLoader" && item.Status == "syntax-resolved"
+            && item.TargetPath == "packages/core/src/default-loader.ts" && item.TargetName == "defaultLoader");
+        Assert.Contains(analysis.CallRelationships, item => item.Expression == "absent" && item.Status == "unresolved");
+        Assert.DoesNotContain(analysis.CallRelationships, item => item.Expression.Contains("fake", StringComparison.Ordinal));
+        Assert.DoesNotContain(analysis.CallRelationships, item => item.Expression is "regexFake" or "jsxFake");
+
+        var markdown = MarkdownReport.Render(first);
+        Assert.Contains("## JavaScript and TypeScript source evidence", markdown);
+        Assert.Contains("function `load` (TypeScript): `packages/core/src/loader.ts:1:17`", markdown);
+        var second = RepositoryScanner.Scan(_root, sampleLimit: 50);
+        Assert.Equal(markdown, MarkdownReport.Render(second));
+        using var json = System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(first));
+        var jsonEvidence = json.RootElement.GetProperty("JavaScriptTypeScript");
+        Assert.Equal(analysis.DeclarationCount, jsonEvidence.GetProperty("DeclarationCount").GetInt32());
+        Assert.Equal(analysis.ModuleRelationshipCount, jsonEvidence.GetProperty("ModuleRelationshipCount").GetInt32());
+        Assert.Equal(analysis.CallRelationshipCount, jsonEvidence.GetProperty("CallRelationshipCount").GetInt32());
+        var jsonLoad = Assert.Single(jsonEvidence.GetProperty("Declarations").EnumerateArray(),
+            item => item.GetProperty("Name").GetString() == "load");
+        Assert.Equal("packages/core/src/loader.ts", jsonLoad.GetProperty("Path").GetString());
+        Assert.Equal(1, jsonLoad.GetProperty("Line").GetInt32());
+        Assert.Equal(17, jsonLoad.GetProperty("Column").GetInt32());
+        Assert.Equal(1, json.RootElement.GetProperty("SchemaVersion").GetInt32());
+    }
+
+    [Fact]
     public void Scan_ReportsJavaScriptAndTypeScriptFactoryAndDependencyCandidates()
     {
         Write("web/legacy.js", """
@@ -1581,9 +2024,9 @@ public sealed class RepositoryScannerTests : IDisposable
         Assert.Contains(signals, signal => signal.Category == "Dependency injection");
         Assert.DoesNotContain(signals, signal => signal.Evidence.Contains("Fake", StringComparison.Ordinal));
         Assert.Contains(inventory.LanguageCoverage, language => language.Language == "JavaScript"
-            && language.AnalysisLevel == "Lexical candidate patterns");
+            && language.AnalysisLevel == "Bounded syntax and lexical candidate patterns");
         Assert.Contains(inventory.LanguageCoverage, language => language.Language == "TypeScript"
-            && language.AnalysisLevel == "Lexical candidate patterns");
+            && language.AnalysisLevel == "Bounded syntax and lexical candidate patterns");
 
         var repeatedInventory = RepositoryScanner.Scan(_root, sampleLimit: 50);
         var markdown = MarkdownReport.Render(inventory);

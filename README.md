@@ -23,21 +23,21 @@
 
 ## Brownfield first
 
-**Brownfield development** means changing a system that is already in use. It may have years of behavior, data, integrations, and user expectations that nobody has written down in one place. Those rules often live in source code, project settings, tests, and connections to other systems. **Greenfield** work starts with fewer of these existing obligations.
+**Brownfield development** means changing software that already exists and is relied on. Over time, its rules spread across code, tests, project settings, stored data, and links to other systems. Some rules were never written down. A change can therefore break behavior even when the new code matches the request. **Greenfield** work starts with fewer existing behaviors and connections to preserve.
 
-**Spec-driven development (SDD)** agrees on the problem, intended behavior, and checks before implementation. A spec describes the destination; brownfield work also needs a reliable picture of the starting point. Without it, a clear spec can still miss a caller, a compatibility promise, or a test that protects behavior people rely on. That is why repository context belongs in the work before the team finalizes its plan and acceptance criteria.
+**Spec-driven development (SDD)** records the problem, intended behavior, and checks before implementation. In an existing system, a spec needs two things: where the team wants to go, and a trustworthy picture of what is already there. Repository evidence helps the team notice callers, compatibility requirements, and existing tests before it commits to a plan. That makes acceptance criteria more complete and gives implementation and QA concrete paths to check.
 
-Think of renovating an occupied building: the plan describes the change, while a survey finds the wiring and load-bearing walls already there. BrownPants provides that survey for software. It gathers source-linked evidence for people and agents to check; the team decides what the product should do.
+Think of renovating an occupied building: the plan says what to change, and a survey shows what the building depends on. BrownPants provides that survey for software. It gathers findings with file locations for people and agents to review. The team decides what behavior to preserve and what the product should do.
 
 ### How BrownPants fits into SDD
 
-Imagine a request to change how an old order importer retries failed records. “Retry failed orders” states an intent, but not which importer path runs, who calls it, what retry state is stored, or which tests protect it. BrownPants helps the team investigate those questions before it commits to behavior and acceptance criteria.
+For example, someone asks: “Retry failed orders.” Before writing a spec, the team needs to learn which import path handles orders, what calls it, how retry state is stored, and which tests cover it. BrownPants helps find those existing parts so the team can turn an incomplete request into a testable change.
 
-1. **Map the repository.** `brownpants inspect <repo>` inventories languages, projects, and recognized patterns. This gives the team an initial map without building the software.
-2. **Find relevant evidence.** `brownpants evidence <repo> --clue "order retry"` returns focused findings with file locations. After identifying a changed file, `brownpants impact <repo> --changed <path>` follows compiler-resolved managed callers and labels native or interop matches as candidates.
-3. **Write the spec.** The team combines the user's need with evidence it has reviewed, then defines observable acceptance criteria and how each will be checked. BrownPants informs this decision; it does not decide the intended behavior.
-4. **Plan and implement.** Spec Kit, OpenSpec, or another SDD workflow turns the spec into tasks and code. BrownPants integrations can refresh repository context, flag edits to hashed acceptance criteria for review, and connect tasks to recorded evidence.
-5. **Verify and hand off.** Run the agreed checks, review affected paths, and give QA the criteria, evidence, and known analysis gaps. Candidate evidence does not prove runtime execution or test coverage.
+1. **See what is there.** `brownpants inspect <repo>` maps languages, projects, and recognized patterns without building the software.
+2. **Follow the clues.** `brownpants evidence <repo> --clue "order retry"` finds related code and project details. Once a likely file is known, `brownpants impact <repo> --changed <path>` shows managed callers and clearly marks native or interop matches as candidates.
+3. **Agree on the change.** The team reviews that evidence, then writes a spec with observable acceptance criteria, such as “a failed order is retried once and is not saved twice.” The evidence informs the decision; it does not decide the desired behavior.
+4. **Plan and build.** Spec Kit, OpenSpec, or another SDD workflow turns the approved spec into tasks and implementation. BrownPants can refresh repository context, flag edits to hashed acceptance criteria for review, and connect tasks to recorded evidence.
+5. **Check and hand off.** Run the agreed tests, review affected code, and give QA the criteria, evidence, and known analysis gaps. A finding points to code to investigate; it does not prove runtime behavior or test coverage.
 
 BrownPants is built for existing systems: its .NET 10 host can inspect legacy .NET Framework 4.x C# and Visual Basic with Roslyn without building those projects. It also inventories C/C++, MFC, and C++/CLI markers and candidate evidence for factories, dependency injection, interop, and framework patterns. When compiler context is available, semantic mode resolves managed calls and explicit constructor use, including target-typed and generic construction. Findings state their evidence level and analysis limits.
 
@@ -84,10 +84,10 @@ A SHA-256 acceptance hash is a fingerprint of the agreed pass/fail conditions. I
 
 ### Install the release
 
-Download [`BrownPants.Cli.0.3.0.nupkg`](https://github.com/sidtrey/BrownPants/releases/download/v0.3.0/BrownPants.Cli.0.3.0.nupkg) from the GitHub release and place it in a folder such as `./release`. Then install the tool from that local package while NuGet restores its dependencies from your configured package feeds:
+Download [`BrownPants.Cli.0.4.0.nupkg`](https://github.com/sidtrey/BrownPants/releases/download/v0.4.0/BrownPants.Cli.0.4.0.nupkg) from the GitHub release and place it in a folder such as `./release`. Then install the tool from that local package while NuGet restores its dependencies from your configured package feeds:
 
 ```powershell
-dotnet tool install --global --add-source ./release BrownPants.Cli --version 0.3.0
+dotnet tool install --global --add-source ./release BrownPants.Cli --version 0.4.0
 brownpants inspect .
 ```
 
@@ -115,7 +115,7 @@ dotnet run --project src/BrownPants.Cli -- placement --rule "All features follow
 dotnet run --project src/BrownPants.Cli -- models validate .
 dotnet run --project src/BrownPants.Cli -- models report . --format markdown
 dotnet pack src/BrownPants.Cli -c Release -o ./artifacts
-dotnet tool install --tool-path ./.tools --add-source ./artifacts BrownPants.Cli --version 0.3.0
+dotnet tool install --tool-path ./.tools --add-source ./artifacts BrownPants.Cli --version 0.4.0
 ./.tools/brownpants inspect . # Windows: .\.tools\brownpants.exe inspect .
 ./scripts/test.ps1
 ```
@@ -127,7 +127,7 @@ The installed CLI's default `inspect`, `investigate`, and local workbench paths 
 ```powershell
 dotnet restore BrownPants.sln --configfile <approved-nuget.config> --locked-mode
 dotnet build BrownPants.sln -c Release --no-restore
-dotnet tool install --tool-path ./.tools --configfile <approved-nuget.config> --add-source ./artifacts BrownPants.Cli --version 0.3.0
+dotnet tool install --tool-path ./.tools --configfile <approved-nuget.config> --add-source ./artifacts BrownPants.Cli --version 0.4.0
 ```
 
 Keep package-signature validation aligned with your organization's trust policy. Once installed, default repository inspection does not call the package source, an AI service, or a remote API.
@@ -144,7 +144,7 @@ Spec Kit implementation guidance freezes the active feature's acceptance scenari
 
 `inspect` reports project markers and grouped ecosystems, source-language coverage, file type counts, likely test paths, top-level entries, and supported SDD workflow artifacts when present. Spec Kit feature directories and OpenSpec capability/active-change directories are reported separately, with artifact paths bounded by `--limit`. When evidence is unambiguous, each workflow can also report an active work item: Spec Kit uses the validated `.specify/feature.json` pointer, OpenSpec selects only a single non-archived change directory, and custom workflows can declare an explicit path under their artifact roots. Multiple OpenSpec changes remain unselected, and invalid custom selections are diagnosed without discarding other workflow inventory. Ecosystem markers cover common .NET, C/C++, CMake/Make, Python, JavaScript/TypeScript, Go, Rust, JVM, Ruby, PHP, Apple, Dart, Elixir, Scala, container, and infrastructure files. Extensionless files and unfamiliar suffixes remain in file counts. The scanner skips common VCS, build, package, and environment directories and avoids following directory symlinks. Markdown is reviewable context for any planning workflow; JSON is available for tools and other SDD engines and starts with root `SchemaVersion: 1`. JSON consumers should check this integer before reading fields; it versions the report contract independently of the package. Optional additive fields remain version 1, while breaking field changes require a new schema version. Test-path signals remain heuristic, and project references are reported as written in project files rather than resolved into a dependency graph.
 
-Language coverage identifies what BrownPants actually analyzes: Roslyn syntax and candidate patterns for C# and VB.NET, lexical candidate patterns for Python, JavaScript/TypeScript, Java/Kotlin, Go, and native C/C++, and inventory-only coverage for other recognized source languages. Go candidates include `NewType` constructor naming and Fx/Dig provider and invocation calls. Python candidates include factory class/method/call naming, Dependency Injector provider declarations, and dependency markers such as FastAPI `Depends`, `Provide[...]`, and `@inject`. JavaScript/TypeScript candidates include factory class/method/call naming, Angular `useFactory`/`inject`/`@Injectable` cues, and container `bind`/`get` calls. Java/Kotlin candidates include factory class/method/call naming and Spring, Jakarta Inject/CDI, Dagger, and Guice annotations such as `@Bean`, `@Provides`, `@Binds`, `@Inject`, and `@Autowired`, plus Guice binding and injector-creation calls. These lexical analyzers filter comments and quoted strings, but do not parse source syntax or resolve runtime dependency graphs. Ecosystem detection comes from conventional manifest names; it does not prove that every listed project is active or buildable.
+Language coverage identifies what BrownPants actually analyzes: Roslyn syntax and candidate patterns for C# and VB.NET; bounded syntax records plus lexical candidates for JavaScript/TypeScript; lexical candidate patterns for Python, Java/Kotlin, Go, and native C/C++; and inventory-only coverage for other recognized source languages. JavaScript/TypeScript reports include supported declarations, imports/exports, calls, relative module targets, declared npm/pnpm workspace packages, and configured `tsconfig` aliases with source locations and explicit unresolved or ambiguous status. They do not claim compiler binding, type checking, overload selection, runtime dispatch, or module execution. Existing JS/TS factory and DI signals remain lexical candidates; see the [JavaScript/TypeScript evidence guide](docs/javascript-typescript-evidence.md) for the report fields and an example. Go candidates include `NewType` constructor naming and Fx/Dig provider and invocation calls. Python candidates include factory class/method/call naming, Dependency Injector provider declarations, and dependency markers such as FastAPI `Depends`, `Provide[...]`, and `@inject`. Java/Kotlin candidates include factory class/method/call naming and Spring, Jakarta Inject/CDI, Dagger, and Guice annotations such as `@Bean`, `@Provides`, `@Binds`, `@Inject`, and `@Autowired`, plus Guice binding and injector-creation calls. The remaining lexical analyzers filter comments and quoted strings, but do not parse source syntax or resolve runtime dependency graphs. Ecosystem detection comes from conventional manifest names; it does not prove that every listed project is active or buildable.
 
 Roslyn parses C# and Visual Basic files without building the project, so legacy .NET Framework source can be inspected from a .NET 10 host. Reports include `.csproj` and `.vbproj` target framework values, project references, type/member declarations, import/using directives (C#), invocation syntax, inactive preprocessor text (C#), and parser diagnostics. Where a C# project has one explicit `LangVersion`, that version is used for its source files. Default mode reports invocation syntax without binding calls to target methods; `--semantic` opts into that resolution. Default mode also leaves MSBuild conditions/imports and preprocessor symbols unevaluated, and parser diagnostics are not build results. By default, structured symbol samples are capped at 200; raise the cap for JSON with `--limit 1000` (maximum 10000).
 

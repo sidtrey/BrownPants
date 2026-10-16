@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    {
+      "taskId": "T001",
+      "criterionIds": ["AC-001", "AC-005", "SC-001", "SC-004"],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --no-build --no-restore",
+      "evidencePaths": ["src/BrownPants.Cli/Analysis/JavaScriptTypeScriptModels.cs", "src/BrownPants.Cli/Output/MarkdownReport.cs", "tests/BrownPants.Tests/RepositoryScannerTests.cs"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T002",
+      "criterionIds": ["AC-001", "AC-003", "SC-001", "SC-003"],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --no-build --no-restore",
+      "evidencePaths": ["src/BrownPants.Cli/Analysis/JavaScriptTypeScriptAnalyzer.cs", "tests/BrownPants.Tests/RepositoryScannerTests.cs"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T003",
+      "criterionIds": ["AC-001", "AC-003", "SC-001"],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --no-build --no-restore",
+      "evidencePaths": ["src/BrownPants.Cli/Analysis/JavaScriptTypeScriptAnalyzer.cs", "tests/BrownPants.Tests/RepositoryScannerTests.cs"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T004",
+      "criterionIds": ["AC-002", "AC-004", "SC-002"],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --no-build --no-restore",
+      "evidencePaths": ["src/BrownPants.Cli/Analysis/JavaScriptTypeScriptAnalyzer.cs", "tests/BrownPants.Tests/RepositoryScannerTests.cs"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T005",
+      "criterionIds": ["AC-003", "AC-004", "SC-002"],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --no-build --no-restore",
+      "evidencePaths": ["src/BrownPants.Cli/Analysis/JavaScriptTypeScriptAnalyzer.cs", "tests/BrownPants.Tests/RepositoryScannerTests.cs"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T006",
+      "criterionIds": ["AC-005", "SC-004"],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --no-build --no-restore",
+      "evidencePaths": ["src/BrownPants.Cli/Analysis/RepositoryScanner.cs", "src/BrownPants.Cli/Output/MarkdownReport.cs", "README.md", "docs/javascript-typescript-evidence.md", "tests/BrownPants.Tests/RepositoryScannerTests.cs"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T007",
+      "criterionIds": ["SC-005"],
+      "verificationCommand": "GitHub Actions CI run 38971296195 passed Windows, Ubuntu, and macOS; local Release build/tests, packed 0.4.0 install and all nine packed-tool smoke tests, self-inspection, acceptance hash and evidence checks passed",
+      "evidencePaths": ["specs/072-ts-source-evidence/verification.md", "specs/072-ts-source-evidence/tasks.md", "specs/072-ts-source-evidence/acceptance-criteria.sha256"],
+      "result": "passed"
+    }
+  ]
+}
