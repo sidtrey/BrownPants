@@ -123,6 +123,10 @@ internal static class LocalFlowchartLayoutEngine
         var nodesById = laidOutNodes.ToDictionary(node => node.Node.Id, StringComparer.Ordinal);
         var laidOutEdges = RouteEdges(document, ranks, nodesById, options.Direction, width, height,
             leftLanes, rightLanes, topLanes, bottomLanes, terminalEdgeOrders);
+        if (options.Direction == LocalFlowchartDirection.TopDown
+            && document.Edges.Count <= MaximumAdjacentRouteOptimizationEdges
+            && (long)nodesById.Count * document.Edges.Count <= MaximumLocalSkipRoutingComparisons)
+            laidOutEdges = RefineTopDownRoutes(laidOutEdges, ranks, nodesById, width, leftLanes, rightLanes);
         var layout = new LocalFlowchartLayout(width, height, nodeRegionLeft, laidOutNodes, laidOutEdges, options.Direction);
         return layout with { Diagnostics = DiagnoseCrossings(layout) };
     }
@@ -559,6 +563,125 @@ internal static class LocalFlowchartLayoutEngine
             .Select(candidate => candidate.Route)
             .FirstOrDefault() ?? fallback;
     }
+
+    private static LocalFlowchartLayoutEdge[] RefineTopDownRoutes(LocalFlowchartLayoutEdge[] edges,
+        IReadOnlyDictionary<string, int> ranks, IReadOnlyDictionary<string, LocalFlowchartLayoutNode> nodes,
+        int width, int leftLaneCount, int rightLaneCount)
+    {
+        var refined = edges.ToArray();
+        var rankTops = nodes.Values.GroupBy(node => node.Rank)
+            .ToDictionary(group => group.Key, group => group.Min(node => node.Y));
+        for (var pass = 0; pass < 2; pass++)
+        {
+            var changed = false;
+            for (var edgeIndex = 0; edgeIndex < refined.Length; edgeIndex++)
+            {
+                var edge = refined[edgeIndex];
+                var source = nodes[edge.Edge.FromId];
+                var target = nodes[edge.Edge.ToId];
+                if (edge.Edge.ImportedWaypoints is { Count: > 0 } || source.Node.Id == target.Node.Id)
+                    continue;
+
+                var sourceRank = ranks[source.Node.Id];
+                var targetRank = ranks[target.Node.Id];
+                var candidates = new List<IReadOnlyList<LocalFlowchartLayoutPoint>> { edge.Route };
+                if (targetRank == sourceRank + 1)
+                {
+                    var sourceX = source.X + source.Width / 2;
+                    var sourceY = source.Y + source.Height;
+                    var targetX = target.X + target.Width / 2;
+                    var targetY = target.Y;
+                    var middleY = sourceY + Math.Max(12, (targetY - sourceY) / 2);
+                    candidates.Add([new(sourceX, sourceY), new(sourceX, middleY), new(targetX, middleY), new(targetX, targetY)]);
+                    candidates.AddRange(AdjacentSideRoutes(source, target, middleY, width, leftLaneCount, rightLaneCount));
+                }
+                else if (targetRank <= sourceRank)
+                {
+                    var sourceX = source.X + source.Width / 2;
+                    var sourceY = source.Y;
+                    var targetX = target.X + target.Width / 2;
+                    var sourceChannelY = Math.Max(0, rankTops[sourceRank] - 16);
+                    var targetChannelY = Math.Max(0, rankTops[targetRank] - 16);
+                    var currentLeft = edge.Route.Min(point => point.X);
+                    var currentRight = edge.Route.Max(point => point.X);
+                    foreach (var laneIndex in NearestLaneIndexes(leftLaneCount, index => Margin + index * RouteLaneGap, currentLeft))
+                    {
+                        var lane = Margin + laneIndex * RouteLaneGap;
+                        candidates.Add([new(sourceX, sourceY), new(sourceX, sourceChannelY), new(lane, sourceChannelY),
+                            new(lane, targetChannelY), new(targetX, target.Y)]);
+                    }
+                    foreach (var laneIndex in NearestLaneIndexes(rightLaneCount,
+                                 index => width - Margin - rightLaneCount * RouteLaneGap + RouteLaneGap + index * RouteLaneGap,
+                                 currentRight))
+                    {
+                        var lane = width - Margin - rightLaneCount * RouteLaneGap + RouteLaneGap + laneIndex * RouteLaneGap;
+                        candidates.Add([new(sourceX, sourceY), new(sourceX, sourceChannelY), new(lane, sourceChannelY),
+                            new(lane, target.Y + target.Height / 2), new(target.X + target.Width, target.Y + target.Height / 2)]);
+                    }
+                }
+                else
+                {
+                    continue;
+                }
+
+                var otherEdges = refined.Where((_, index) => index != edgeIndex).ToArray();
+                var best = candidates.Where(candidate => RouteAvoidsNodes(candidate, nodes.Values,
+                        source.Node.Id, target.Node.Id))
+                    .Select(candidate =>
+                    {
+                        var crossings = otherEdges.Count(other => other.Edge.FromId != source.Node.Id
+                            && other.Edge.ToId != source.Node.Id && other.Edge.FromId != target.Node.Id
+                            && other.Edge.ToId != target.Node.Id && RoutesCross(candidate, other.Route));
+                        var length = candidate.Zip(candidate.Skip(1)).Sum(segment =>
+                            Math.Abs(segment.First.X - segment.Second.X) + Math.Abs(segment.First.Y - segment.Second.Y));
+                        return (Route: candidate, Crossings: crossings, Length: length);
+                    })
+                    .OrderBy(candidate => candidate.Crossings)
+                    .ThenBy(candidate => candidate.Length)
+                    .FirstOrDefault();
+
+                if (best.Route is null || best.Crossings > CountUnrelatedCrossings(edge, otherEdges))
+                    continue;
+                if (!best.Route.SequenceEqual(edge.Route))
+                {
+                    refined[edgeIndex] = edge with { Route = best.Route };
+                    changed = true;
+                }
+            }
+
+            if (!changed) break;
+        }
+
+        return refined;
+    }
+
+    private static IEnumerable<int> NearestLaneIndexes(int count, Func<int, int> laneX, int referenceX)
+    {
+        var nearest = new List<(long Distance, int Index)>(4);
+        for (var index = 0; index < count; index++)
+        {
+            var candidate = (Distance: Math.Abs((long)laneX(index) - referenceX), Index: index);
+            var insertionIndex = nearest.FindIndex(item => candidate.Distance < item.Distance
+                || candidate.Distance == item.Distance && candidate.Index < item.Index);
+            if (insertionIndex < 0)
+            {
+                if (nearest.Count < 4) nearest.Add(candidate);
+            }
+            else
+            {
+                nearest.Insert(insertionIndex, candidate);
+                if (nearest.Count > 4) nearest.RemoveAt(4);
+            }
+        }
+
+        return nearest.Select(item => item.Index);
+    }
+
+    private static int CountUnrelatedCrossings(LocalFlowchartLayoutEdge edge,
+        IReadOnlyList<LocalFlowchartLayoutEdge> others) => others.Count(other =>
+        other.Edge.FromId != edge.Edge.FromId && other.Edge.ToId != edge.Edge.FromId
+        && other.Edge.FromId != edge.Edge.ToId && other.Edge.ToId != edge.Edge.ToId
+        && RoutesCross(edge.Route, other.Route));
 
     private static IReadOnlyList<LocalFlowchartLayoutPoint>? FindLocalSkipRoute(
         LocalFlowchartLayoutNode source, LocalFlowchartLayoutNode target, int sourceX, int sourceY,

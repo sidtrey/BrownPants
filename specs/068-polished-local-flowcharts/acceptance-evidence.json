@@ -816,6 +816,18 @@
         "specs/068-polished-local-flowcharts/verification.md"
       ],
       "result": "passed"
+    },
+    {
+      "taskId": "T059",
+      "criterionIds": ["AC-020"],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-build --filter FullyQualifiedName~Diagram_ReleasePipelineShowcaseHasOrderedTilesAndContinuityOverlap",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartLayout.cs",
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs",
+        "docs/flows/tiled-release-pipeline.md",
+        "docs/flows/tiled-release-pipeline/tiled-release-pipeline.tiles.json"
+      ],
+      "result": "passed"
     }
   ]
 }

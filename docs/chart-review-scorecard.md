@@ -5,7 +5,7 @@ Use five independent reviewers. Let each person inspect the charts before explai
 ## Viewing setup
 
 - **Compact chart:** [release check](flows/compact-release-check.png), 1188 × 1208 pixels, viewed at native size.
-- **Large chart:** [release pipeline tile 1](flows/tiled-release-pipeline/tiled-release-pipeline-x0000000-y0000000.png), then continue in [manifest order](flows/tiled-release-pipeline/tiled-release-pipeline.tiles.json). Tiles are 1800 pixels with 128-pixel overlaps. The renderer reports two remaining connector crossings.
+- **Large chart:** [release pipeline tile 1](flows/tiled-release-pipeline/tiled-release-pipeline-x0000000-y0000000.png), then continue in [manifest order](flows/tiled-release-pipeline/tiled-release-pipeline.tiles.json). Tiles are 1800 pixels with 128-pixel overlaps. The renderer reports no unrelated connector crossings for this example.
 - Ask reviewers to inspect both examples without a verbal walkthrough and rate whether the main path is clear at native size. If they zoom for detail, record it.
 
 ## Record one row per reviewer and chart

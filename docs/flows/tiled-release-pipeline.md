@@ -1,6 +1,6 @@
 # Release pipeline review
 
-This large example follows a proposed change through compilation, tests, security review, human pull-request approval, deployment, and recovery paths. BrownPants renders it as four ordered 1800-pixel tiles with 128-pixel shared edges. The manifest identifies exact origins and overlap. The renderer reports two remaining crossings where retry routes return upstream and prints their canvas coordinates; review those locations alongside the editable source.
+This large example follows a proposed change through compilation, tests, security review, human pull-request approval, deployment, and recovery paths. BrownPants renders it as four ordered 1800-pixel tiles with 128-pixel shared edges. The manifest identifies exact origins and overlap. The renderer's crossing-aware route refinement keeps every declared connection and eliminates unrelated connector crossings in this example.
 
 Regenerate from the repository root with `dotnet run --project src/BrownPants.Cli -- diagram . docs/flows/tiled-release-pipeline.md --output docs/flows/tiled-release-pipeline.png --tile-size 1800 --overlap 128 --overwrite`.
 

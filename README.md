@@ -23,21 +23,21 @@
 
 ## Brownfield first
 
-**Brownfield** means changing software that already exists and has people, data, or other systems depending on it. Its rules may live in source code, project settings, tests, or integrations rather than in current documentation. A new system without those existing dependencies is often called **greenfield**.
+**Brownfield development** means changing a system that is already in use. It may have years of behavior, data, integrations, and user expectations that nobody has written down in one place. Those rules often live in source code, project settings, tests, and connections to other systems. **Greenfield** work starts with fewer of these existing obligations.
 
-**Spec-driven development (SDD)** means agreeing on the problem, intended behavior, and checks before implementation. A spec describes the destination. Brownfield work also needs a map of the system today, or the spec may miss a caller, compatibility promise, or test that protects behavior people rely on.
+**Spec-driven development (SDD)** agrees on the problem, intended behavior, and checks before implementation. A spec describes the destination; brownfield work also needs a reliable picture of the starting point. Without it, a clear spec can still miss a caller, a compatibility promise, or a test that protects behavior people rely on. That is why repository context belongs in the work before the team finalizes its plan and acceptance criteria.
 
-Think of renovating an occupied building: the plan describes the change; a survey finds the wiring and load-bearing walls already there. BrownPants provides that survey for software. It gathers source-linked evidence for the team to review. The team—not the analyzer—decides what the product should do.
+Think of renovating an occupied building: the plan describes the change, while a survey finds the wiring and load-bearing walls already there. BrownPants provides that survey for software. It gathers source-linked evidence for people and agents to check; the team decides what the product should do.
 
-### From existing code to a verified change
+### How BrownPants fits into SDD
 
-Suppose a team must change how an old order importer retries failed records. “Retry failed orders” is not yet a safe implementation plan: the team first needs to find the importer, its callers, stored retry state, and relevant tests. BrownPants helps find those facts; the product owner and team choose the intended retry behavior and acceptance criteria.
+Imagine a request to change how an old order importer retries failed records. “Retry failed orders” states an intent, but not which importer path runs, who calls it, what retry state is stored, or which tests protect it. BrownPants helps the team investigate those questions before it commits to behavior and acceptance criteria.
 
-1. **Survey.** `brownpants inspect <repo>` inventories languages, projects, and recognized patterns. `brownpants evidence <repo> --clue "order retry"` collects focused findings with file locations.
-2. **Trace impact.** `brownpants impact <repo> --changed <path>` follows compiler-resolved managed callers and lists native or interop matches as candidates. Evidence helps focus review; it does not prove runtime execution or test coverage.
-3. **Specify the change.** Combine the user need with verified system facts. Write observable acceptance criteria and say how each will be checked; review uncertain findings before relying on them.
-4. **Plan and implement.** Use Spec Kit, OpenSpec, or another SDD workflow to turn the spec into tasks and code. BrownPants integrations can refresh repository context, flag edits to hashed acceptance criteria for review, and connect tasks to recorded evidence.
-5. **Verify and hand off.** Run the agreed checks, review affected paths, and give QA the criteria, evidence, and known analysis gaps.
+1. **Map the repository.** `brownpants inspect <repo>` inventories languages, projects, and recognized patterns. This gives the team an initial map without building the software.
+2. **Find relevant evidence.** `brownpants evidence <repo> --clue "order retry"` returns focused findings with file locations. After identifying a changed file, `brownpants impact <repo> --changed <path>` follows compiler-resolved managed callers and labels native or interop matches as candidates.
+3. **Write the spec.** The team combines the user's need with evidence it has reviewed, then defines observable acceptance criteria and how each will be checked. BrownPants informs this decision; it does not decide the intended behavior.
+4. **Plan and implement.** Spec Kit, OpenSpec, or another SDD workflow turns the spec into tasks and code. BrownPants integrations can refresh repository context, flag edits to hashed acceptance criteria for review, and connect tasks to recorded evidence.
+5. **Verify and hand off.** Run the agreed checks, review affected paths, and give QA the criteria, evidence, and known analysis gaps. Candidate evidence does not prove runtime execution or test coverage.
 
 BrownPants is built for existing systems: its .NET 10 host can inspect legacy .NET Framework 4.x C# and Visual Basic with Roslyn without building those projects. It also inventories C/C++, MFC, and C++/CLI markers and candidate evidence for factories, dependency injection, interop, and framework patterns. When compiler context is available, semantic mode resolves managed calls and explicit constructor use, including target-typed and generic construction. Findings state their evidence level and analysis limits.
 
@@ -206,7 +206,7 @@ For a compact example, this release-check chart is 1188 × 1208 pixels and was c
 
 ![Compact release check flow from proposed change through focused tests and human review](docs/flows/compact-release-check.png)
 
-The larger [release pipeline source](docs/flows/tiled-release-pipeline.md) renders to four ordered 1800-pixel tiles with 128-pixel overlaps. The [tile manifest](docs/flows/tiled-release-pipeline/tiled-release-pipeline.tiles.json) records their order and bounds; open [tile 1](docs/flows/tiled-release-pipeline/tiled-release-pipeline-x0000000-y0000000.png), [tile 2](docs/flows/tiled-release-pipeline/tiled-release-pipeline-x0000000-y0001672.png), [tile 3](docs/flows/tiled-release-pipeline/tiled-release-pipeline-x0000000-y0003344.png), and [tile 4](docs/flows/tiled-release-pipeline/tiled-release-pipeline-x0000000-y0005016.png) in order. This example reports two remaining connector crossings where retry paths return upstream, including canvas coordinates in the CLI diagnostic; all declared connections are preserved.
+The larger [release pipeline source](docs/flows/tiled-release-pipeline.md) renders to four ordered 1800-pixel tiles with 128-pixel overlaps. The [tile manifest](docs/flows/tiled-release-pipeline/tiled-release-pipeline.tiles.json) records their order and bounds; open [tile 1](docs/flows/tiled-release-pipeline/tiled-release-pipeline-x0000000-y0000000.png), [tile 2](docs/flows/tiled-release-pipeline/tiled-release-pipeline-x0000000-y0001672.png), [tile 3](docs/flows/tiled-release-pipeline/tiled-release-pipeline-x0000000-y0003344.png), and [tile 4](docs/flows/tiled-release-pipeline/tiled-release-pipeline-x0000000-y0005016.png) in order. The router now checks short forward and return paths against the complete set of connectors; this example has no unrelated connector crossings, and all declared connections are preserved.
 
 Regenerate the compact image with `dotnet run --project src/BrownPants.Cli -- diagram . docs/flows/compact-release-check.md --output docs/flows/compact-release-check.png`. Regenerate the tiled bundle with `dotnet run --project src/BrownPants.Cli -- diagram . docs/flows/tiled-release-pipeline.md --output docs/flows/tiled-release-pipeline.png --tile-size 1800 --overlap 128 --overwrite`.
 
