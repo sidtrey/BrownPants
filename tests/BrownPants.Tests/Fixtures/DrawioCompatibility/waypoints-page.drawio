@@ -1,0 +1,24 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="waypoints-page" name="Approval">
+    <mxGraphModel pageWidth="900" pageHeight="700">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="left" value="Receive" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#E8F1FA;" vertex="1" parent="1">
+          <mxGeometry x="40" y="80" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="right" value="Review" style="rounded=0;whiteSpace=wrap;html=0;" vertex="1" parent="1">
+          <mxGeometry x="500" y="400" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="route" value="approved" style="edgeStyle=orthogonalEdgeStyle;endArrow=block;html=0;" edge="1" parent="1" source="left" target="right">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="250" y="110" as="point" />
+              <mxPoint x="250" y="430" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

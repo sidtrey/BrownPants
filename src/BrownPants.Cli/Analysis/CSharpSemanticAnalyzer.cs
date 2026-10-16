@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.MSBuild;
 using Microsoft.CodeAnalysis.Operations;
+using Microsoft.CodeAnalysis.FlowAnalysis;
 using CSharpInvocation = Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax;
 using CSharpObjectCreation = Microsoft.CodeAnalysis.CSharp.Syntax.ObjectCreationExpressionSyntax;
 using CSharpImplicitObjectCreation = Microsoft.CodeAnalysis.CSharp.Syntax.ImplicitObjectCreationExpressionSyntax;
@@ -18,7 +19,8 @@ public static class CSharpSemanticAnalyzer
     private const int ImpactGraphEdgeLimit = 100_000;
 
     public static CSharpSemanticAnalysis AnalyzeRepository(string root, IReadOnlyList<string> projectPaths,
-        IReadOnlyList<string> solutionPaths, int sampleLimit)
+        IReadOnlyList<string> solutionPaths, int sampleLimit, string? controlFlowSourcePath = null,
+        string? exactControlFlowMethod = null)
     {
         var issues = new List<string>();
         var issueCount = 0;
@@ -86,7 +88,8 @@ public static class CSharpSemanticAnalyzer
             RecordIssue($"MSBuild could not be initialized: {exception.Message}");
         }
 
-        var semantic = AnalyzeCompilations(compilations, discovered, sampleLimit, root);
+        var semantic = AnalyzeCompilations(compilations, discovered, sampleLimit, root,
+            ImpactGraphEdgeLimit, controlFlowSourcePath, exactControlFlowMethod);
         var failed = Math.Max(0, discovered - loaded.Count);
         return semantic with { ProjectsLoaded = loaded.Count, ProjectsFailed = failed,
             ProjectCoverageComplete = failed == 0 && issueCount == 0, Issues = issues,
@@ -105,7 +108,9 @@ public static class CSharpSemanticAnalyzer
         int projectsDiscovered,
         int sampleLimit,
         string root,
-        int impactGraphEdgeLimit)
+        int impactGraphEdgeLimit,
+        string? controlFlowSourcePath = null,
+        string? exactControlFlowMethod = null)
     {
         if (impactGraphEdgeLimit is < 0 or > ImpactGraphEdgeLimit)
             throw new ArgumentOutOfRangeException(nameof(impactGraphEdgeLimit));
@@ -134,6 +139,10 @@ public static class CSharpSemanticAnalyzer
         var compilerErrorCount = 0;
         var seenProjects = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var repositoryRoot = Path.GetFullPath(root);
+        var requestedFlowPath = controlFlowSourcePath?.Replace('\\', '/');
+        if ((requestedFlowPath is null) != (exactControlFlowMethod is null))
+            throw new ArgumentException("A control-flow source path and exact method symbol must be supplied together.");
+        MethodControlFlowSnapshot? requestedControlFlow = null;
 
         void AddResolvedCall(CSharpResolvedCall call)
         {
@@ -183,6 +192,15 @@ public static class CSharpSemanticAnalyzer
                 {
                     if (semanticModel.GetDeclaredSymbol(declarationNode) is not IMethodSymbol method)
                         continue;
+                    if (requestedControlFlow is null && requestedFlowPath is not null
+                        && string.Equals(relativeSourcePath, requestedFlowPath,
+                            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)
+                        && string.Equals(ResolvedTarget(method, repositoryRoot), exactControlFlowMethod, StringComparison.Ordinal))
+                    {
+                        requestedControlFlow = MethodControlFlowSnapshot.Create(declarationNode, semanticModel,
+                            exactControlFlowMethod!, relativeSourcePath,
+                            declarationNode.GetLocation().GetLineSpan().StartLinePosition.Line + 1);
+                    }
                     declarationCount++;
                     AddSample(declarations, new CSharpSemanticDeclaration(
                         relativeProjectPath,
@@ -380,7 +398,8 @@ public static class CSharpSemanticAnalyzer
             CompilerDiagnosticGroups = compilerDiagnosticGroups,
             ResolvedDelegateTargetCount = resolvedDelegateTargetCount,
             UnresolvedDelegateTargetCount = unresolvedDelegateTargetCount,
-            UnresolvedDelegateCalls = unresolvedDelegateCalls
+            UnresolvedDelegateCalls = unresolvedDelegateCalls,
+            RequestedControlFlow = requestedControlFlow
         };
     }
 

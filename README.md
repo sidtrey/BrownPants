@@ -23,9 +23,25 @@
 
 ## Brownfield first
 
-BrownPants is built for the code that teams already have: old frameworks, mixed languages, undocumented boundaries, and project files nobody wants to upgrade just to inspect. Run the .NET 10 tool against legacy .NET Framework 4.x source; Roslyn reads C# and Visual Basic without building those projects. It also inventories C/C++, MFC and C++/CLI markers, reports candidate evidence for factories, dependency injection, interop, and framework-specific patterns, and links supported MFC message-map entries to handler and explicitly qualified native/C++/CLI method definitions. Where compiler context is available, semantic mode resolves managed method calls and explicit constructor use—including target-typed and generic construction—and traces their callers.
+**Brownfield development** means changing a system that is already in use. It may have years of behavior, data, integrations, and user expectations that nobody has written down in one place. Those rules often live in source code, project settings, tests, and connections to other systems. **Greenfield** work starts with fewer of these existing obligations.
 
-That gives a team a reviewable starting point before it writes a spec or edits code: what languages and projects are present, which files contain relevant patterns, where calls lead, and what test paths may deserve attention. Candidate matches and incomplete analysis are labeled as such; BrownPants does not pretend to understand behavior it could not resolve.
+**Spec-driven development (SDD)** agrees on the problem, intended behavior, and checks before implementation. A spec describes the destination; brownfield work also needs a reliable picture of the starting point. Without it, a clear spec can still miss a caller, a compatibility promise, or a test that protects behavior people rely on. That is why repository context belongs in the work before the team finalizes its plan and acceptance criteria.
+
+Think of renovating an occupied building: the plan describes the change, while a survey finds the wiring and load-bearing walls already there. BrownPants provides that survey for software. It gathers source-linked evidence for people and agents to check; the team decides what the product should do.
+
+### How BrownPants fits into SDD
+
+Imagine a request to change how an old order importer retries failed records. “Retry failed orders” states an intent, but not which importer path runs, who calls it, what retry state is stored, or which tests protect it. BrownPants helps the team investigate those questions before it commits to behavior and acceptance criteria.
+
+1. **Map the repository.** `brownpants inspect <repo>` inventories languages, projects, and recognized patterns. This gives the team an initial map without building the software.
+2. **Find relevant evidence.** `brownpants evidence <repo> --clue "order retry"` returns focused findings with file locations. After identifying a changed file, `brownpants impact <repo> --changed <path>` follows compiler-resolved managed callers and labels native or interop matches as candidates.
+3. **Write the spec.** The team combines the user's need with evidence it has reviewed, then defines observable acceptance criteria and how each will be checked. BrownPants informs this decision; it does not decide the intended behavior.
+4. **Plan and implement.** Spec Kit, OpenSpec, or another SDD workflow turns the spec into tasks and code. BrownPants integrations can refresh repository context, flag edits to hashed acceptance criteria for review, and connect tasks to recorded evidence.
+5. **Verify and hand off.** Run the agreed checks, review affected paths, and give QA the criteria, evidence, and known analysis gaps. Candidate evidence does not prove runtime execution or test coverage.
+
+BrownPants is built for existing systems: its .NET 10 host can inspect legacy .NET Framework 4.x C# and Visual Basic with Roslyn without building those projects. It also inventories C/C++, MFC, and C++/CLI markers and candidate evidence for factories, dependency injection, interop, and framework patterns. When compiler context is available, semantic mode resolves managed calls and explicit constructor use, including target-typed and generic construction. Findings state their evidence level and analysis limits.
+
+In short, SDD records **what the team intends to change and how it will know the work is done**. BrownPants helps establish **what the existing system contains and what a change may affect**. It adds context to SDD tools without replacing their specs, plans, or human decisions.
 
 ## BrownPants in a day
 
@@ -101,7 +117,7 @@ dotnet run --project src/BrownPants.Cli -- models report . --format markdown
 dotnet pack src/BrownPants.Cli -c Release -o ./artifacts
 dotnet tool install --tool-path ./.tools --add-source ./artifacts BrownPants.Cli --version 0.3.0
 ./.tools/brownpants inspect . # Windows: .\.tools\brownpants.exe inspect .
-dotnet test BrownPants.sln
+./scripts/test.ps1
 ```
 
 ### Use an approved NuGet mirror
@@ -140,7 +156,7 @@ Pass `--semantic` to opt in to MSBuildWorkspace project loading. When the requir
 
 `workbench` creates a self-contained HTML review page. By default it uses the active Spec Kit feature; add `--engine openspec` to review the unique active OpenSpec change, or select one with `--feature openspec/changes/<name>`. Open the generated `TestResults/brownpants-workbench.html` in a browser to review the proposal, requirements/scenarios, task status, and design. Reviewers can attach notes and download a JSON handoff; this does not edit feature files or send data over the network. See the [Spec Kit quickstart](specs/035-sdd-workbench/quickstart.md), [OpenSpec quickstart](specs/036-openspec-workbench/quickstart.md), and [OpenSpec contract](specs/036-openspec-workbench/contracts/workbench-openspec.md).
 
-`diagram` renders a repository-local `brownpants-flow` Markdown block as a deterministic PNG, or as editable native diagrams.net XML with `--format drawio`. It uses a BrownPants-owned grammar rather than Mermaid, packages no graphics engine, and makes no network requests. Both source and output paths must stay inside the selected repository; output is preserved unless `--overwrite` is explicit. For example:
+`diagram` turns a repository-local description into a deterministic PNG and matching editable diagrams.net XML sidecar. Rendering is local, works without Mermaid or a hosted chart service, and makes no network requests. The `software` symbol profile distinguishes starts, work steps, decisions, input/output, and endings. Choose a top-down or left-to-right layout; paths, branches, loops, and separately labeled parallel connections are retained. Named or custom themes carry the same colors through PNGs, tiles, and editable XML without changing graph layout. See the [theme guide](docs/chart-themes.md) and runnable [Blue Water palette](docs/themes/blue-water.json). BrownPants prints a short plain-English explanation and states what the source does and does not prove.
 
 ````markdown
 ```brownpants-flow
@@ -160,17 +176,67 @@ edge verify -> review
 ````
 
 ```powershell
-dotnet run --project src/BrownPants.Cli -- diagram . docs/flows/approval.md --output docs/flows/approval.png
-dotnet run --project src/BrownPants.Cli -- diagram . docs/flows/approval.md --output docs/flows/approval.drawio --format drawio
+dotnet run --project src/BrownPants.Cli -- diagram . docs/flows/access-review.md --output docs/flows/access-review.png
+dotnet run --project src/BrownPants.Cli -- diagram . docs/flows/access-review.md --output docs/flows/access-review-wide.png --direction left-to-right
+dotnet run --project src/BrownPants.Cli -- diagram . docs/flows/team-ownership.md --output docs/flows/team-ownership.png
+dotnet run --project src/BrownPants.Cli -- diagram . docs/flows/bug-investigation-brainstorm.md --output docs/flows/bug-investigation-brainstorm.png
+dotnet run --project src/BrownPants.Cli -- diagram . docs/flows/roslyn-call-resolution.md --output docs/flows/roslyn-call-resolution.png
+dotnet run --project src/BrownPants.Cli -- diagram . docs/flows/access-review.drawio --input-format drawio --output TestResults/imported-access-review.png
+dotnet run --project src/BrownPants.Cli -- diagram . docs/flows/access-review.md --output TestResults/access-review-blue.png --theme blue-water
+dotnet run --project src/BrownPants.Cli -- diagram . docs/flows/access-review.md --output TestResults/access-review-custom.png --theme-file docs/themes/blue-water.json
 ```
 
-The format supports `start`, `process`, `decision`, and `end` nodes, directed edges, and optional edge labels. Input is limited to 1 MiB, 200 nodes, 500 edges, and images up to 4096 pixels per side and 16 million pixels total. Labels must use printable ASCII. See `brownpants diagram --help` and the [flowchart contract](specs/032-local-text-flowcharts/contracts/local-flowchart.md).
+Use `brownpants-flow` for a process map, `brownpants-org` for a one-manager-per-person hierarchy, or `brownpants-brainstorm` for a nested idea map. For example, an org chart starts with `organization support`, declares people with `person id "Role name"`, and connects them with `reports lead -> teammate`. A brainstorm starts with `brainstorm bug-review`, declares `idea id "Question or idea"`, then connects topics with `branch parent -> child`. Tree inputs with cycles, disconnected nodes, or multiple parents are rejected so BrownPants never guesses ownership or idea structure.
+
+Keep visible node and edge labels short enough to scan. BrownPants wraps labels within reserved bounds, increases chart spacing for long edge labels, and rejects a label that cannot fit cleanly. Move longer explanations into optional `details "..."` text on a node or labeled edge; details stay in the editable XML tooltip and do not enlarge the PNG. Visible labels allow up to 80 characters; details allow up to 1,000. For example: `node store process "Save order" details "Write the mapped order and audit record through the legacy repository."`
+
+Review every chart against four standards: **simple** (purpose and main flow are clear), **elegant** (consistent hierarchy, spacing, and restrained decoration), **usable** (labels and relationships are legible at the stated viewing scale), and **useful** (it answers the team's question and shows evidence gaps).
+
+To review the chart examples with a team, use the [chart usability scorecard](docs/chart-review-scorecard.md). It records independent feedback at the documented viewing scale and states the acceptance thresholds; do not substitute implementer or AI scores for stakeholder review.
+
+The example below shows a real review path, including validation, account and risk decisions, a denial-and-retry loop, and an audit record. Its companion [editable XML](docs/flows/access-review.drawio) is saved beside the image.
 
 Here is the rendered chart generated from the example above with BrownPants' local renderer:
 
-![BrownPants flowchart showing inspection, impact tracing, acceptance criteria, verification, and review](docs/flows/approval.png)
+![Access request flow showing validation, account and risk decisions, approval, evidence logging, and retry paths](docs/flows/access-review.png)
 
-The [source Markdown](docs/flows/approval.md) is checked in alongside the PNG so contributors can regenerate or edit the diagram. This makes the feature visible in the README without relying on a hosted chart renderer.
+The [source Markdown](docs/flows/access-review.md) is checked in alongside the PNG. It shows a realistic review path, including a rejected request, a new account, a security review, and a correction loop. Regenerate it with the first command above; no remote renderer is involved.
+
+For a compact example, this release-check chart is 1188 × 1208 pixels and was checked at native size. Its labels remain within non-overlapping shapes, and its editable source is available beside the [PNG](docs/flows/compact-release-check.png).
+
+![Compact release check flow from proposed change through focused tests and human review](docs/flows/compact-release-check.png)
+
+The larger [release pipeline source](docs/flows/tiled-release-pipeline.md) renders to four ordered 1800-pixel tiles with 128-pixel overlaps. The [tile manifest](docs/flows/tiled-release-pipeline/tiled-release-pipeline.tiles.json) records their order and bounds; open [tile 1](docs/flows/tiled-release-pipeline/tiled-release-pipeline-x0000000-y0000000.png), [tile 2](docs/flows/tiled-release-pipeline/tiled-release-pipeline-x0000000-y0001672.png), [tile 3](docs/flows/tiled-release-pipeline/tiled-release-pipeline-x0000000-y0003344.png), and [tile 4](docs/flows/tiled-release-pipeline/tiled-release-pipeline-x0000000-y0005016.png) in order. The router now checks short forward and return paths against the complete set of connectors; this example has no unrelated connector crossings, and all declared connections are preserved.
+
+Regenerate the compact image with `dotnet run --project src/BrownPants.Cli -- diagram . docs/flows/compact-release-check.md --output docs/flows/compact-release-check.png`. Regenerate the tiled bundle with `dotnet run --project src/BrownPants.Cli -- diagram . docs/flows/tiled-release-pipeline.md --output docs/flows/tiled-release-pipeline.png --tile-size 1800 --overlap 128 --overwrite`.
+
+BrownPants can also import a supported diagrams.net `.drawio` file with `--input-format drawio`, then render a local PNG and editable XML sidecar. The current compatibility profile covers one page, the default layer, standard process/decision/terminal/input-output/cloud shapes, bounded styles, labels/tooltips, integer node geometry, and edge waypoints. It rejects multiple pages, custom shapes, HTML labels, external resources, nested layers, and other unmodeled XML instead of silently dropping it. This is a tested interoperability profile, not a claim of full diagrams.net compatibility; see the [format contract](specs/068-polished-local-flowcharts/contracts/diagram-cli.md) and [synthetic corpus](tests/BrownPants.Tests/Fixtures/DrawioCompatibility/README.md).
+
+Other charts make team structure, bug-investigation, and code-analysis questions easier to discuss:
+
+| Request | Example | What the chart clarifies |
+|---|---|---|
+| “Who owns each group?” | [Team org chart](docs/flows/team-ownership.png) · [source](docs/flows/team-ownership.md) | Reporting paths from product owner to QA and development teams. |
+| “How should we investigate this bug?” | [Brainstorm map](docs/flows/bug-investigation-brainstorm.png) · [source](docs/flows/bug-investigation-brainstorm.md) | Reproduction, call tracing, test impact, acceptance checks, and QA handoff. |
+| “How does Roslyn decide where a C# call goes?” | [Call-resolution flow](docs/flows/roslyn-call-resolution.png) · [source](docs/flows/roslyn-call-resolution.md) | The current semantic-analysis path, from project compilation to resolved or explicitly unresolved call evidence. |
+| “What calls our PNG renderer?” | [BrownPants caller chart](docs/flows/local-png-render-callers.png) · [editable source and rerun command](docs/flows/local-png-render-callers.md) | Five direct callers, including three test-path candidates; the chart states its depth and unresolved delegate targets. |
+| “How does BrownPants keep an output path inside the repository?” | [BrownPants method behavior chart](docs/flows/brownpants-path-safety.png) · [editable XML and rerun command](docs/flows/brownpants-path-safety.md) | Roslyn's C# control-flow blocks show path validation, platform-specific comparison, return, and explicit error paths. |
+
+This Roslyn chart documents the analyzer's source-level processing flow. BrownPants `inspect --semantic` loaded 12 projects in this repository and resolved 11,296 invocation targets in its latest self-inspection; those are static compiler bindings, not proof that calls execute at runtime. To chart callers for one exact C# or Visual Basic method, use `brownpants inspect <repository> --semantic --format markdown --limit 10000` to find its fully qualified symbol, then run `brownpants chart callers <repository> --source <relative.cs-or-vb-path> --method '<exact-symbol>' --semantic --output TestResults/callers.png --depth 8 --limit 1000`. This writes a local PNG and editable `.drawio` sidecar, labels test-path nodes as candidates, and shows when project loading or graph sampling left gaps. `--semantic` evaluates projects; imported MSBuild targets may execute.
+
+To answer **“what does this method do?”**, use `brownpants chart flow` with the same exact C# or Visual Basic method symbol:
+
+```powershell
+brownpants chart flow <repository> --source <relative.cs-or-vb-path> --method '<exact-symbol>' --semantic --output TestResults/method-flow.png
+```
+
+BrownPants lays out Roslyn's compiler control-flow blocks, decision conditions, loop cycles, returns, and explicit throw/rethrow paths, with source lines and full block details in the editable XML. Implicit runtime exceptions are not represented by Roslyn's method CFG and are not claimed by the chart. Complex methods may need multiple tiles; use the manifest to follow them in order.
+
+When a source parser cannot establish a diagram (for example, for an unsupported language or an unresolved workflow), an agent can still create a `brownpants-flow` chart from evidence already available to it. It should label that chart as agent-assembled, keep claims tied to cited source/data, and never present its edges as Roslyn-resolved. The local `diagram` command validates and renders the supplied nodes and connections without parsing the source language.
+
+Every PNG has a same-name `.drawio` sidecar. A tiled bundle also has one `<name>.drawio` master with the complete chart; each tile sidecar contains only the nodes in that viewport, edges whose route or label touches it, and any off-page endpoint cells needed to keep those edges editable. The tile XML uses coordinates relative to its own image, so it can be opened independently while the master preserves the whole chart. The manifest records the master path, each tile image and sidecar, stable order, bounds, and overlap. BrownPants stages and commits the bundle together; `--overwrite` removes obsolete manifest-listed tiles while preserving unrelated files. There is no tile-count ceiling. Single images use at most 90% of .NET's maximum RGB raster-array capacity, with incremental scanline encoding; PNG dimensions stay 10% below the format's 2³¹−1 pixel-side maximum. Larger charts tile automatically at 4,000 pixels; `--tile-size` and `--overlap` choose other dimensions. Inputs support up to 1,000,000 nodes and 1,000,000 connections; source files may be up to 128 MiB; individual tiles are at most 4,000 pixels per side. Caller charts trace compiler-resolved C# and Visual Basic callers, with explicit depth/sample limits and candidate-only test paths. Diagrams.net import and export support is limited to the documented, tested compatibility profile.
+
+The renderer uses an embedded public-domain-derived 8×8 bitmap glyph table for printable ASCII; it loads no font files or font service. Other Unicode characters render as `?` in PNG; the editable `.drawio` sidecar preserves the original text exactly. Layout, drawing, PNG encoding, and XML writing are BrownPants-authored managed .NET code, with no charting toolkit or platform drawing API.
 
 Native coverage includes `.vcxproj` and legacy `.vcproj` markers, MFC/CLR project settings, and source-located signals for MFC class inheritance from common framework types, runtime macros, object factories, message maps, COM activation and marshalling, COM interface metadata, C++/CLI, C#/VB interop attributes, factory types and calls, `Func<T>` factory delegates, constructor-injected interface/factory parameters, and DI APIs such as `AddTransient`, `RegisterType`, `RegisterInstance`, `Bind`, `GetRequiredService`, `GetInstance`, and container-scoped `Resolve`/`Get<T>`. Context checks on generic `Get`, `GetObject`, and `Resolve` names reduce matches from unrelated object APIs. Pattern findings carry `EvidenceKind: Candidate` in JSON and are labeled in Markdown; they are not proof of runtime relationships. Native flow output links recognized MFC command-map entries to a unique handler definition and explicitly class-qualified calls to a unique C++/C++CLI definition, with both source locations. Typed C++/CLI handle calls can also point to matching C# and VB method declarations, with native-to-managed and reverse-impact paths kept as lexical candidates. Missing and ambiguous targets remain visible. Analysis does not expand macros, prove overload selection, resolve runtime dispatch, or establish C++/CLI project references or compiler binding. C# and VB.NET patterns are syntax-based. Native C++ matches remain lexical candidates, not a full C++ parse. Inspect both sides of managed/native boundaries and the cited build configuration.
 
@@ -233,5 +299,16 @@ The core inventory is workflow-neutral. Spec Kit is the first adapter and refres
 For OpenSpec with Codex, initialize with `openspec init --tools codex`, install BrownPants, and run `integrations/openspec/Install.ps1 -ProjectRoot .`. Invoke `$openspec-brownpants-context` before `$openspec-propose` or `$openspec-apply-change`; OpenSpec does not provide the Spec Kit lifecycle hooks, so this adapter is explicit. See [the OpenSpec adapter guide](integrations/openspec/README.md). Other SDD engines can consume the same JSON/Markdown evidence; engine-specific adapters belong under `integrations/` and should not change scanner semantics.
 
 ## Development
+
+Use `./scripts/test.ps1` for local tests. It stores each run under the ignored
+`TestResults/.brownpants/runs/` directory and prunes old successful runs after a
+passing test run (five most recent, no more than 14 days). Failed runs are kept
+for at least seven days. Review cleanup candidates without deleting them with
+`./scripts/cleanup-test-data.ps1`; add `-Apply` to remove eligible marked runs.
+Older unmarked `TestResults` content is reported and preserved for manual review.
+
+Run `pwsh -NoProfile -File scripts/qa-tile-bundle.ps1` after a Release build to
+stress more than 1,000 tiles, import every tile XML through BrownPants, and check
+the bundle's size and byte-for-byte repeatability.
 
 See [AGENTS.md](AGENTS.md) for repository contribution guidance. Keep analysis deterministic, document evidence limits, and add fixture-based tests for new inventory behavior. GitHub Actions runs the Release build, xUnit and adapter checks, then packs and smoke-tests the .NET tool on Windows, Linux, and macOS. BrownPants inventories Windows-specific project metadata on every host; it does not build MFC projects as part of inspection.

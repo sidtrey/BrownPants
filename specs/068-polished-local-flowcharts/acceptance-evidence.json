@@ -1,0 +1,833 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    {
+      "taskId": "T001",
+      "criterionIds": [
+        "AC-001",
+        "AC-008",
+        "SC-005"
+      ],
+      "verificationCommand": "Review standards/profile record and source attribution",
+      "evidencePaths": [
+        "specs/068-polished-local-flowcharts/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T002",
+      "criterionIds": [
+        "AC-001",
+        "SC-001"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~LocalFlowchartTests",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/Fixtures/LocalFlowcharts/access-review.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T003",
+      "criterionIds": [
+        "AC-001",
+        "AC-007",
+        "SC-001"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~LocalFlowchartTests",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T004",
+      "criterionIds": [
+        "AC-001",
+        "SC-002"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~LocalFlowchartTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartParser.cs",
+        "src/BrownPants.Cli/Analysis/LocalFlowchartLayout.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T005",
+      "criterionIds": [
+        "AC-005",
+        "SC-005"
+      ],
+      "verificationCommand": "Review updated standards and interchange documentation",
+      "evidencePaths": [
+        "specs/068-polished-local-flowcharts/research.md",
+        "specs/068-polished-local-flowcharts/contracts/diagram-cli.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T006",
+      "criterionIds": [
+        "AC-001",
+        "AC-008",
+        "SC-005"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~LocalFlowchartTests",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T007",
+      "criterionIds": [
+        "AC-001",
+        "AC-007",
+        "SC-001"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~LocalFlowchartTests",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T008",
+      "criterionIds": [
+        "AC-001",
+        "SC-001",
+        "SC-002"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~LocalFlowchartTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartLayout.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T009",
+      "criterionIds": [
+        "AC-001",
+        "SC-001"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~LocalFlowchartTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartLayout.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T010",
+      "criterionIds": [
+        "AC-001",
+        "AC-008",
+        "SC-005"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~LocalFlowchartTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartPngRenderer.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T011",
+      "criterionIds": [
+        "AC-001",
+        "SC-002"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~LocalFlowchartTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs",
+        "README.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T012",
+      "criterionIds": [
+        "AC-002",
+        "AC-022",
+        "SC-007",
+        "SC-017"
+      ],
+      "verificationCommand": "Use docs/chart-review-scorecard.md; record the stakeholder rating and path comprehension in verification.md",
+      "evidencePaths": [
+        "docs/chart-review-scorecard.md",
+        "docs/flows/access-review.png",
+        "specs/068-polished-local-flowcharts/verification.md"
+      ],
+      "result": "planned"
+    },
+    {
+      "evidencePaths": [
+        "tests/BrownPants.Tests/CallImpactAnalyzerTests.cs"
+      ],
+      "result": "passed",
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-restore --filter FullyQualifiedName~CallTree",
+      "taskId": "T013",
+      "criterionIds": [
+        "AC-009",
+        "SC-008"
+      ]
+    },
+    {
+      "evidencePaths": [
+        "tests/BrownPants.Tests/CallImpactAnalyzerTests.cs"
+      ],
+      "result": "passed",
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-restore --filter FullyQualifiedName~CallTree",
+      "taskId": "T014",
+      "criterionIds": [
+        "AC-010",
+        "AC-011",
+        "SC-009"
+      ]
+    },
+    {
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/CallTreeDiagramAnalyzer.cs"
+      ],
+      "result": "passed",
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-restore --filter FullyQualifiedName~CallTree",
+      "taskId": "T015",
+      "criterionIds": [
+        "AC-009",
+        "AC-010",
+        "SC-008",
+        "SC-009"
+      ]
+    },
+    {
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/CallTreeDiagramCommand.cs",
+        "src/BrownPants.Cli/Program.cs"
+      ],
+      "result": "passed",
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-restore --filter FullyQualifiedName~CallerChart",
+      "taskId": "T016",
+      "criterionIds": [
+        "AC-009",
+        "AC-012"
+      ]
+    },
+    {
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartPngRenderer.cs",
+        "src/BrownPants.Cli/Analysis/LocalFlowchartDrawioWriter.cs"
+      ],
+      "result": "passed",
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-restore --filter FullyQualifiedName~CallerChart",
+      "taskId": "T017",
+      "criterionIds": [
+        "AC-009",
+        "AC-010",
+        "AC-011",
+        "AC-013",
+        "SC-008",
+        "SC-009",
+        "SC-010"
+      ]
+    },
+    {
+      "evidencePaths": [
+        "integrations/agent-skills/brownpants-context/SKILL.md",
+        "integrations/copilot/README.md",
+        "README.md"
+      ],
+      "result": "passed",
+      "verificationCommand": "Review host-facing instructions and run documented chart command",
+      "taskId": "T018",
+      "criterionIds": [
+        "AC-012",
+        "AC-014"
+      ]
+    },
+    {
+      "taskId": "T019",
+      "criterionIds": [
+        "AC-003",
+        "AC-004",
+        "SC-003"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~LocalFlowchartTests",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs",
+        "src/BrownPants.Cli/Analysis/LocalFlowchartPngRenderer.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T020",
+      "criterionIds": [
+        "AC-003",
+        "SC-003"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~LocalFlowchartTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartTiling.cs",
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T021",
+      "criterionIds": [
+        "AC-003",
+        "SC-003"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~LocalFlowchartTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartPngRenderer.cs",
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T022",
+      "criterionIds": [
+        "AC-003",
+        "AC-004",
+        "SC-002"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~LocalFlowchartTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs",
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T023",
+      "criterionIds": [
+        "AC-003",
+        "SC-003"
+      ],
+      "verificationCommand": "Review rendered tile documentation and manifest example",
+      "evidencePaths": [
+        "README.md",
+        "specs/068-polished-local-flowcharts/contracts/diagram-cli.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T024",
+      "criterionIds": [
+        "AC-005",
+        "AC-006",
+        "SC-006"
+      ],
+      "verificationCommand": "Review corpus samples and expected outcomes",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/Fixtures/DrawioCompatibility/README.md",
+        "tests/BrownPants.Tests/Fixtures/DrawioCompatibility/plain-basic.drawio"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T025",
+      "criterionIds": ["AC-005", "AC-006", "SC-006"],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-restore --filter FullyQualifiedName~LocalFlowchartTests",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs",
+        "tests/BrownPants.Tests/Fixtures/DrawioCompatibility/README.md",
+        "tests/BrownPants.Tests/Fixtures/DrawioCompatibility/waypoints-page.drawio"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T026",
+      "criterionIds": ["AC-005", "AC-006", "SC-006"],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-restore --filter FullyQualifiedName~LocalFlowchartTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartDrawioParser.cs",
+        "src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs",
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T027",
+      "criterionIds": ["AC-005", "SC-006"],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-restore --filter FullyQualifiedName~LocalFlowchartTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartDrawioWriter.cs",
+        "src/BrownPants.Cli/Analysis/LocalFlowchartLayout.cs",
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T028",
+      "criterionIds": ["AC-005", "AC-006", "SC-006"],
+      "verificationCommand": "Review the diagrams.net import compatibility profile, provenance, and tested rejection boundaries",
+      "evidencePaths": [
+        "README.md",
+        "specs/068-polished-local-flowcharts/contracts/diagram-cli.md",
+        "tests/BrownPants.Tests/Fixtures/DrawioCompatibility/README.md",
+        "specs/068-polished-local-flowcharts/research.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T029",
+      "criterionIds": [
+        "AC-002",
+        "AC-022",
+        "SC-004",
+        "SC-005",
+        "SC-007",
+        "SC-017"
+      ],
+      "verificationCommand": "Collect five independent reviews using docs/chart-review-scorecard.md; record results in verification.md",
+      "evidencePaths": [
+        "README.md",
+        "docs/chart-review-scorecard.md",
+        "docs/flows/compact-release-check.png",
+        "docs/flows/tiled-release-pipeline/tiled-release-pipeline.tiles.json",
+        "specs/068-polished-local-flowcharts/verification.md"
+      ],
+      "result": "planned"
+    },
+    {
+      "taskId": "T030",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-004",
+        "AC-005",
+        "AC-006",
+        "AC-007",
+        "AC-008",
+        "AC-009",
+        "AC-010",
+        "AC-011",
+        "AC-012",
+        "AC-013",
+        "AC-014",
+        "AC-015",
+        "AC-016",
+        "AC-018",
+        "SC-001",
+        "SC-002",
+        "SC-003",
+        "SC-004",
+        "SC-005",
+        "SC-006",
+        "SC-007",
+        "SC-008",
+        "SC-009",
+        "SC-010",
+        "SC-011",
+        "SC-013",
+        "AC-017",
+        "SC-012",
+        "AC-019",
+        "SC-014"
+      ],
+      "verificationCommand": "dotnet restore BrownPants.sln --locked-mode; dotnet list BrownPants.sln package --vulnerable --include-transitive; dotnet build BrownPants.sln -c Release --no-restore; dotnet test BrownPants.sln -c Release --no-restore; scripts/acceptance-criteria-hash.ps1; scripts/check-acceptance-evidence.ps1; run the README Markdown, diagrams.net import, and tiled caller quickstarts",
+      "evidencePaths": [
+        "specs/068-polished-local-flowcharts/verification.md",
+        "specs/068-polished-local-flowcharts/acceptance-criteria.sha256",
+        "specs/068-polished-local-flowcharts/acceptance-evidence.json",
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs",
+        "src/BrownPants.Cli/BrownPants.Cli.csproj",
+        "nuget.config",
+        "Directory.Build.props"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T031",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-004",
+        "AC-005",
+        "AC-006",
+        "AC-007",
+        "AC-008",
+        "AC-009",
+        "AC-010",
+        "AC-011",
+        "AC-012",
+        "AC-013",
+        "AC-014",
+        "AC-015",
+        "AC-016",
+        "SC-001",
+        "SC-002",
+        "SC-003",
+        "SC-004",
+        "SC-005",
+        "SC-006",
+        "SC-007",
+        "SC-008",
+        "SC-009",
+        "SC-010",
+        "SC-011",
+        "AC-017",
+        "SC-012"
+      ],
+      "verificationCommand": "pwsh -NoProfile -File scripts/check-acceptance-evidence.ps1 -RepositoryRoot . -SpecPath specs/068-polished-local-flowcharts/spec.md -TasksPath specs/068-polished-local-flowcharts/tasks.md -EvidencePath specs/068-polished-local-flowcharts/acceptance-evidence.json",
+      "evidencePaths": [
+        "specs/068-polished-local-flowcharts/acceptance-evidence.json"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T035",
+      "criterionIds": [
+        "AC-015",
+        "AC-016",
+        "SC-011"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-restore --filter 'FullyQualifiedName~Diagram_CompactReleaseCheck|FullyQualifiedName~Diagram_ReleasePipelineShowcase'",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs",
+        "tests/BrownPants.Tests/Fixtures/LocalFlowcharts/compact-release-check.md",
+        "tests/BrownPants.Tests/Fixtures/LocalFlowcharts/tiled-release-pipeline.md",
+        "docs/flows/compact-release-check.png",
+        "docs/flows/tiled-release-pipeline.md",
+        "docs/flows/tiled-release-pipeline/tiled-release-pipeline.tiles.json"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T033",
+      "criterionIds": [
+        "AC-015",
+        "AC-016",
+        "SC-011"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-restore --filter 'FullyQualifiedName~Diagram_CompactReleaseCheck|FullyQualifiedName~Diagram_ReleasePipelineShowcase'",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs",
+        "README.md",
+        "docs/flows/compact-release-check.png",
+        "docs/flows/tiled-release-pipeline/tiled-release-pipeline.tiles.json"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T034",
+      "criterionIds": [
+        "AC-014",
+        "AC-015"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-restore --filter FullyQualifiedName~Diagram_OrganizationAndBrainstormFamiliesPreserveOnlyDeclaredTrees",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartParser.cs",
+        "src/BrownPants.Cli/Analysis/LocalFlowchartLayout.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T032",
+      "criterionIds": [
+        "AC-014",
+        "AC-015"
+      ],
+      "verificationCommand": "Review README, CLI help, and agent chart-family guidance",
+      "evidencePaths": [
+        "README.md",
+        "src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs",
+        "integrations/agent-skills/brownpants-context/SKILL.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T036",
+      "criterionIds": [
+        "AC-017",
+        "SC-012"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~LocalFlowchartTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs",
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T037",
+      "criterionIds": [
+        "AC-003",
+        "SC-003"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --filter FullyQualifiedName~LocalFlowchartTests --no-restore",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartLayout.cs",
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T038",
+      "criterionIds": [
+        "AC-003",
+        "SC-003"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --filter FullyQualifiedName~LocalFlowchartTests --no-restore",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartPngRenderer.cs",
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T039",
+      "criterionIds": [
+        "AC-003",
+        "SC-003"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --filter FullyQualifiedName~LocalFlowchartTests --no-restore",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs",
+        "src/BrownPants.Cli/Analysis/LocalFlowchartPngRenderer.cs",
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T040",
+      "criterionIds": [
+        "AC-003",
+        "SC-003"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --filter FullyQualifiedName~LocalFlowchartTests --no-restore",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartSpatialIndex.cs",
+        "src/BrownPants.Cli/Analysis/LocalFlowchartPngRenderer.cs",
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T041",
+      "criterionIds": [
+        "AC-003",
+        "SC-003"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-restore --filter FullyQualifiedName~LocalFlowchartTests",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs",
+        "src/BrownPants.Cli/Analysis/LocalFlowchartSpatialIndex.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T042",
+      "criterionIds": [
+        "AC-009",
+        "AC-017"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-restore --filter FullyQualifiedName~CallerChart; dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-restore --filter FullyQualifiedName~NonAsciiLabels",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/CallTreeDiagramAnalyzer.cs",
+        "src/BrownPants.Cli/Analysis/LocalFlowchartDrawioWriter.cs",
+        "src/BrownPants.Cli/Analysis/LocalFlowchartPngRenderer.cs",
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T043",
+      "criterionIds": [
+        "AC-018",
+        "SC-013"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-restore --filter FullyQualifiedName~LocalFlowchartTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartLayout.cs",
+        "src/BrownPants.Cli/Analysis/LocalFlowchartPngRenderer.cs",
+        "src/BrownPants.Cli/Analysis/LocalFlowchartLabelBoundsIndex.cs",
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs",
+        "README.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T044",
+      "criterionIds": ["AC-019", "SC-014"],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-restore --filter FullyQualifiedName~LocalFlowchartTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs",
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs",
+        "README.md",
+        "specs/068-polished-local-flowcharts/contracts/diagram-cli.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T045",
+      "criterionIds": ["AC-003", "SC-003"],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-restore --filter FullyQualifiedName~Diagram_LayoutsLongSparseGraphWithoutRepeatedWholeGraphScans",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartLayout.cs",
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T046",
+      "criterionIds": ["AC-020", "SC-015"],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-restore --filter FullyQualifiedName~LocalFlowchartTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartLayout.cs",
+        "src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs",
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T047",
+      "criterionIds": ["AC-003", "SC-003"],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-restore --filter FullyQualifiedName~DrawioWriter_StreamsTheSameDeterministicXmlAndLeavesDestinationOpen",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartDrawioWriter.cs",
+        "src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs",
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T048",
+      "criterionIds": ["AC-021", "SC-016"],
+      "verificationCommand": "Inspect LocalFlowchart*.cs and CallTreeDiagram*.cs for native rendering, toolkit, network, and process APIs; dotnet list src/BrownPants.Cli/BrownPants.Cli.csproj package --include-transitive",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartLayout.cs",
+        "src/BrownPants.Cli/Analysis/LocalFlowchartPngRenderer.cs",
+        "src/BrownPants.Cli/Analysis/LocalFlowchartDrawioWriter.cs",
+        "src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs",
+        "src/BrownPants.Cli/BrownPants.Cli.csproj",
+        "specs/068-polished-local-flowcharts/contracts/diagram-cli.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T049",
+      "criterionIds": ["AC-023", "SC-018"],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-restore --filter FullyQualifiedName~DrawioWriter_PreservesComputedReturnRoutesInEditableXml",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartDrawioWriter.cs",
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T050",
+      "criterionIds": ["AC-010"],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --no-restore",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/CallTreeDiagramAnalyzer.cs",
+        "tests/BrownPants.Tests/CallImpactAnalyzerTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T051",
+      "criterionIds": ["AC-024", "SC-019"],
+      "verificationCommand": "./scripts/qa-chart-engine.ps1",
+      "evidencePaths": [
+        "scripts/qa-chart-engine.ps1",
+        "specs/068-polished-local-flowcharts/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T052",
+      "criterionIds": ["AC-001", "AC-007", "SC-001"],
+      "verificationCommand": "dotnet test BrownPants.sln -c Release --no-restore",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/CallTreeDiagramAnalyzer.cs",
+        "tests/BrownPants.Tests/CallImpactAnalyzerTests.cs",
+        "specs/068-polished-local-flowcharts/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T053",
+      "criterionIds": ["AC-025", "AC-026", "SC-020"],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-restore --filter FullyQualifiedName~MethodControlFlowDiagramTests",
+      "evidencePaths": ["tests/BrownPants.Tests/MethodControlFlowDiagramTests.cs"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T054",
+      "criterionIds": ["AC-025", "AC-026", "SC-020"],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-restore --filter FullyQualifiedName~MethodControlFlowDiagramTests; run C# and VB chart flow smoke commands",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/CSharpSemanticAnalyzer.cs",
+        "src/BrownPants.Cli/Analysis/MethodControlFlowDiagram.cs",
+        "src/BrownPants.Cli/BrownPants.Cli.csproj",
+        "src/BrownPants.Cli/packages.lock.json",
+        "tests/BrownPants.Tests/MethodControlFlowDiagramTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T055",
+      "criterionIds": ["AC-025", "AC-026", "SC-020"],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-restore --filter FullyQualifiedName~MethodControlFlowDiagramTests; inspect generated chart details and tooltip output",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/MethodControlFlowDiagram.cs",
+        "tests/BrownPants.Tests/MethodControlFlowDiagramTests.cs",
+        "specs/068-polished-local-flowcharts/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T056",
+      "criterionIds": ["AC-012", "AC-013", "AC-025", "AC-026"],
+      "verificationCommand": "Run chart flow for exact C# and VB symbols; compare repeat C# PNG/XML hashes; inspect chart, help, README, quickstart, and agent instructions",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/MethodControlFlowDiagramCommand.cs",
+        "src/BrownPants.Cli/Program.cs",
+        "README.md",
+        "specs/068-polished-local-flowcharts/quickstart.md",
+        "integrations/agent-skills/brownpants-context/SKILL.md",
+        "integrations/copilot/README.md",
+        "specs/068-polished-local-flowcharts/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T057",
+      "criterionIds": ["AC-025", "AC-026", "SC-020"],
+      "verificationCommand": "dotnet build BrownPants.sln -c Release --no-restore; dotnet test BrownPants.sln -c Release --no-restore; pwsh -NoProfile -File scripts/acceptance-criteria-hash.ps1 -SpecPath specs/068-polished-local-flowcharts/spec.md; pwsh -NoProfile -File scripts/check-acceptance-evidence.ps1 -RepositoryRoot . -SpecPath specs/068-polished-local-flowcharts/spec.md -TasksPath specs/068-polished-local-flowcharts/tasks.md -EvidencePath specs/068-polished-local-flowcharts/acceptance-evidence.json",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/MethodControlFlowDiagramTests.cs",
+        "docs/flows/brownpants-path-safety.md",
+        "docs/flows/brownpants-path-safety.png",
+        "docs/flows/brownpants-path-safety.drawio",
+        "specs/068-polished-local-flowcharts/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T058",
+      "criterionIds": ["AC-027", "SC-021"],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-restore --filter FullyQualifiedName~Diagram_ArrowheadTipsRemainVisibleAtTargetShapePerimeter",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartPngRenderer.cs",
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs",
+        "specs/068-polished-local-flowcharts/verification.md"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T059",
+      "criterionIds": ["AC-018", "AC-020"],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj -c Release --no-build --filter FullyQualifiedName~Diagram_ReleasePipelineShowcaseHasOrderedTilesAndContinuityOverlap",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/LocalFlowchartLayout.cs",
+        "tests/BrownPants.Tests/LocalFlowchartTests.cs",
+        "docs/flows/tiled-release-pipeline.md",
+        "docs/flows/tiled-release-pipeline/tiled-release-pipeline.tiles.json"
+      ],
+      "result": "passed"
+    }
+  ]
+}

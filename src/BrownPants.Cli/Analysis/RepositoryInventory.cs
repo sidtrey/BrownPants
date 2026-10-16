@@ -190,6 +190,7 @@ public sealed record CSharpSemanticAnalysis(
     public int ResolvedDelegateTargetCount { get; init; }
     public int UnresolvedDelegateTargetCount { get; init; }
     public IReadOnlyList<CSharpUnresolvedCall> UnresolvedDelegateCalls { get; init; } = Array.Empty<CSharpUnresolvedCall>();
+    internal MethodControlFlowSnapshot? RequestedControlFlow { get; init; }
 }
 
 public sealed record SemanticReasonCount(string Reason, int Count);

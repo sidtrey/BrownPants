@@ -1,0 +1,14 @@
+<mxfile host="app.diagrams.net" pages="2">
+  <diagram id="overview" name="Overview">
+    <mxGraphModel pageWidth="850" pageHeight="600"><root>
+      <mxCell id="0" /><mxCell id="1" parent="0" />
+      <mxCell id="a" value="Overview" style="rounded=0;whiteSpace=wrap;html=0;" vertex="1" parent="1"><mxGeometry x="40" y="40" width="160" height="60" as="geometry" /></mxCell>
+    </root></mxGraphModel>
+  </diagram>
+  <diagram id="detail" name="Detail">
+    <mxGraphModel pageWidth="850" pageHeight="600"><root>
+      <mxCell id="0" /><mxCell id="1" parent="0" />
+      <mxCell id="b" value="Detail" style="rounded=0;whiteSpace=wrap;html=0;" vertex="1" parent="1"><mxGeometry x="70" y="90" width="180" height="80" as="geometry" /></mxCell>
+    </root></mxGraphModel>
+  </diagram>
+</mxfile>

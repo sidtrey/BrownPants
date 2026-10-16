@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    {
+      "taskId": "T001",
+      "criterionIds": ["AC-003", "SC-003"],
+      "verificationCommand": "pwsh -NoProfile -File tests/TestRunArtifactsTests.ps1",
+      "evidencePaths": ["scripts/TestRunArtifacts.psm1", "tests/TestRunArtifactsTests.ps1"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T002",
+      "criterionIds": ["AC-001", "AC-002", "SC-001", "SC-002"],
+      "verificationCommand": "pwsh -NoProfile -File scripts/test.ps1 -NoBuild",
+      "evidencePaths": ["scripts/test.ps1", "specs/069-test-output-cleanup/verification.md"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T003",
+      "criterionIds": ["AC-001", "AC-002"],
+      "verificationCommand": "pwsh -NoProfile -File scripts/qa-chart-engine.ps1",
+      "evidencePaths": ["scripts/qa-chart-engine.ps1", "specs/069-test-output-cleanup/verification.md"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T004",
+      "criterionIds": ["AC-003", "AC-004", "SC-003", "SC-004"],
+      "verificationCommand": "pwsh -NoProfile -File tests/TestRunArtifactsTests.ps1",
+      "evidencePaths": ["scripts/cleanup-test-data.ps1", "scripts/TestRunArtifacts.psm1"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T005",
+      "criterionIds": ["AC-002", "AC-003", "AC-004", "SC-003"],
+      "verificationCommand": "pwsh -NoProfile -File tests/TestRunArtifactsTests.ps1",
+      "evidencePaths": ["tests/TestRunArtifactsTests.ps1", "specs/069-test-output-cleanup/verification.md"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T006",
+      "criterionIds": ["AC-004", "SC-004"],
+      "verificationCommand": "Review README.md local development instructions and ignored TestResults policy",
+      "evidencePaths": ["README.md", ".gitignore"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T007",
+      "criterionIds": ["SC-001", "SC-002", "SC-003", "SC-004"],
+      "verificationCommand": "dotnet build BrownPants.sln -c Release --no-restore; pwsh -NoProfile -File scripts/test.ps1 -NoBuild; pwsh -NoProfile -File scripts/qa-chart-engine.ps1; pwsh -NoProfile -File scripts/acceptance-criteria-hash.ps1 -SpecPath specs/069-test-output-cleanup/spec.md; pwsh -NoProfile -File scripts/check-acceptance-evidence.ps1 -RepositoryRoot . -SpecPath specs/069-test-output-cleanup/spec.md -TasksPath specs/069-test-output-cleanup/tasks.md -EvidencePath specs/069-test-output-cleanup/acceptance-evidence.json",
+      "evidencePaths": ["specs/069-test-output-cleanup/verification.md", "specs/069-test-output-cleanup/acceptance-criteria.sha256"],
+      "result": "passed"
+    }
+  ]
+}
