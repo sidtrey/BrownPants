@@ -17,8 +17,11 @@
 - BrownPants-on-BrownPants inspection passed using the installed package in Markdown and JSON; both formats included the JS/TS evidence section and JSON retained `SchemaVersion: 1`. The packed JSON inspection reported 1,083 files and zero JS/TS source files in this C# repository, as expected.
 - The packed diagram smoke exposed an output collision because PNG rendering already saves a `.drawio` sidecar. CI now passes `--overwrite` for the subsequent explicit XML render, and the corrected command passed locally.
 
-## Release candidate checks pending
+## Release candidate verification
 
-- Run the updated release commit through Windows, Ubuntu, and macOS CI and verify tag artifact validation before publishing the GitHub release. CI must confirm both the semantic workspace initialization and case-sensitive evidence paths on the combined fix.
+- Final GitHub Actions CI run 38971296195 passed on Windows, Ubuntu, and macOS, including locked restore, Release build, all 386 tests, Spec Kit and adapter checks, changed-feature evidence checks, and packed-tool smoke tests.
+- The CI run passed after guarding parallel first-use registration of the process-global MSBuild locator and correcting the case-sensitive `NuGet.Config` evidence path. The local evidence-path audit confirmed exact casing for every referenced file in the changed feature ledgers.
+- A fresh 0.4.0 package install under NuGet source mapping and trusted-signer policy passed all nine packed-tool smoke scripts. BrownPants-on-BrownPants Markdown and JSON inspection passed; JSON retained schema version 1 and reported 1,083 files with zero JS/TS files, as expected.
+- Chart PNG and diagrams.net XML checks passed against the package built from the current Release output.
 
-The acceptance hash remains `1fb91210eebfc19a53e4883965a3585abffb4a4023c15339b04bd454d98cab52`; the evidence validator passed for 7 tasks and 10 criteria. These checks establish local implementation and packaging behavior. They do not establish cross-platform release readiness until updated CI completes and the release tag artifact is validated.
+The acceptance hash remains `1fb91210eebfc19a53e4883965a3585abffb4a4023c15339b04bd454d98cab52`; acceptance evidence validation passed for 7 tasks and 10 criteria. The release candidate checks are complete. Tag artifact validation and publication remain after human PR approval and merge.

@@ -46,9 +46,9 @@
     {
       "taskId": "T007",
       "criterionIds": ["SC-005"],
-      "verificationCommand": "Release candidate validation: cross-platform CI, package and installed-tool smoke tests, self-inspection, acceptance hash and ledger checks",
-      "evidencePaths": ["specs/072-ts-source-evidence/verification.md"],
-      "result": "planned"
+      "verificationCommand": "GitHub Actions CI run 38971296195 passed Windows, Ubuntu, and macOS; local Release build/tests, packed 0.4.0 install and all nine packed-tool smoke tests, self-inspection, acceptance hash and evidence checks passed",
+      "evidencePaths": ["specs/072-ts-source-evidence/verification.md", "specs/072-ts-source-evidence/tasks.md", "specs/072-ts-source-evidence/acceptance-criteria.sha256"],
+      "result": "passed"
     }
   ]
 }

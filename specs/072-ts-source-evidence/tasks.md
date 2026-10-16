@@ -14,7 +14,7 @@
 - [x] T004 [US1] Resolve relative modules, index files, package workspaces, and configured tsconfig aliases under the root; test valid, missing, cyclic, malformed, escaping, and wildcard cases. (AC-002, AC-004, FR-003, FR-005, SC-002)
 - [x] T005 [US1] Build bounded syntax call relationships; distinguish unique syntax targets from ambiguous/unresolved cases including dynamic imports, external packages, and runtime dispatch. (AC-003, AC-004, FR-004, FR-005, SC-002)
 - [x] T006 [US1] Integrate analysis into inventory JSON/Markdown, language coverage, and README; preserve feature 014 factory/DI signals and add regression tests. (AC-005, FR-006, FR-007, FR-008, SC-004)
-- [ ] T007 [US1] Run focused/full tests, Release build, adapter checks, package/install smoke tests, self-inspection, hash/ledger checks; record evidence and reconcile gaps. (SC-005)
+- [x] T007 [US1] Run focused/full tests, Release build, adapter checks, package/install smoke tests, self-inspection, hash/ledger checks; record evidence and reconcile gaps. (SC-005)
 
 ## Dependencies
 
