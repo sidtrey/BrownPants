@@ -1559,6 +1559,16 @@ public sealed class RepositoryScannerTests : IDisposable
         Assert.Equal(analysis.CallRelationshipCount - 1, analysis.OmittedCallRelationshipCount);
         Assert.Contains("declarations omitted by the sample limit",
             MarkdownReport.Render(RepositoryScanner.Scan(_root, sampleLimit: 1)));
+
+        foreach (var extension in new[] { ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts" })
+        {
+            var path = "sources/sample" + extension;
+            var singleExtension = JavaScriptTypeScriptAnalyzer.Analyze(_root, new[] { path }, sampleLimit: 10);
+            var declaration = Assert.Single(singleExtension.Declarations);
+            Assert.Equal(path, declaration.Path);
+            Assert.Equal("sample", declaration.Name);
+            Assert.Equal(1, declaration.Line);
+        }
     }
 
     [Fact]
@@ -1599,6 +1609,210 @@ public sealed class RepositoryScannerTests : IDisposable
         Assert.Contains(analysis.ModuleRelationships, item => item.Specifier == "@demo/shared"
             && item.Status == "ambiguous" && item.CandidateTargetPaths.Count == 2);
         Assert.Contains(analysis.CallRelationships, item => item.Expression == "open" && item.Status == "unresolved");
+    }
+
+    [Fact]
+    public void Scan_WorkspaceGlobStarMatchesOneSegmentAndDoubleStarMatchesNestedPackages()
+    {
+        Write("package.json", "{\"workspaces\":[\"packages/*\"]}");
+        Write("packages/direct/package.json", "{\"name\":\"@demo/direct\"}");
+        Write("packages/nested/deep/package.json", "{\"name\":\"@demo/nested\"}");
+        var paths = RepositoryScanner.DiscoverFiles(_root);
+        var issues = new List<JavaScriptTypeScriptIssue>();
+
+        var oneSegment = JavaScriptTypeScriptAnalyzer.ReadWorkspacePackages(_root, paths, issues);
+
+        Assert.Contains("@demo/direct", oneSegment.Keys);
+        Assert.DoesNotContain("@demo/nested", oneSegment.Keys);
+
+        Write("package.json", "{\"workspaces\":[\"packages/**\"]}");
+        var recursive = JavaScriptTypeScriptAnalyzer.ReadWorkspacePackages(_root,
+            RepositoryScanner.DiscoverFiles(_root), new List<JavaScriptTypeScriptIssue>());
+        Assert.Contains("@demo/direct", recursive.Keys);
+        Assert.Contains("@demo/nested", recursive.Keys);
+    }
+
+    [Fact]
+    public void Scan_DoesNotResolveThisAcrossClassesOrImportedBindingsShadowedByParameters()
+    {
+        Write("lib.ts", "export function save() {}\n");
+        Write("main.ts", """
+            import { save } from './lib';
+            function render(save) { save(); }
+            save();
+            class A { run() { this.persist(); } }
+            class B { persist() {} }
+            class C { persist() {} run() { this.persist(); } }
+            class Dup { run() { this.persist(); } }
+            class Dup { persist() {} }
+            """);
+
+        var analysis = RepositoryScanner.Scan(_root, sampleLimit: 50).JavaScriptTypeScript;
+
+        Assert.Contains(analysis.CallRelationships, item => item.SourcePath == "main.ts" && item.Expression == "save"
+            && item.SourceLine == 2 && item.Status == "unresolved");
+        Assert.Contains(analysis.CallRelationships, item => item.SourcePath == "main.ts" && item.Expression == "save"
+            && item.SourceLine == 3 && item.Status == "syntax-resolved" && item.TargetPath == "lib.ts");
+        Assert.Contains(analysis.CallRelationships, item => item.SourcePath == "main.ts" && item.Expression == "this.persist"
+            && item.SourceLine == 4 && item.Status == "unresolved");
+        Assert.Contains(analysis.CallRelationships, item => item.SourcePath == "main.ts" && item.Expression == "this.persist"
+            && item.SourceLine == 6 && item.Status == "syntax-resolved" && item.TargetName == "persist");
+        Assert.Contains(analysis.CallRelationships, item => item.SourcePath == "main.ts" && item.Expression == "this.persist"
+            && item.SourceLine == 7 && item.Status == "unresolved");
+    }
+
+    [Fact]
+    public void Scan_DoesNotResolveImportedCallsShadowedByLocalVariablesOrAnnotatedGenericParameters()
+    {
+        Write("lib.ts", "export function save() {}\n");
+        Write("main.ts", """
+            import { save } from './lib';
+            function parameter<T>(save: T): Promise<void> { save(); }
+            function local() { const save = createLocal(); save(); }
+            save();
+            """);
+
+        var calls = RepositoryScanner.Scan(_root).JavaScriptTypeScript.CallRelationships
+            .Where(item => item.SourcePath == "main.ts" && item.Expression == "save").ToArray();
+
+        Assert.Equal(3, calls.Length);
+        Assert.Equal("unresolved", calls.Single(item => item.SourceLine == 2).Status);
+        Assert.Equal("unresolved", calls.Single(item => item.SourceLine == 3).Status);
+        Assert.Equal("syntax-resolved", calls.Single(item => item.SourceLine == 4).Status);
+    }
+
+    [Fact]
+    public void Scan_TracksDestructuredBindingsWithoutTreatingControlConditionsAsParameters()
+    {
+        Write("lib.ts", "export function save() {}\n");
+        Write("main.ts", """
+            import { save } from './lib';
+            function destructured() { const { save } = createLocal(); save(); }
+            function aliased() { const { save: localSave } = createLocal(); save(); localSave(); }
+            if (save) { save(); }
+            save();
+            """);
+
+        var calls = RepositoryScanner.Scan(_root).JavaScriptTypeScript.CallRelationships
+            .Where(item => item.SourcePath == "main.ts" && item.Expression is "save" or "localSave").ToArray();
+
+        Assert.Equal("unresolved", calls.Single(item => item.SourceLine == 2).Status);
+        Assert.Equal("syntax-resolved", calls.Single(item => item.SourceLine == 3 && item.Expression == "save").Status);
+        Assert.Equal("unresolved", calls.Single(item => item.SourceLine == 3 && item.Expression == "localSave").Status);
+        Assert.Equal("syntax-resolved", calls.Single(item => item.SourceLine == 4).Status);
+        Assert.Equal("syntax-resolved", calls.Single(item => item.SourceLine == 5).Status);
+    }
+
+    [Fact]
+    public void Scan_LeavesTypeOnlyAndUnsupportedThisTargetsUnresolved()
+    {
+        Write("lib.ts", "export function save() {}\n");
+        Write("defaults.ts", "export default function load() {}\n");
+        Write("type-import.ts", "import type { save } from './lib'; save();\n");
+        Write("inline-type-import.ts", "import { type save } from './lib'; save();\n");
+        Write("runtime-import.ts", "import { save } from './lib'; save();\n");
+        Write("type-barrel.ts", "export type { save } from './lib';\n");
+        Write("type-barrel-user.ts", "import { save } from './type-barrel'; save();\n");
+        Write("default-barrel.ts", "export * from './defaults';\n");
+        Write("default-barrel-user.ts", "import load from './default-barrel'; load();\n");
+        Write("catch-user.ts", "import { save } from './lib'; try {} catch (save) { save(); } save();\n");
+        Write("parameter-user.ts", "import { save as localSave } from './lib'; function run({ value: localSave }) { localSave(); }\n");
+        Write("this-user.ts", "class Example { run() { function callback() { this.persist(); } const arrow = () => this.persist(); } persist() {} }\n");
+
+        var analysis = RepositoryScanner.Scan(_root).JavaScriptTypeScript;
+
+        Assert.Equal("unresolved", Assert.Single(analysis.CallRelationships, item => item.SourcePath == "type-import.ts").Status);
+        Assert.Equal("unresolved", Assert.Single(analysis.CallRelationships, item => item.SourcePath == "inline-type-import.ts").Status);
+        Assert.Equal("syntax-resolved", Assert.Single(analysis.CallRelationships, item => item.SourcePath == "runtime-import.ts").Status);
+        Assert.Equal("unresolved", Assert.Single(analysis.CallRelationships, item => item.SourcePath == "type-barrel-user.ts").Status);
+        Assert.Equal("unresolved", Assert.Single(analysis.CallRelationships, item => item.SourcePath == "default-barrel-user.ts").Status);
+        var catchCalls = analysis.CallRelationships.Where(item => item.SourcePath == "catch-user.ts").OrderBy(item => item.SourceColumn).ToArray();
+        Assert.Equal(2, catchCalls.Length);
+        Assert.Equal("unresolved", catchCalls[0].Status);
+        Assert.Equal("syntax-resolved", catchCalls[1].Status);
+        Assert.Equal("unresolved", Assert.Single(analysis.CallRelationships, item => item.SourcePath == "parameter-user.ts").Status);
+        Assert.Equal(2, analysis.CallRelationships.Count(item => item.SourcePath == "this-user.ts" && item.Expression == "this.persist"));
+        Assert.Contains(analysis.CallRelationships, item => item.SourcePath == "this-user.ts" && item.Expression == "this.persist" && item.Status == "unresolved");
+        Assert.Contains(analysis.CallRelationships, item => item.SourcePath == "this-user.ts" && item.Expression == "this.persist" && item.Status == "syntax-resolved");
+    }
+
+    [Fact]
+    public void Scan_UsesFunctionScopeForVarBindingsWithoutLeakingAcrossFunctions()
+    {
+        Write("lib.ts", "export function save() {}\n");
+        Write("main.ts", "import { save } from './lib';\nfunction run() { { var save = local; } save(); }\nfunction other() { save(); }\n");
+
+        var calls = RepositoryScanner.Scan(_root).JavaScriptTypeScript.CallRelationships
+            .Where(item => item.SourcePath == "main.ts" && item.Expression == "save")
+            .OrderBy(item => item.SourceLine).ToArray();
+
+        Assert.Equal(2, calls.Length);
+        Assert.Equal("unresolved", calls[0].Status);
+        Assert.Equal("syntax-resolved", calls[1].Status);
+    }
+
+    [Fact]
+    public void Scan_EnforcesAggregateFileTokenAndRecordLimitsWithVisibleIssues()
+    {
+        Write("a.js", "export function first() {}\n");
+        Write("b.js", "export function second() {}\n");
+        Write("c.js", "export function third() {}\n");
+        var files = RepositoryScanner.DiscoverFiles(_root);
+
+        var analysis = JavaScriptTypeScriptAnalyzer.Analyze(_root, files, sampleLimit: 50,
+            maxSourceFiles: 2, maxTotalSourceCharacters: 10_000, maxTotalTokens: 1_000,
+            maxRecordsPerKind: 1, maxIssues: 10);
+
+        Assert.Equal(2, analysis.ScannedFileCount);
+        Assert.Equal(1, analysis.DeclarationCount);
+        Assert.Contains(analysis.Issues, issue => issue.Code == "SourceFileLimit" && issue.Path == "c.js");
+        Assert.Contains(analysis.Issues, issue => issue.Code == "AggregateRecordLimit");
+
+        var diagnosticLimited = JavaScriptTypeScriptAnalyzer.Analyze(_root, files, sampleLimit: 50,
+            maxSourceFiles: 2, maxTotalSourceCharacters: 10_000, maxTotalTokens: 1_000,
+            maxRecordsPerKind: 1, maxIssues: 1);
+        Assert.Equal(1, diagnosticLimited.IssueCount);
+        Assert.Equal("IssueLimit", Assert.Single(diagnosticLimited.Issues).Code);
+
+        var tokenLimited = JavaScriptTypeScriptAnalyzer.Analyze(_root, files, sampleLimit: 50,
+            maxSourceFiles: 10, maxTotalSourceCharacters: 10_000, maxTotalTokens: 1,
+            maxRecordsPerKind: 10, maxIssues: 10);
+        Assert.Contains(tokenLimited.Issues, issue => issue.Code == "TotalTokenLimit");
+        Assert.Contains(tokenLimited.EvidenceLimits, text => text.Contains("total tokens", StringComparison.Ordinal));
+
+        var sourceLimited = JavaScriptTypeScriptAnalyzer.Analyze(_root, files, sampleLimit: 50,
+            maxSourceFiles: 10, maxTotalSourceCharacters: 10, maxTotalTokens: 1_000,
+            maxRecordsPerKind: 10, maxIssues: 10);
+        Assert.Contains(sourceLimited.Issues, issue => issue.Code == "TotalSourceSizeLimit");
+
+        var earlySourceLimited = JavaScriptTypeScriptAnalyzer.Analyze(_root, files, sampleLimit: 50,
+            maxSourceFiles: 10, maxTotalSourceCharacters: 1, maxTotalTokens: 1_000,
+            maxRecordsPerKind: 10, maxIssues: 10);
+        Assert.Equal(1, earlySourceLimited.ScannedFileCount);
+
+        var oversizedMetadata = "{\"workspaces\":[\"packages/*\"],\"pad\":\"" + new string('x', 1024 * 1024) + "\"}";
+        File.WriteAllText(Path.Combine(_root, "package.json"), oversizedMetadata);
+        var metadataIssues = new List<JavaScriptTypeScriptIssue>();
+        JavaScriptTypeScriptAnalyzer.ReadWorkspacePackages(_root, new[] { "package.json" }, metadataIssues);
+        Assert.Contains(metadataIssues, issue => issue.Path == "package.json" && issue.Code == "MetadataFileSizeLimit");
+
+        Write("package.json", "{\"workspaces\":[\"packages/*\"]}");
+        Write("packages/one/package.json", "{\"name\":\"@demo/one\"}");
+        Write("packages/two/package.json", "{\"name\":\"@demo/two\"}");
+        var totalMetadataIssues = new List<JavaScriptTypeScriptIssue>();
+        JavaScriptTypeScriptAnalyzer.ReadWorkspacePackages(_root, RepositoryScanner.DiscoverFiles(_root),
+            totalMetadataIssues, maxMetadataFileBytes: 1_000, maxTotalMetadataBytes: 60);
+        Assert.Contains(totalMetadataIssues, issue => issue.Code == "TotalMetadataSizeLimit");
+
+        Write("m1.ts", "export function one() {}\n");
+        Write("m2.ts", "export function two() {}\n");
+        Write("use.ts", "import { one } from './m1'; import { two } from './m2'; one(); two();\n");
+        var relationLimited = JavaScriptTypeScriptAnalyzer.Analyze(_root, RepositoryScanner.DiscoverFiles(_root),
+            sampleLimit: 50, maxSourceFiles: 20, maxTotalSourceCharacters: 10_000,
+            maxTotalTokens: 1_000, maxRecordsPerKind: 1, maxIssues: 10);
+        Assert.Equal(1, relationLimited.ModuleRelationshipCount);
+        Assert.Equal(1, relationLimited.CallRelationshipCount);
+        Assert.Contains(relationLimited.Issues, issue => issue.Code == "AggregateRecordLimit");
     }
 
     [Fact]

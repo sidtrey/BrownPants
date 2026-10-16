@@ -88,6 +88,9 @@ try {
     Assert ($failedQaManifest.state -eq 'failed') 'Failed QA run was not marked failed.'
     Invoke-BrownPantsRunCleanup -RepositoryRoot $failedQaRoot -Apply | Out-Null
     Assert (Test-Path -LiteralPath $failedQaRun.FullName) 'Cleanup removed a failed QA run.'
+    # The expected failing child process leaves its exit code in this PowerShell
+    # process. Clear it so the successful test script itself exits successfully.
+    $global:LASTEXITCODE = 0
     Write-Output 'Test run artifact cleanup checks passed.'
 } finally {
     if (Test-Path -LiteralPath $root) { Remove-Item -LiteralPath $root -Recurse -Force }
