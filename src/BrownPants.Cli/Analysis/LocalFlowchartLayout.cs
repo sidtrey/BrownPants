@@ -127,6 +127,7 @@ internal static class LocalFlowchartLayoutEngine
             && document.Edges.Count <= MaximumAdjacentRouteOptimizationEdges
             && (long)nodesById.Count * document.Edges.Count <= MaximumLocalSkipRoutingComparisons)
             laidOutEdges = RefineTopDownRoutes(laidOutEdges, ranks, nodesById, width, leftLanes, rightLanes);
+        laidOutEdges = PlaceEdgeLabels(document, laidOutEdges, nodesById, width, height, options.Direction);
         var layout = new LocalFlowchartLayout(width, height, nodeRegionLeft, laidOutNodes, laidOutEdges, options.Direction);
         return layout with { Diagnostics = DiagnoseCrossings(layout) };
     }
@@ -468,7 +469,7 @@ internal static class LocalFlowchartLayoutEngine
             results.Add(new LocalFlowchartLayoutEdge(edge, route, 0, 0, label.Width, label.Height, labelLines));
         }
 
-        return PlaceEdgeLabels(document, results, nodes, width, height, direction);
+        return results.ToArray();
     }
 
     private static IReadOnlyList<LocalFlowchartLayoutPoint>? FindDirectTerminalRoute(

@@ -213,6 +213,7 @@ public sealed class LocalFlowchartTests : IDisposable
         Write("tiled-release-pipeline.md", source);
 
         Assert.Equal(0, CountUnrelatedEdgeCrossings(layout));
+        AssertEdgeLabelBoundsDoNotOverlap(layout);
 
         const int tileSize = 1800;
         const int overlap = 128;
