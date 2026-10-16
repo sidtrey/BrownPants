@@ -21,6 +21,11 @@ public sealed record RepositoryInventory(
 {
     [JsonPropertyOrder(-1)]
     public int SchemaVersion => 1;
+
+    public JavaScriptTypeScriptAnalysis JavaScriptTypeScript { get; init; } = new("Bounded JavaScript/TypeScript syntax analysis", 0, 0, 0, 0,
+        Array.Empty<JavaScriptTypeScriptDeclaration>(), Array.Empty<JavaScriptTypeScriptModuleRelationship>(),
+        Array.Empty<JavaScriptTypeScriptCallRelationship>(), 0, 0, 0, 0, 0,
+        Array.Empty<JavaScriptTypeScriptIssue>(), Array.Empty<string>());
 }
 
 public sealed record InvestigationReport(

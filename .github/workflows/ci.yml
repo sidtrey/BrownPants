@@ -174,7 +174,7 @@ jobs:
             </trustedSigners>
           </configuration>
           "@ | Set-Content -LiteralPath $smokeConfig -Encoding utf8
-          dotnet tool install --tool-path $toolPath --configfile $smokeConfig BrownPants.Cli --version 0.3.0
+          dotnet tool install --tool-path $toolPath --configfile $smokeConfig BrownPants.Cli --version 0.4.0
           if ($LASTEXITCODE -ne 0) { throw "Packed tool installation failed with exit code $LASTEXITCODE." }
           $toolName = if ($IsWindows) { 'brownpants.exe' } else { 'brownpants' }
           $tool = Join-Path $toolPath $toolName
@@ -196,6 +196,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Packed tool managed interop smoke failed with exit code $LASTEXITCODE." }
           & pwsh -NoProfile -File ./tests/PackedImpactGraphCoverageSmoke.ps1 -ToolPath $tool
           if ($LASTEXITCODE -ne 0) { throw "Packed tool impact graph coverage smoke failed with exit code $LASTEXITCODE." }
+          & pwsh -NoProfile -File ./tests/PackedJavaScriptTypeScriptSmoke.ps1 -ToolPath $tool
+          if ($LASTEXITCODE -ne 0) { throw "Packed tool JavaScript/TypeScript smoke failed with exit code $LASTEXITCODE." }
           New-Item -ItemType Directory -Path ./TestResults -Force | Out-Null
           @'
           ```brownpants-flow
@@ -209,7 +211,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Packed tool PNG rendering failed with exit code $LASTEXITCODE." }
           $pngBytes = [System.IO.File]::ReadAllBytes((Join-Path (Get-Location) 'TestResults/packed-smoke.png'))
           if ($pngBytes.Length -lt 8 -or (($pngBytes[0..7] -join ',') -ne '137,80,78,71,13,10,26,10')) { throw 'Packed tool did not produce a PNG signature.' }
-          & $tool diagram . TestResults/packed-smoke-flow.md --output TestResults/packed-smoke.drawio --format drawio
+          & $tool diagram . TestResults/packed-smoke-flow.md --output TestResults/packed-smoke.drawio --format drawio --overwrite
           if ($LASTEXITCODE -ne 0) { throw "Packed tool draw.io rendering failed with exit code $LASTEXITCODE." }
           $diagramXml = [xml][System.IO.File]::ReadAllText((Join-Path (Get-Location) 'TestResults/packed-smoke.drawio'))
           if ($diagramXml.SelectNodes('//mxCell[@vertex="1"]').Count -ne 2 -or $diagramXml.SelectNodes('//mxCell[@edge="1"]').Count -ne 1) { throw 'Packed tool draw.io output does not contain the expected nodes and edge.' }
