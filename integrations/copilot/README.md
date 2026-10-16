@@ -33,6 +33,10 @@ pwsh -NoProfile -File ./integrations/agent-skills/Install.ps1 -ProjectRoot <targ
 
 The prompt requests a bounded, read-only Markdown inventory, then asks Copilot to verify relevant paths against repository source, project, test, and SDD files. It distinguishes candidates from observed facts and reports evidence limits. It does not run semantic MSBuild loading, claim root cause, or modify source files during context collection.
 
+For “what calls this method?” requests, Copilot can use BrownPants' local `chart callers` command after the user or policy permits semantic project evaluation. First obtain the exact compiler symbol with `brownpants inspect <repository> --semantic --format markdown --limit 10000`, then use `brownpants chart callers <repository> --source <relative.cs-or-vb-path> --method '<exact-symbol>' --semantic --output <relative.png>`. Semantic loading may execute imported MSBuild targets. The chart labels test paths as candidates and reports incomplete or sampled evidence; it does not infer runtime coverage.
+
+For “what does this method do?” requests, use `brownpants chart flow` with that exact symbol and source path. The local Roslyn control-flow diagram shows blocks, decisions, loops, returns, and explicit throw/rethrow paths; implicit runtime exceptions are outside its scope. The editable `.drawio` sidecar retains full operations and source locations, and large results may be tiled.
+
 Run the repository integration checks with:
 
 ```powershell

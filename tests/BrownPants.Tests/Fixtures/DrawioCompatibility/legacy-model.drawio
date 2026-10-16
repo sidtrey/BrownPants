@@ -1,0 +1,9 @@
+<mxGraphModel pageWidth="850" pageHeight="600" pageScale="1">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+    <mxCell id="task" value="Legacy task" style="rounded=0;whiteSpace=wrap;html=0;" vertex="1" parent="1">
+      <mxGeometry x="30" y="45" width="150" height="70" as="geometry" />
+    </mxCell>
+  </root>
+</mxGraphModel>

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:brownpants:chart-theme-v1",
+  "title": "BrownPants Chart Theme",
+  "description": "Local solid-color palette for BrownPants charts. The CLI performs additional duplicate-key and contrast validation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "name", "canvas", "text", "connector", "edgeLabelBackground", "edgeLabelText", "shadow", "shapes"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "name": { "type": "string", "minLength": 1, "maxLength": 40, "pattern": "^[A-Za-z0-9][A-Za-z0-9 _-]*$" },
+    "canvas": { "$ref": "#/$defs/color" },
+    "text": { "$ref": "#/$defs/color" },
+    "connector": { "$ref": "#/$defs/color" },
+    "edgeLabelBackground": { "$ref": "#/$defs/color" },
+    "edgeLabelText": { "$ref": "#/$defs/color" },
+    "shadow": { "$ref": "#/$defs/color" },
+    "shapes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "process", "decision", "inputOutput", "person", "cloud", "end"],
+      "properties": {
+        "start": { "$ref": "#/$defs/shapeColors" },
+        "process": { "$ref": "#/$defs/shapeColors" },
+        "decision": { "$ref": "#/$defs/shapeColors" },
+        "inputOutput": { "$ref": "#/$defs/shapeColors" },
+        "person": { "$ref": "#/$defs/shapeColors" },
+        "cloud": { "$ref": "#/$defs/shapeColors" },
+        "end": { "$ref": "#/$defs/shapeColors" }
+      }
+    }
+  },
+  "$defs": {
+    "color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+    "shapeColors": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fill", "stroke"],
+      "properties": {
+        "fill": { "$ref": "#/$defs/color" },
+        "stroke": { "$ref": "#/$defs/color" }
+      }
+    }
+  }
+}
