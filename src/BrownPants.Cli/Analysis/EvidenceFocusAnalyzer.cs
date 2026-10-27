@@ -10,11 +10,13 @@ public static class EvidenceFocusAnalyzer
         var clueMatchCounts = new int[clues.Count];
         var clueMatchTruncated = false;
         var clueReadIssueCount = 0;
+        IReadOnlyList<InvestigationReadIssue> clueReadIssues = Array.Empty<InvestigationReadIssue>();
 
         if (clues.Count > 0)
         {
             var investigation = RepositoryInvestigator.Investigate(inventory.Root, clues, 10_000);
             clueReadIssueCount = investigation.ReadIssueCount;
+            clueReadIssues = investigation.ReadIssues;
             foreach (var issue in investigation.Clues)
                 if (issue.MatchCount > issue.Matches.Count) clueMatchTruncated = true;
 
@@ -151,7 +153,16 @@ public static class EvidenceFocusAnalyzer
         if (normalizedChanged.Length > 0 && managedChanged && !semanticImpactAnalyzed)
             limitations.Add("Caller impact was not analyzed for managed changed paths; pass --semantic to resolve managed callers. Native candidate impact may still be included.");
         if (clueReadIssueCount > 0)
-            limitations.Add($"Clue matching skipped or could not read {clueReadIssueCount} file(s); see investigator rules for bounded reads.");
+        {
+            var issueSummary = string.Join(", ", clueReadIssues
+                .GroupBy(issue => issue.Code, StringComparer.Ordinal)
+                .OrderBy(group => group.Key, StringComparer.Ordinal)
+                .Select(group => $"{group.Key}={group.Count()}"));
+            var omittedIssueCount = clueReadIssueCount - clueReadIssues.Count;
+            var summaryLabel = omittedIssueCount > 0 ? "sampled issue codes" : "issue codes";
+            var omittedText = omittedIssueCount > 0 ? $"; {omittedIssueCount} additional diagnostic(s) omitted" : string.Empty;
+            limitations.Add($"Clue matching skipped or could not read {clueReadIssueCount} file(s); {summaryLabel}: {issueSummary}{omittedText}.");
+        }
         if (clueMatchTruncated)
             limitations.Add("Some clue locations exceeded the bounded match sample; focused selection may be incomplete.");
         if (focus.SourceEvidenceTruncated)

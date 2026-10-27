@@ -22,3 +22,9 @@
 - `git diff --check` — passed.
 
 The CLI uses the full 10,000 finding sample for focused selection, then applies the requested output limit. If evidence exceeds that upstream sample, `focus.sourceEvidenceTruncated` and the report limitations state that selection may be incomplete. Clue matching remains literal and changed-path call impact remains limited to compiler-resolved C#/VB edges.
+
+## Follow-up check on a real repository
+
+- Ran the Release source CLI against the clean local Discord.Net checkout (1,960 discovered files; 1,690 C# files) with `evidence --clue Gateway --format json --limit 5`. The report retained one focused finding and showed 548 literal clue matches.
+- The checkout contains 72 binary image files skipped by clue reading. Focused evidence now reports the bounded diagnostic summary `BinaryFileSkipped=72` in its existing limitations field instead of only saying that files were skipped. The standalone `investigate` command was used to confirm the diagnostic code; source remains read-only and semantic/MSBuild analysis was not requested.
+- Added `Evidence_FocusedClueReportsBoundedReadIssueCodes` in `tests/BrownPants.Tests/EvidenceCommandTests.cs`; the Release suite passed all 388 tests after the change.

@@ -196,6 +196,24 @@ public sealed class EvidenceCommandTests : IDisposable
     }
 
     [Fact]
+    public void Evidence_FocusedClueReportsBoundedReadIssueCodes()
+    {
+        Write("src/OrderFactory.cs", "namespace Sample; public class OrderFactory { }");
+        var binaryPath = Path.Combine(_root, "docs", "diagram.png");
+        Directory.CreateDirectory(Path.GetDirectoryName(binaryPath)!);
+        File.WriteAllBytes(binaryPath, [0x89, 0x50, 0x4e, 0x47, 0x00, 0x01]);
+
+        var result = Run("evidence", _root, "--clue", "OrderFactory", "--limit", "1000");
+
+        Assert.Equal(0, result.ExitCode);
+        using var json = JsonDocument.Parse(result.Output);
+        var limitations = json.RootElement.GetProperty("limitations").EnumerateArray()
+            .Select(item => item.GetString()!).ToArray();
+        Assert.Contains(limitations, item => item.Contains("BinaryFileSkipped", StringComparison.Ordinal));
+        Assert.Contains(limitations, item => item.Contains("1 file(s)", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Evidence_FocusRejectsAbsoluteChangedPath()
     {
         Write("src/Store.cs", "namespace Sample; public class Store { }");
