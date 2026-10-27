@@ -43,6 +43,8 @@ BrownPants is built for existing systems: its .NET 10 host can inspect legacy .N
 
 In short, SDD records **what the team intends to change and how it will know the work is done**. BrownPants helps establish **what the existing system contains and what a change may affect**. It adds context to SDD tools without replacing their specs, plans, or human decisions.
 
+New to either tool? Follow the [BrownPants + Spec Kit field guide](docs/brownpants-speckit-field-guide.md) for a worked example, manual commands, LLM prompt, lifecycle, and file/branch guidance.
+
 ## BrownPants in a day
 
 - **You inherit a .NET Framework 4.x service with C# and MFC mixed together.** Run `brownpants inspect .` to see project markers, source coverage, and Roslyn structure without upgrading or building the old projects. Native C++ and MFC matches are labeled as candidate evidence; BrownPants does not claim it compiled or resolved native behavior.
