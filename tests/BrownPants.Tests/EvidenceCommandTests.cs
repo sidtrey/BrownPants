@@ -196,6 +196,43 @@ public sealed class EvidenceCommandTests : IDisposable
     }
 
     [Fact]
+    public void Evidence_FocusIncludesBoundedClueLocationsWhenNoFindingsMatch()
+    {
+        for (var index = 0; index < 12; index++)
+            Write($"docs/lead-{index:D2}.txt", "UniqueContextMarker");
+        Write("config/UniqueContextMarker.json", "{}");
+
+        var result = Run("evidence", _root, "--clue", "UniqueContextMarker", "--limit", "2");
+
+        Assert.Equal(0, result.ExitCode);
+        using var json = JsonDocument.Parse(result.Output);
+        var report = json.RootElement;
+        Assert.Empty(report.GetProperty("findings").EnumerateArray());
+        var clue = Assert.Single(report.GetProperty("focus").GetProperty("clues").EnumerateArray());
+        Assert.Equal(13, clue.GetProperty("matchCount").GetInt32());
+        Assert.Equal(0, clue.GetProperty("findingCount").GetInt32());
+        Assert.Equal(11, clue.GetProperty("omittedMatchCount").GetInt32());
+        var matches = clue.GetProperty("matches").EnumerateArray().ToArray();
+        Assert.Equal(2, matches.Length);
+        Assert.Equal("Path", matches[0].GetProperty("kind").GetString());
+        Assert.Equal("config/UniqueContextMarker.json", matches[0].GetProperty("path").GetString());
+        Assert.Equal("Content", matches[1].GetProperty("kind").GetString());
+        Assert.Equal("docs/lead-00.txt", matches[1].GetProperty("path").GetString());
+        Assert.False(matches[0].GetProperty("isTestCandidate").GetBoolean());
+        Assert.False(report.GetProperty("focus").GetProperty("clueMatchesTruncated").GetBoolean());
+
+        var repeated = Run("evidence", _root, "--clue", "UniqueContextMarker", "--limit", "1000");
+        Assert.Equal(0, repeated.ExitCode);
+        var repeatedSmall = Run("evidence", _root, "--clue", "UniqueContextMarker", "--limit", "2");
+        Assert.Equal(0, repeatedSmall.ExitCode);
+        Assert.Equal(result.Output, repeatedSmall.Output);
+        using var cappedJson = JsonDocument.Parse(repeated.Output);
+        var cappedClue = Assert.Single(cappedJson.RootElement.GetProperty("focus").GetProperty("clues").EnumerateArray());
+        Assert.Equal(10, cappedClue.GetProperty("matches").GetArrayLength());
+        Assert.Equal(3, cappedClue.GetProperty("omittedMatchCount").GetInt32());
+    }
+
+    [Fact]
     public void Evidence_FocusedClueReportsBoundedReadIssueCodes()
     {
         Write("src/OrderFactory.cs", "namespace Sample; public class OrderFactory { }");

@@ -133,6 +133,8 @@ brownpants evidence <repo> `
 
 Expected result: a small JSON report with source paths and lines, project/language context, why findings matched, and any omitted count. `--clue` values select matching evidence; they do not prove a relationship. Open the few cited files that matter. Do not ask the model to `cat` every folder or read every class.
 
+The focused report also includes up to `min(--limit, 10)` literal path/line leads for each clue at `focus.clues[].matches`. These still help when the candidate finding count is zero or the broader evidence sample was truncated. Check `omittedMatchCount`, `clueMatchesTruncated`, and `sourceEvidenceTruncated`; run `investigate` when you need a larger literal-location list.
+
 ### 3. Follow only the selected path across UI and native boundaries
 
 When you identify likely files, add them as changed paths. For managed code, semantic resolution can add caller impact if those project files are trusted. For native paths, BrownPants reports supported MFC dispatch, qualified calls, and C++/CLI links as candidates with source locations.

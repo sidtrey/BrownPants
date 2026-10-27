@@ -26,3 +26,7 @@
 - T002 and T003 precede T004; T004 integrates the focused selection into the CLI.
 - T005 follows T001-T004; T006-T007 follow implementation and focused verification.
 - All acceptance scenarios are tested in one user story: full-mode compatibility, clue selection, changed-path/caller selection, mixed selectors, validation failures, limits, and deterministic JSON.
+
+## Phase 4: Convergence
+
+- [x] T008 [US1] Include a small, bounded sample of literal clue path/line matches and an omitted-match count in each focused clue summary, so developers can navigate matches even when candidate findings are absent or upstream evidence was sampled; preserve unfiltered output and cover path/content clues and limits in `src/BrownPants.Cli/Analysis/EvidenceReport.cs`, `src/BrownPants.Cli/Analysis/EvidenceFocusAnalyzer.cs`, and `tests/BrownPants.Tests/EvidenceCommandTests.cs`; document the additive contract in `specs/052-focused-evidence-handoff/contracts/focused-evidence.json.md` and `quickstart.md`.

@@ -72,7 +72,13 @@ public sealed record EvidenceFocusSummary(
     int EmittedFindingCount,
     int OmittedFindingCount);
 
-public sealed record EvidenceClueFocus(string Clue, int MatchCount, int FindingCount, bool Matched);
+public sealed record EvidenceClueFocus(
+    string Clue,
+    int MatchCount,
+    int FindingCount,
+    bool Matched,
+    IReadOnlyList<InvestigationMatch> Matches,
+    int OmittedMatchCount);
 
 public sealed record EvidenceChangedPathFocus(
     string Path,

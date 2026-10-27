@@ -23,6 +23,13 @@
 
 The CLI uses the full 10,000 finding sample for focused selection, then applies the requested output limit. If evidence exceeds that upstream sample, `focus.sourceEvidenceTruncated` and the report limitations state that selection may be incomplete. Clue matching remains literal and changed-path call impact remains limited to compiler-resolved C#/VB edges.
 
+## Convergence: navigable clue matches in a large ORM repository
+
+- **External repository**: `nhibernate/nhibernate-core`, checkout commit `eea3e817a9ce078643d9e96f1b150fe9e0a490c1`, sparse to core and C#/VB test projects. BrownPants inventory found 7,643 files and 49,966 architecture signals; the 10,000-signal sample was explicitly marked incomplete.
+- **Observed gap**: `evidence --clue Enrolment.hbm.xml --format json --limit 5` found 13 literal locations but selected zero candidate findings because the matching mapping artifacts were outside the retained architecture sample. Before this change, the focus response had no path/line leads for the agent to inspect.
+- **Fix and result**: Each focused clue now includes at most `min(--limit, 10)` literal path/content locations, ordered with path matches first, plus `omittedMatchCount`. The packed BrownPants.Cli 0.4.0 handoff now returns five concrete locations (including three mapping files) and reports eight omitted locations, while continuing to expose `sourceEvidenceTruncated: true` and zero analyzed findings. This supports navigation without claiming the sampled candidate set is complete.
+- **Verification**: The focused-evidence suite passed 30 tests; `dotnet test BrownPants.sln -c Release --no-restore` passed 390 tests. BrownPants.Cli 0.4.0 packed, installed locally, and reproduced the result. The upstream checkout remained clean; semantic/MSBuild analysis was not requested. Frozen acceptance criteria remain unchanged.
+
 ## Follow-up check on a real repository
 
 - Ran the Release source CLI against the clean local Discord.Net checkout (1,960 discovered files; 1,690 C# files) with `evidence --clue Gateway --format json --limit 5`. The report retained one focused finding and showed 548 literal clue matches.
