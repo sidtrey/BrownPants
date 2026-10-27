@@ -1353,6 +1353,39 @@ public sealed class RepositoryScannerTests : IDisposable
     }
 
     [Fact]
+    public void Scan_NativeFlowRetainsOriginalLinesAfterTrailingLineComments()
+    {
+        Write("native/Commented.cpp", """
+            // A long leading comment shifts the message map in the original source.
+            // Another comment ensures offsets cannot accidentally remain aligned.
+            BEGIN_MESSAGE_MAP(CView, CFormView)
+                ON_COMMAND(ID_RUN, OnRun)
+            END_MESSAGE_MAP()
+
+            // The target definition follows a removable trailing comment.
+            void CView::OnRun()
+            {
+                // Calls after this comment must keep their original source line.
+                CBridge::Invoke();
+            }
+
+            void CBridge::Invoke() {}
+            """);
+
+        var flow = RepositoryScanner.Scan(_root, sampleLimit: 50).ArchitecturePatterns.NativeFlow
+            ?? throw new InvalidOperationException("Native flow analysis was absent.");
+
+        var dispatch = Assert.Single(flow.Relations, item => item.Kind == "mfc-dispatch");
+        Assert.Equal(4, dispatch.SourceLine);
+        Assert.Equal(8, dispatch.TargetLine);
+        Assert.Equal("CView::OnRun", dispatch.TargetSymbol);
+        var call = Assert.Single(flow.Relations, item => item.Kind == "qualified-native-call");
+        Assert.Equal(11, call.SourceLine);
+        Assert.Equal(14, call.TargetLine);
+        Assert.Equal("CBridge::Invoke", call.TargetSymbol);
+    }
+
+    [Fact]
     public void Scan_TracesMfcMessageHandlersAndQualifiedCallsAsBoundedNativeCandidates()
     {
         Write("native/View.cpp", """

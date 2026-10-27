@@ -37,3 +37,7 @@
 ## Implementation Strategy
 
 Deliver the native candidate trace first and validate it on the Brownfield Bug Lab. Then integrate mixed-language evidence handoff and run compatibility checks for managed-only impact. Finish with packaged CLI validation and report observed results without inferring runtime impact.
+
+## Phase 5: Convergence
+
+- [x] T009 [US1] Preserve original character offsets when removing trailing `//` comments from native source; add a regression with comments before the message map, handler definition, and qualified call, and verify exact reported source locations in `src/BrownPants.Cli/Analysis/ArchitecturePatternAnalyzer.cs`, `src/BrownPants.Cli/Analysis/NativeFlowAnalyzer.cs`, and `tests/BrownPants.Tests/RepositoryScannerTests.cs`.
