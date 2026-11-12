@@ -86,6 +86,8 @@ public sealed record CSharpAnalysis(
 {
     internal IReadOnlyList<ManagedMethodTarget> ManagedMethodIndex { get; init; } = Array.Empty<ManagedMethodTarget>();
     internal bool ManagedMethodIndexTruncated { get; init; }
+    internal IReadOnlyList<CSharpConsumerCall> ManagedConsumerCalls { get; init; } = Array.Empty<CSharpConsumerCall>();
+    internal bool ManagedConsumerCallIndexTruncated { get; init; }
 }
 
 public sealed record CSharpTypeInfo(string Path, int Line, string Namespace, string Kind, string Name);
@@ -98,6 +100,9 @@ public sealed record ManagedMethodTarget(string Language, string Namespace, stri
     string DisplayTypeName = "");
 
 public sealed record CSharpInvocationInfo(string Path, int Line, string Expression);
+
+internal sealed record CSharpConsumerCall(string Path, int Line, int Column, string Caller,
+    string ReceiverExpression, string ReceiverType, string MethodName);
 
 public sealed record CSharpParseIssue(string Path, int Line, string Code, string Message);
 
@@ -133,7 +138,8 @@ public sealed record NativeFlowAnalysis(
     int OmittedCount,
     IReadOnlyList<NativeFlowRelation> Relations,
     IReadOnlyList<string> EvidenceLimits,
-    bool ManagedTargetIndexTruncated = false);
+    bool ManagedTargetIndexTruncated = false,
+    bool ManagedConsumerCallIndexTruncated = false);
 
 public sealed record NativeFlowRelation(
     string Id,
@@ -159,7 +165,10 @@ public sealed record NativeProjectInfo(
     IReadOnlyList<string> TargetFrameworks,
     IReadOnlyList<string> PlatformToolsets,
     IReadOnlyList<string> ProjectReferences,
-    string? ReadError);
+    string? ReadError)
+{
+    public string? TargetName { get; init; }
+}
 
 public sealed record CSharpSemanticAnalysis(
     int ProjectsDiscovered,
@@ -223,4 +232,10 @@ public sealed record DotNetProjectInfo(
     IReadOnlyList<string> LanguageVersions,
     IReadOnlyList<string> ProjectReferences,
     bool IsLegacyFramework,
-    string? ReadError);
+    string? ReadError)
+{
+    public IReadOnlyList<DotNetAssemblyReferenceInfo> AssemblyReferences { get; init; }
+        = Array.Empty<DotNetAssemblyReferenceInfo>();
+}
+
+public sealed record DotNetAssemblyReferenceInfo(string Include, string? HintPath);

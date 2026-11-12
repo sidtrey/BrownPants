@@ -9,6 +9,7 @@ namespace BrownPants.Cli.Analysis;
 public static class CSharpAnalyzer
 {
     private const int ManagedMethodIndexLimit = 100_000;
+    private const int ManagedConsumerCallIndexLimit = 100_000;
 
     public static CSharpAnalysis Analyze(string root, IEnumerable<string> sourcePaths,
         IReadOnlyList<DotNetProjectInfo> projects, int sampleLimit)
@@ -19,7 +20,9 @@ public static class CSharpAnalyzer
         var invocations = new List<CSharpInvocationInfo>();
         var issues = new List<CSharpParseIssue>();
         var managedMethodIndex = new List<ManagedMethodTarget>();
+        var managedConsumerCalls = new List<CSharpConsumerCall>();
         var managedMethodIndexTruncated = false;
+        var managedConsumerCallIndexTruncated = false;
         var sourceFileCount = 0;
         var typeCount = 0;
         var memberCount = 0;
@@ -84,6 +87,13 @@ public static class CSharpAnalyzer
                 {
                     invocationCount++;
                     AddSample(invocations, new CSharpInvocationInfo(relativePath, Line(invocation), Normalize(invocation.Expression.ToString())), sampleLimit);
+                    if (TryDescribeConsumerCall(relativePath, invocation, out var consumerCall))
+                    {
+                        if (managedConsumerCalls.Count < ManagedConsumerCallIndexLimit)
+                            managedConsumerCalls.Add(consumerCall);
+                        else
+                            managedConsumerCallIndexTruncated = true;
+                    }
                 }
 
                 inactiveCodeRegionCount += syntaxRoot.DescendantTrivia(descendIntoTrivia: true)
@@ -121,8 +131,61 @@ public static class CSharpAnalyzer
             issues)
         {
             ManagedMethodIndex = managedMethodIndex,
-            ManagedMethodIndexTruncated = managedMethodIndexTruncated
+            ManagedMethodIndexTruncated = managedMethodIndexTruncated,
+            ManagedConsumerCalls = managedConsumerCalls,
+            ManagedConsumerCallIndexTruncated = managedConsumerCallIndexTruncated
         };
+    }
+
+    private static bool TryDescribeConsumerCall(string path, InvocationExpressionSyntax invocation,
+        out CSharpConsumerCall call)
+    {
+        call = null!;
+        if (invocation.Expression is not MemberAccessExpressionSyntax member
+            || member.Name is not IdentifierNameSyntax methodName)
+            return false;
+
+        var receiver = member.Expression;
+        var receiverType = receiver switch
+        {
+            ObjectCreationExpressionSyntax creation => Normalize(creation.Type.ToString()),
+            _ => ResolveLocalReceiverType(receiver, invocation)
+        };
+        if (string.IsNullOrWhiteSpace(receiverType)) return false;
+
+        var containingMethod = invocation.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
+        var caller = containingMethod is null
+            ? string.Empty
+            : ContainingTypeOf(containingMethod) + "." + containingMethod.Identifier.ValueText;
+        var lineSpan = invocation.GetLocation().GetLineSpan();
+        call = new CSharpConsumerCall(path, lineSpan.StartLinePosition.Line + 1,
+            lineSpan.StartLinePosition.Character + 1, caller, Normalize(receiver.ToString()),
+            receiverType, methodName.Identifier.ValueText);
+        return true;
+    }
+
+    private static string? ResolveLocalReceiverType(ExpressionSyntax receiver, InvocationExpressionSyntax invocation)
+    {
+        if (receiver is not IdentifierNameSyntax identifier) return null;
+        var containingMethod = invocation.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
+        if (containingMethod is null) return null;
+
+        var variable = containingMethod.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+            .Where(candidate => candidate.Identifier.ValueText == identifier.Identifier.ValueText
+                && candidate.SpanStart < invocation.SpanStart)
+            .OrderByDescending(candidate => candidate.SpanStart)
+            .FirstOrDefault();
+        if (variable is null) return null;
+
+        var declaration = variable.Ancestors().OfType<VariableDeclarationSyntax>().FirstOrDefault();
+        if (declaration is null) return null;
+        if (declaration.Type is not IdentifierNameSyntax typeName
+            || !typeName.Identifier.IsKind(SyntaxKind.VarKeyword))
+            return Normalize(declaration.Type.ToString());
+
+        return variable.Initializer?.Value is ObjectCreationExpressionSyntax creation
+            ? Normalize(creation.Type.ToString())
+            : null;
     }
 
     private static IEnumerable<CSharpMemberInfo> DescribeMember(string path, MemberDeclarationSyntax member)

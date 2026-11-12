@@ -40,6 +40,83 @@ public sealed class EvidenceCommandTests : IDisposable
     }
 
     [Fact]
+    public void Evidence_ReportsCSharpFirstCppCliPathAndSelectsItForChangedConsumer()
+    {
+        Write("consumer/LegacyConsumer.csproj", """
+            <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+              <ItemGroup><Reference Include="StlClrLibrary, Version=1.0.0.0">
+                <HintPath>..\Bridge\debug\StlClrLibrary.dll</HintPath>
+              </Reference></ItemGroup>
+            </Project>
+            """);
+        Write("consumer/LegacyConsumer.cs", """
+            namespace StlClr_Sample
+            {
+                public sealed class LegacyConsumer
+                {
+                    public void Sort()
+                    {
+                        StlClrLibrary.Tools tools = new StlClrLibrary.Tools();
+                        tools.BubbleSortNative();
+                    }
+                }
+            }
+            """);
+        Write("Bridge/StlClrLibrary.vcxproj", "<Project><PropertyGroup><CLRSupport>true</CLRSupport><TargetName>StlClrLibrary</TargetName></PropertyGroup></Project>");
+        Write("Bridge/StlClrLibrary.cpp", """
+            namespace Native { void BubbleSort(); } void Native::BubbleSort() {}
+            namespace StlClrLibrary
+            {
+                public ref class Tools
+                {
+                public:
+                    void BubbleSortNative()
+                    {
+                        Native::BubbleSort();
+                    }
+                };
+            }
+            """);
+
+        var full = Run("evidence", _root, "--limit", "100");
+        var focused = Run("evidence", _root, "--changed", "consumer/LegacyConsumer.cs", "--limit", "100");
+        var markdown = Run("inspect", _root);
+
+        Assert.Equal(0, full.ExitCode);
+        Assert.Equal(0, focused.ExitCode);
+        Assert.Equal(0, markdown.ExitCode);
+        using var fullJson = JsonDocument.Parse(full.Output);
+        var findings = fullJson.RootElement.GetProperty("findings").EnumerateArray().ToArray();
+        var consumer = Assert.Single(findings, item => item.TryGetProperty("relationKind", out var kind)
+            && kind.GetString() == "csharp-cppcli-call");
+        Assert.Equal("candidate", consumer.GetProperty("status").GetString());
+        Assert.Equal("consumer/LegacyConsumer.cs", consumer.GetProperty("path").GetString());
+        Assert.Equal("Bridge/StlClrLibrary.cpp", consumer.GetProperty("targetPath").GetString());
+        Assert.Contains(findings, item => item.TryGetProperty("relationKind", out var kind)
+            && kind.GetString() == "qualified-native-call"
+            && item.GetProperty("sourceSymbol").GetString() == "StlClrLibrary::Tools::BubbleSortNative");
+
+        using var focusedJson = JsonDocument.Parse(focused.Output);
+        var focus = focusedJson.RootElement.GetProperty("focus");
+        Assert.False(focus.GetProperty("impactComplete").GetBoolean());
+        Assert.Contains(focus.GetProperty("impactIssues").EnumerateArray(), item =>
+            item.GetString()!.Contains("pass --semantic", StringComparison.Ordinal));
+        var focusedConsumer = Assert.Single(focusedJson.RootElement.GetProperty("findings").EnumerateArray(), item =>
+            item.TryGetProperty("relationKind", out var kind) && kind.GetString() == "csharp-cppcli-call");
+        Assert.Contains(focusedConsumer.GetProperty("matchedBy").EnumerateArray(), item =>
+            item.GetString()!.EndsWith(":native-caller-impact", StringComparison.Ordinal));
+        Assert.True(focusedJson.RootElement.GetProperty("findings").EnumerateArray().Any(item =>
+            item.TryGetProperty("relationKind", out var kind) && kind.GetString() == "qualified-native-call"
+            && item.GetProperty("matchedBy").EnumerateArray().Any(reason =>
+                reason.GetString()!.EndsWith(":native-caller-impact", StringComparison.Ordinal))), focused.Output);
+
+        Assert.Contains("Assembly Reference: `StlClrLibrary", markdown.Output, StringComparison.Ordinal);
+        Assert.Contains("HintPath: `..\\Bridge\\debug\\StlClrLibrary.dll`", markdown.Output, StringComparison.Ordinal);
+        Assert.Contains("csharp-cppcli-call [candidate]", markdown.Output, StringComparison.Ordinal);
+        Assert.Contains("C#-to-C++/CLI relationships are source/reference candidates", markdown.Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Evidence_RepeatedCandidateGroupsPreserveRawFindings()
     {
         Write("src/SessionA.cs", """

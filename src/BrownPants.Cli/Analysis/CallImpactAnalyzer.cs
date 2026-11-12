@@ -120,6 +120,9 @@ public static class CallImpactAnalyzer
             if (!declarationGroups.TryGetValue(changed, out var symbols) || symbols.Count == 0)
             {
                 if (IsNativeSource(changed)) continue;
+                if (IsManagedSource(changed) && nativeFlow?.Relations.Any(relation =>
+                        relation.Kind == "csharp-cppcli-call" && PathEquals(relation.SourcePath, changed)) == true)
+                    continue;
                 issues.Add($"Changed path '{changed}' has no mapped method declarations in the loaded semantic graph.");
             }
         }
@@ -232,6 +235,11 @@ public static class CallImpactAnalyzer
             .GroupBy(item => item.TargetSymbol, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.OrderBy(item => item.SourcePath, StringComparer.Ordinal)
                 .ThenBy(item => item.SourceLine).ThenBy(item => item.Id, StringComparer.Ordinal).ToArray(), StringComparer.Ordinal);
+        var outgoingNativeBySymbol = nativeFlow.Relations.Where(item => item.Kind == "qualified-native-call"
+                && item.Status is "candidate" or "ambiguous" or "unresolved")
+            .GroupBy(item => item.SourceSymbol, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.OrderBy(item => item.SourcePath, StringComparer.Ordinal)
+                .ThenBy(item => item.SourceLine).ThenBy(item => item.Id, StringComparer.Ordinal).ToArray(), StringComparer.Ordinal);
         var managedIncomingByLocation = new Dictionary<string, List<NativeFlowRelation>>(StringComparer.Ordinal);
         var unresolvedByManagedSymbol = nativeFlow.Relations.Where(item => item.Status == "unresolved")
             .GroupBy(item => NormalizeManagedMethodSymbol(item.TargetSymbol), StringComparer.OrdinalIgnoreCase)
@@ -255,6 +263,13 @@ public static class CallImpactAnalyzer
         var results = new Dictionary<string, NativeCallImpact>(StringComparer.Ordinal);
         foreach (var changed in changedPaths)
         {
+            var consumerCalls = nativeFlow.Relations.Where(relation => relation.Kind == "csharp-cppcli-call"
+                    && PathEquals(relation.SourcePath, changed)
+                    && relation.Status is "candidate" or "ambiguous" or "unresolved")
+                .OrderBy(relation => relation.SourceLine).ThenBy(relation => relation.Id, StringComparer.Ordinal)
+                .ToArray();
+            TraceConsumerOutward(changed, consumerCalls);
+
             var incoming = nativeFlow.Relations
                 .Where(relation => relation.Status is "candidate" or "ambiguous")
                 .Where(relation => relation.TargetPath is not null && PathEquals(relation.TargetPath, changed)
@@ -316,6 +331,41 @@ public static class CallImpactAnalyzer
                             continue;
                         Add(relation, changedPath, depth + 1, managedImpactDepth);
                         queue.Enqueue((relation.SourceSymbol, depth + 1));
+                    }
+                }
+            }
+
+            void TraceConsumerOutward(string changedPath, IReadOnlyCollection<NativeFlowRelation> initial)
+            {
+                var queue = new Queue<(string Symbol, int Depth)>();
+                var visited = new Dictionary<string, int>(StringComparer.Ordinal);
+                foreach (var relation in initial)
+                {
+                    Add(relation, changedPath, 1, managedImpactDepth: null);
+                    if (relation.Status == "candidate") queue.Enqueue((relation.TargetSymbol, 1));
+                    else
+                        foreach (var target in relation.CandidateTargets ?? Array.Empty<NativeFlowTarget>())
+                            queue.Enqueue((target.Symbol, 1));
+                }
+
+                while (queue.Count > 0)
+                {
+                    var (symbol, depth) = queue.Dequeue();
+                    if (string.IsNullOrWhiteSpace(symbol)) continue;
+                    if (visited.TryGetValue(symbol, out var priorDepth) && priorDepth <= depth) continue;
+                    visited[symbol] = depth;
+                    if (!outgoingNativeBySymbol.TryGetValue(symbol, out var outgoing)) continue;
+                    foreach (var relation in outgoing)
+                    {
+                        if (relation.Status == "ambiguous" && relation.CandidateTargets is { Count: > 0 }
+                            && !relation.CandidateTargets.Any(target => string.Equals(target.Symbol,
+                                relation.TargetSymbol, StringComparison.Ordinal)))
+                            continue;
+                        Add(relation, changedPath, depth + 1, managedImpactDepth: null);
+                        if (relation.Status == "candidate") queue.Enqueue((relation.TargetSymbol, depth + 1));
+                        else
+                            foreach (var target in relation.CandidateTargets ?? Array.Empty<NativeFlowTarget>())
+                                queue.Enqueue((target.Symbol, depth + 1));
                     }
                 }
             }

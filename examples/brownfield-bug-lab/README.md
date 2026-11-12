@@ -62,6 +62,15 @@ This handoff keeps only matching source facts plus resolved direct/transitive ca
 
 The managed impact report connects `ImportBatch<T>` to the `Save(IEnumerable<T>)` overload and shows how `ImportMapped<TSource>` forwards through `SaveMapped<TSource>`. Native impact on the bridge reports `COrderMfcView::OnImportBatch` and the `ID_ORDER_IMPORT_BATCH` message-map entry as candidate paths. A changed managed workflow also traces to the typed C++/CLI handle call and its upstream MFC candidates. BrownPants does not expand macros, prove compiler binding or runtime dispatch, or establish that the evidence-only bridge builds. Inventory also locates factory/DI wiring and NHibernate dependency/session/configuration/mapping evidence; ORM candidates do not prove database behavior.
 
+The separate [`legacy/ManagedConsumer`](legacy/ManagedConsumer/README.md) fixture starts from a legacy C# `Reference`/`HintPath`, follows the C++/CLI wrapper, and reports its qualified native call. Run focused evidence with:
+
+```powershell
+dotnet run --project src/BrownPants.Cli -- evidence examples/brownfield-bug-lab `
+  --changed legacy/ManagedConsumer/LegacyConsumer.cs --format json --limit 1000
+```
+
+The fixture is source-only and deliberately has no DLL or build/runtime proof. Missing binaries and project conditions remain limitations; every cross-boundary edge is a candidate.
+
 ### Trace a generic factory constructor
 
 To see constructor-aware impact in the same fixture, inspect the workflow file's explicit constructors and callers:
