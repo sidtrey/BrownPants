@@ -10,7 +10,7 @@ public static class InstructionContextFrameAnalyzer
     {
         var root = Path.GetFullPath(repository);
         var content = File.ReadAllText(Path.Combine(root, framePath));
-        var matches = Regex.Matches(content, @"^- `(?<path>[^`]+)` — SHA-256 `(?<digest>[a-fA-F0-9]{64})`$", RegexOptions.Multiline);
+        var matches = Regex.Matches(content, @"^- `(?<path>[^`]+)` — SHA-256 `(?<digest>[a-fA-F0-9]{64})`\r?$", RegexOptions.Multiline);
         if (matches.Count == 0) throw new ArgumentException("Frame contains no source identity records.");
         var paths = matches.Select(match => match.Groups["path"].Value).ToArray();
         var inventory = InstructionSourceAnalyzer.Analyze(root, paths).Sources.ToDictionary(source => source.Path, StringComparer.OrdinalIgnoreCase);

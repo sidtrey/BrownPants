@@ -2,8 +2,8 @@
 
 - **Feature Branch**: `072-ts-source-evidence`
 - **Created**: 2026-10-16
-- **Status**: Implementation complete; release verification pending
-**Input**: User goal: finish a production release with useful JavaScript and TypeScript support, based on the observed gap during a public repository bounty run.
+- **Status**: Release candidate verified; publication pending approval and merge
+**Input**: User goal: finish a production release with useful JavaScript and TypeScript support, based on a gap observed during repository analysis.
 
 ## User Scenarios & Testing
 

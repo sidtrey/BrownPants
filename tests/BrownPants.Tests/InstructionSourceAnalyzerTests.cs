@@ -255,6 +255,34 @@ public sealed class InstructionSourceAnalyzerTests : IDisposable
     }
 
     [Fact]
+    public void FrameValidate_CrlfFrameChecksEverySourceIdentity()
+    {
+        Write("AGENTS.md", "# Repository\n\n## Safety\nPreserve canonical instructions.");
+        Write("TEAM.md", "# Team\n\n## Ownership\nConfirm ownership before changing shared code.");
+        Write("draft.json", """{"budget":{"unit":"tokens","requested":100},"points":[{"text":"Keep repository guidance authoritative.","sources":[{"path":"AGENTS.md","anchor":"safety"}]},{"text":"Confirm team ownership.","sources":[{"path":"TEAM.md","anchor":"ownership"}]}]}""");
+        using var createOutput = new StringWriter();
+        using var createError = new StringWriter();
+
+        Assert.Equal(0, Program.Run(new[] { "frame", "create", _root, Path.Combine(_root, "draft.json"), "context/frame.md" }, createOutput, createError));
+        Assert.Empty(createError.ToString());
+        var framePath = Path.Combine(_root, "context", "frame.md");
+        var frame = File.ReadAllText(framePath).Replace("\r\n", "\n").Replace("\n", "\r\n");
+        File.WriteAllText(framePath, frame);
+
+        using var currentOutput = new StringWriter();
+        using var currentError = new StringWriter();
+        Assert.Equal(0, Program.Run(new[] { "frame", "validate", _root, "context/frame.md" }, currentOutput, currentError));
+        Assert.Contains("2 checked", currentOutput.ToString());
+
+        Write("AGENTS.md", "# Repository\n\n## Safety\nThis source has changed.");
+        using var staleOutput = new StringWriter();
+        using var staleError = new StringWriter();
+        Assert.Equal(1, Program.Run(new[] { "frame", "validate", _root, "context/frame.md" }, staleOutput, staleError));
+        Assert.Contains("AGENTS.md", staleOutput.ToString());
+        Assert.Contains("stale", staleOutput.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void FrameCreate_RejectsUnknownSectionsAndEscapingOutput()
     {
         Write("AGENTS.md", "# Repository");

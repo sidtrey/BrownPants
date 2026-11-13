@@ -160,6 +160,12 @@ public static class MarkdownReport
             report.AppendLine($"- `{Escape(project.Path)}` — {frameworks}; legacy .NET Framework: {YesNo(project.IsLegacyFramework)}{languages}");
             foreach (var reference in project.ProjectReferences)
                 report.AppendLine($"  - ProjectReference: `{Escape(reference)}`");
+            foreach (var reference in project.AssemblyReferences)
+            {
+                report.AppendLine($"  - Assembly Reference: `{Escape(reference.Include)}`");
+                if (reference.HintPath is not null)
+                    report.AppendLine($"    - HintPath: `{Escape(reference.HintPath)}` (static metadata; existence and configuration selection are not verified)");
+            }
             if (project.ReadError is not null)
                 report.AppendLine($"  - Project XML could not be read: {Escape(project.ReadError)}");
         }
@@ -181,6 +187,8 @@ public static class MarkdownReport
         foreach (var project in projects)
         {
             report.AppendLine($"- `{Escape(project.Path)}`; MFC setting detected: {YesNo(project.HasMfcSignal)}; CLR support detected: {YesNo(project.HasClrSupport)}");
+            if (project.TargetName is not null)
+                report.AppendLine($"  - Target assembly name: `{Escape(project.TargetName)}` (static project metadata)");
             if (project.TargetFrameworks.Count > 0)
                 report.AppendLine($"  - Target/platform versions: {string.Join(", ", project.TargetFrameworks.Select(Escape))}");
             if (project.PlatformToolsets.Count > 0)
@@ -343,7 +351,7 @@ public static class MarkdownReport
         if (analysis.NativeFlow is { ScannedFileCount: > 0 } nativeFlow)
         {
             report.AppendLine();
-            report.AppendLine("### Native flow candidates");
+            report.AppendLine("### Native and interop flow candidates");
             report.AppendLine();
             report.AppendLine($"- Relations: {nativeFlow.RelationCount}; unresolved: {nativeFlow.UnresolvedCount}; ambiguous: {nativeFlow.AmbiguousCount}; omitted: {nativeFlow.OmittedCount}");
             foreach (var limit in nativeFlow.EvidenceLimits)

@@ -2,6 +2,8 @@ namespace BrownPants.Cli.Analysis;
 
 public static class EvidenceFocusAnalyzer
 {
+    private const int MaximumClueLocationSample = 10;
+
     public static EvidenceReport Select(RepositoryInventory inventory, EvidenceReport fullReport,
         IReadOnlyList<string> clues, IReadOnlyList<string> changedPaths, int sampleLimit)
     {
@@ -10,11 +12,15 @@ public static class EvidenceFocusAnalyzer
         var clueMatchCounts = new int[clues.Count];
         var clueMatchTruncated = false;
         var clueReadIssueCount = 0;
+        IReadOnlyList<InvestigationClueResult> clueResults = Array.Empty<InvestigationClueResult>();
+        IReadOnlyList<InvestigationReadIssue> clueReadIssues = Array.Empty<InvestigationReadIssue>();
 
         if (clues.Count > 0)
         {
             var investigation = RepositoryInvestigator.Investigate(inventory.Root, clues, 10_000);
+            clueResults = investigation.Clues;
             clueReadIssueCount = investigation.ReadIssueCount;
+            clueReadIssues = investigation.ReadIssues;
             foreach (var issue in investigation.Clues)
                 if (issue.MatchCount > issue.Matches.Count) clueMatchTruncated = true;
 
@@ -130,8 +136,18 @@ public static class EvidenceFocusAnalyzer
             .Select(item => item with { MatchedBy = selected[item.Id].OrderBy(value => value, StringComparer.Ordinal).ToArray() })
             .ToArray();
         var omitted = Math.Max(0, ordered.Length - emitted.Length);
-        var clueFocus = clues.Select((clue, index) => new EvidenceClueFocus(
-            clue, clueMatchCounts[index], clueCounts[index], clueMatchCounts[index] > 0)).ToArray();
+        var clueLocationLimit = Math.Min(sampleLimit, MaximumClueLocationSample);
+        var clueFocus = clues.Select((clue, index) =>
+        {
+            var matches = clueResults[index].Matches
+                .OrderBy(match => match.Kind == "Path" ? 0 : 1)
+                .ThenBy(match => match.Path, StringComparer.Ordinal)
+                .ThenBy(match => match.Line)
+                .Take(clueLocationLimit)
+                .ToArray();
+            return new EvidenceClueFocus(clue, clueMatchCounts[index], clueCounts[index],
+                clueMatchCounts[index] > 0, matches, Math.Max(0, clueMatchCounts[index] - matches.Length));
+        }).ToArray();
         var pathFocus = normalizedChanged.Select(path => new EvidenceChangedPathFocus(
             path, foundPaths.Contains(path), changedCounts[path][0], changedCounts[path][1], changedCounts[path][2],
             changedCounts[path].Sum() > 0)).ToArray();
@@ -151,7 +167,16 @@ public static class EvidenceFocusAnalyzer
         if (normalizedChanged.Length > 0 && managedChanged && !semanticImpactAnalyzed)
             limitations.Add("Caller impact was not analyzed for managed changed paths; pass --semantic to resolve managed callers. Native candidate impact may still be included.");
         if (clueReadIssueCount > 0)
-            limitations.Add($"Clue matching skipped or could not read {clueReadIssueCount} file(s); see investigator rules for bounded reads.");
+        {
+            var issueSummary = string.Join(", ", clueReadIssues
+                .GroupBy(issue => issue.Code, StringComparer.Ordinal)
+                .OrderBy(group => group.Key, StringComparer.Ordinal)
+                .Select(group => $"{group.Key}={group.Count()}"));
+            var omittedIssueCount = clueReadIssueCount - clueReadIssues.Count;
+            var summaryLabel = omittedIssueCount > 0 ? "sampled issue codes" : "issue codes";
+            var omittedText = omittedIssueCount > 0 ? $"; {omittedIssueCount} additional diagnostic(s) omitted" : string.Empty;
+            limitations.Add($"Clue matching skipped or could not read {clueReadIssueCount} file(s); {summaryLabel}: {issueSummary}{omittedText}.");
+        }
         if (clueMatchTruncated)
             limitations.Add("Some clue locations exceeded the bounded match sample; focused selection may be incomplete.");
         if (focus.SourceEvidenceTruncated)

@@ -31,6 +31,7 @@ public static class NativeProjectAnalyzer
                         && IsEnabled(item.Value));
                 var frameworks = Values(values, "TargetFramework", "TargetFrameworkVersion", "WindowsTargetPlatformVersion");
                 var toolsets = Values(values, "PlatformToolset");
+                var targetNames = Values(values, "TargetName");
                 var references = values
                     .Where(item => item.Name.Equals("Include", StringComparison.OrdinalIgnoreCase)
                         || item.Name.Equals("RelativePath", StringComparison.OrdinalIgnoreCase))
@@ -41,7 +42,10 @@ public static class NativeProjectAnalyzer
                     .OrderBy(value => value, RepositoryPathComparer.Instance)
                     .ToArray();
 
-                results.Add(new NativeProjectInfo(relativePath, mfc, clr, frameworks, toolsets, references, null));
+                results.Add(new NativeProjectInfo(relativePath, mfc, clr, frameworks, toolsets, references, null)
+                {
+                    TargetName = targetNames.Length == 1 ? targetNames[0] : null
+                });
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or XmlException or ArgumentException)
             {
