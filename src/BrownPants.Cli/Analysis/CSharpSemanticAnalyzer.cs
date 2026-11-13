@@ -17,6 +17,7 @@ namespace BrownPants.Cli.Analysis;
 public static class CSharpSemanticAnalyzer
 {
     private const int ImpactGraphEdgeLimit = 100_000;
+    private static readonly object MsBuildLocatorGate = new();
 
     public static CSharpSemanticAnalysis AnalyzeRepository(string root, IReadOnlyList<string> projectPaths,
         IReadOnlyList<string> solutionPaths, int sampleLimit, string? controlFlowSourcePath = null,
@@ -39,8 +40,11 @@ public static class CSharpSemanticAnalyzer
 
         try
         {
-            if (!MSBuildLocator.IsRegistered)
-                MSBuildLocator.RegisterDefaults();
+            lock (MsBuildLocatorGate)
+            {
+                if (!MSBuildLocator.IsRegistered)
+                    MSBuildLocator.RegisterDefaults();
+            }
 
             using var workspace = MSBuildWorkspace.Create(new Dictionary<string, string>
             {
