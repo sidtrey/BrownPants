@@ -5,6 +5,7 @@ public static class SourceLanguageCoverageAnalyzer
     private const string InventoryOnly = "Inventory only";
     private const string RoslynCoverage = "Roslyn syntax and candidate patterns";
     private const string LexicalCoverage = "Lexical candidate patterns";
+    private const string JavaScriptTypeScriptCoverage = "Bounded syntax and lexical candidate patterns";
 
     private static readonly IReadOnlyDictionary<string, (string Language, string AnalysisLevel)> Languages =
         new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase)
@@ -15,10 +16,10 @@ public static class SourceLanguageCoverageAnalyzer
             [".cpp"] = ("C/C++", LexicalCoverage), [".cxx"] = ("C/C++", LexicalCoverage),
             [".h"] = ("C/C++", LexicalCoverage), [".hh"] = ("C/C++", LexicalCoverage),
             [".hpp"] = ("C/C++", LexicalCoverage), [".hxx"] = ("C/C++", LexicalCoverage),
-            [".js"] = ("JavaScript", LexicalCoverage), [".jsx"] = ("JavaScript", LexicalCoverage),
-            [".mjs"] = ("JavaScript", LexicalCoverage), [".cjs"] = ("JavaScript", LexicalCoverage),
-            [".ts"] = ("TypeScript", LexicalCoverage), [".tsx"] = ("TypeScript", LexicalCoverage),
-            [".mts"] = ("TypeScript", LexicalCoverage), [".cts"] = ("TypeScript", LexicalCoverage),
+            [".js"] = ("JavaScript", JavaScriptTypeScriptCoverage), [".jsx"] = ("JavaScript", JavaScriptTypeScriptCoverage),
+            [".mjs"] = ("JavaScript", JavaScriptTypeScriptCoverage), [".cjs"] = ("JavaScript", JavaScriptTypeScriptCoverage),
+            [".ts"] = ("TypeScript", JavaScriptTypeScriptCoverage), [".tsx"] = ("TypeScript", JavaScriptTypeScriptCoverage),
+            [".mts"] = ("TypeScript", JavaScriptTypeScriptCoverage), [".cts"] = ("TypeScript", JavaScriptTypeScriptCoverage),
             [".py"] = ("Python", LexicalCoverage), [".pyw"] = ("Python", LexicalCoverage), [".pyi"] = ("Python", LexicalCoverage),
             [".java"] = ("Java", LexicalCoverage), [".kt"] = ("Kotlin", LexicalCoverage),
             [".kts"] = ("Kotlin", LexicalCoverage),
