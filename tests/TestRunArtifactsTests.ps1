@@ -81,6 +81,9 @@ try {
     $qaScript = Join-Path (Split-Path -Parent $PSScriptRoot) 'scripts/qa-chart-engine.ps1'
     & pwsh -NoProfile -File $qaScript -RepositoryRoot $failedQaRoot 2>&1 | Out-Null
     Assert ($LASTEXITCODE -ne 0) 'QA failure fixture unexpectedly succeeded.'
+    # The expected non-zero child-process exit code must not become this test
+    # script's exit code on runners that propagate the final native status.
+    $global:LASTEXITCODE = 0
     $failedQaRunsRoot = Get-BrownPantsRunRoot $failedQaRoot
     $failedQaRun = Get-ChildItem -LiteralPath $failedQaRunsRoot -Directory | Select-Object -First 1
     Assert ($null -ne $failedQaRun) 'Failed QA did not keep its run directory.'
