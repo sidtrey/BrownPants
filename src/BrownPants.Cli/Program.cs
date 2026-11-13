@@ -73,6 +73,9 @@ public static class Program
         if (string.Equals(args[0], "diagram", StringComparison.OrdinalIgnoreCase))
             return LocalFlowchartCommand.Run(args.Skip(1).ToArray(), output, error);
 
+        if (string.Equals(args[0], "chart", StringComparison.OrdinalIgnoreCase))
+            return CallTreeDiagramCommand.Run(args.Skip(1).ToArray(), output, error);
+
         if (string.Equals(args[0], "models", StringComparison.OrdinalIgnoreCase))
             return ModelRoutingCommand.Run(args.Skip(1).ToArray(), output, error);
 
@@ -509,6 +512,13 @@ public static class Program
         }
         if (command.Equals("diagram", StringComparison.OrdinalIgnoreCase))
             return LocalFlowchartCommand.WriteHelp(output);
+        if (command.Equals("chart", StringComparison.OrdinalIgnoreCase))
+        {
+            var chartTopics = topic.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).ToArray();
+            if (chartTopics.Length > 0 && chartTopics[0].Equals("flow", StringComparison.OrdinalIgnoreCase))
+                return MethodControlFlowDiagramCommand.WriteHelp(output);
+            return CallTreeDiagramCommand.Run(chartTopics.Append("--help").ToArray(), output, error);
+        }
         if (command.Equals("models", StringComparison.OrdinalIgnoreCase))
             return ModelRoutingCommand.WriteHelp(output);
         if (command.Equals("winforms", StringComparison.OrdinalIgnoreCase))
@@ -556,6 +566,7 @@ public static class Program
         output.WriteLine("  devops        Trace Azure DevOps work items and delivery references.");
         output.WriteLine("  pr            Prepare local evidence previews and create human-reviewed draft PRs.");
         output.WriteLine("  diagram       Render a local BrownPants flow block as PNG or diagrams.net XML.");
+        output.WriteLine("  chart         Render compiler-resolved callers or method control flow as local diagrams.");
         output.WriteLine("  winforms      Find syntax-based Windows Forms property-write candidates.");
         output.WriteLine("  models        Validate, report, or export task-based model profiles.");
         output.WriteLine("Usage: brownpants inspect [path] [--format markdown|json] [--limit 1..10000] [--semantic]");
@@ -570,7 +581,9 @@ public static class Program
         output.WriteLine("       brownpants devops trace <repository> --feature <relative-feature-path> --online [--format markdown|json]");
         output.WriteLine("       brownpants pr preview <repository> --feature <relative-feature-path> --repository <provider-repository> --source <branch> --target <branch> [--output <relative-path>]");
         output.WriteLine("       brownpants pr create <repository> --provider github|gitlab|bitbucket --preview <relative-path> --repository <provider-repository> --source <branch> --target <branch> --confirm --online");
-        output.WriteLine("       brownpants diagram <repository> <relative-markdown-path> --output <relative-path> [--format png|drawio] [--overwrite]");
+        output.WriteLine("       brownpants diagram <repository> <relative-input-path> --output <relative-path> [--input-format markdown|drawio] [--format png|drawio] [--overwrite]");
+        output.WriteLine("       brownpants chart callers <repository> --source <relative.cs|vb> --method <exact-symbol> --semantic --output <relative.png|drawio>");
+        output.WriteLine("       brownpants chart flow <repository> --source <relative.cs|vb> --method <exact-symbol> --semantic --output <relative.png|drawio>");
         output.WriteLine("       brownpants models <validate|report|export> [repository] [--policy <path>] [--format markdown|json] [--host vscode|claude|codex]");
         output.WriteLine("Run 'brownpants <command> --help' for command options. Use -h as an alias.");
         output.WriteLine("Use 'brownpants inspect --help' to understand syntax-only inventory and semantic target resolution.");

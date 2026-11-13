@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "name": "Blue Water",
+  "canvas": "#EAF6FA",
+  "text": "#16323D",
+  "connector": "#28758C",
+  "edgeLabelBackground": "#FFFFFF",
+  "edgeLabelText": "#16323D",
+  "shadow": "#C9E1E7",
+  "shapes": {
+    "start": { "fill": "#CDEFE3", "stroke": "#1F6475" },
+    "process": { "fill": "#FFFFFF", "stroke": "#1F6475" },
+    "decision": { "fill": "#CDE8F5", "stroke": "#1F6475" },
+    "inputOutput": { "fill": "#C1E4EA", "stroke": "#1F6475" },
+    "person": { "fill": "#DCEEF3", "stroke": "#1F6475" },
+    "cloud": { "fill": "#E3F2F2", "stroke": "#1F6475" },
+    "end": { "fill": "#CDEFE3", "stroke": "#1F6475" }
+  }
+}

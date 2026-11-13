@@ -1,0 +1,8 @@
+<mxfile>
+  <diagram id="p1" name="Page-1">
+    <mxGraphModel><root>
+      <mxCell id="0" /><mxCell id="1" parent="0" />
+      <mxCell id="custom" value="Custom" style="shape=mxgraph.custom.widget;" vertex="1" parent="1"><mxGeometry x="10" y="10" width="120" height="80" as="geometry" /></mxCell>
+    </root></mxGraphModel>
+  </diagram>
+</mxfile>

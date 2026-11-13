@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mxfile host="app.diagrams.net" agent="BrownPants" version="1.0" type="device">
+  <diagram id="brownfield-review" name="Page-1">
+    <mxGraphModel dx="360" dy="1112" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1112" math="0" shadow="0" background="#f7f9fc">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="n1" value="Legacy code" style="ellipse;perimeter=ellipsePerimeter;whiteSpace=wrap;html=0;fillColor=#e0f5eb;strokeColor=#243447;fontColor=#223146;" vertex="1" parent="1">
+          <mxGeometry x="64" y="48" width="232" height="76" as="geometry" />
+        </mxCell>
+        <mxCell id="n2" value="Inspect" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#e8f1fa;strokeColor=#243447;fontColor=#223146;" vertex="1" parent="1">
+          <mxGeometry x="88" y="236" width="184" height="76" as="geometry" />
+        </mxCell>
+        <mxCell id="n3" value="Trace impacts" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#e8f1fa;strokeColor=#243447;fontColor=#223146;" vertex="1" parent="1">
+          <mxGeometry x="48" y="424" width="264" height="76" as="geometry" />
+        </mxCell>
+        <mxCell id="n4" value="Set criteria" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#e8f1fa;strokeColor=#243447;fontColor=#223146;" vertex="1" parent="1">
+          <mxGeometry x="56" y="612" width="248" height="76" as="geometry" />
+        </mxCell>
+        <mxCell id="n5" value="Verify" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#e8f1fa;strokeColor=#243447;fontColor=#223146;" vertex="1" parent="1">
+          <mxGeometry x="88" y="800" width="184" height="76" as="geometry" />
+        </mxCell>
+        <mxCell id="n6" value="Review" style="ellipse;perimeter=ellipsePerimeter;whiteSpace=wrap;html=0;fillColor=#e0f5eb;strokeColor=#243447;fontColor=#223146;" vertex="1" parent="1">
+          <mxGeometry x="88" y="988" width="184" height="76" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" edge="1" parent="1" source="n1" target="n2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="180" y="180" as="point" />
+              <mxPoint x="180" y="180" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" edge="1" parent="1" source="n2" target="n3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="180" y="368" as="point" />
+              <mxPoint x="180" y="368" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" edge="1" parent="1" source="n3" target="n4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="180" y="556" as="point" />
+              <mxPoint x="180" y="556" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" edge="1" parent="1" source="n4" target="n5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="180" y="744" as="point" />
+              <mxPoint x="180" y="744" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" edge="1" parent="1" source="n5" target="n6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="180" y="932" as="point" />
+              <mxPoint x="180" y="932" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

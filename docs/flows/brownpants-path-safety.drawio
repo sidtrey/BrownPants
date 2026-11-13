@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mxfile host="app.diagrams.net" agent="BrownPants" version="1.0" type="device">
+  <diagram id="method-flow" name="Page-1">
+    <mxGraphModel dx="1372" dy="4324" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1372" pageHeight="4324" math="0" shadow="0" background="#f7f9fc">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="n1" value="Method entry" style="ellipse;perimeter=ellipsePerimeter;whiteSpace=wrap;html=0;fillColor=#e0f5eb;strokeColor=#243447;fontColor=#223146;" tooltip="Roslyn C# control-flow blocks: B0&#xA;&#xA;B0 (Entry) — src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs:342&#xA;Fall-through successor: B1 (Regular)" vertex="1" parent="1">
+          <mxGeometry x="454" y="48" width="248" height="76" as="geometry" />
+        </mxCell>
+        <mxCell id="n2" value="B1: relative Path is blank?" style="rhombus;perimeter=rhombusPerimeter;whiteSpace=wrap;html=0;fillColor=#fff5d6;strokeColor=#243447;fontColor=#223146;" tooltip="Roslyn C# control-flow blocks: B1&#xA;&#xA;B1 (Block) — src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs:344&#xA;Branch value: string.IsNullOrWhiteSpace(relativePath)&#xA;Condition kind: WhenTrue&#xA;Conditional successor: B3 (Regular)&#xA;Fall-through successor: B2 (Regular)" vertex="1" parent="1">
+          <mxGeometry x="234" y="360" width="688" height="104" as="geometry" />
+        </mxCell>
+        <mxCell id="n3" value="B2: relative Path is rooted?" style="rhombus;perimeter=rhombusPerimeter;whiteSpace=wrap;html=0;fillColor=#fff5d6;strokeColor=#243447;fontColor=#223146;" tooltip="Roslyn C# control-flow blocks: B2&#xA;&#xA;B2 (Block) — src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs:344&#xA;Branch value: Path.IsPathRooted(relativePath)&#xA;Condition kind: WhenFalse&#xA;Conditional successor: B4 (Regular)&#xA;Fall-through successor: B3 (Regular)" vertex="1" parent="1">
+          <mxGeometry x="234" y="700" width="688" height="104" as="geometry" />
+        </mxCell>
+        <mxCell id="n4" value="B3: throw Argument Exception" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#e8f1fa;strokeColor=#243447;fontColor=#223146;" tooltip="Roslyn C# control-flow blocks: B3&#xA;&#xA;B3 (Block) — src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs:345&#xA;Branch value: new ArgumentException($&quot;{description} path must be repository-relative.&quot;)&#xA;Condition kind: None&#xA;Fall-through successor: none (Throw)" vertex="1" parent="1">
+          <mxGeometry x="131" y="1060" width="344" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="n5" value="B4: full Path = Path Get Full Path Path Combine root relative Path" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#e8f1fa;strokeColor=#243447;fontColor=#223146;" tooltip="Roslyn C# control-flow blocks: B4&#xA;&#xA;B4 (Block) — src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs:346&#xA;  fullPath = Path.GetFullPath(Path.Combine(root, relativePath))&#xA;Fall-through successor: B5 (Regular)" vertex="1" parent="1">
+          <mxGeometry x="633" y="1040" width="392" height="124" as="geometry" />
+        </mxCell>
+        <mxCell id="n6" value="B5: root ends in separator?" style="rhombus;perimeter=rhombusPerimeter;whiteSpace=wrap;html=0;fillColor=#fff5d6;strokeColor=#243447;fontColor=#223146;" tooltip="Roslyn C# control-flow blocks: B5&#xA;&#xA;B5 (Block) — src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs:347&#xA;Branch value: Path.EndsInDirectorySeparator(root)&#xA;Condition kind: WhenFalse&#xA;Conditional successor: B7 (Regular)&#xA;Fall-through successor: B6 (Regular)" vertex="1" parent="1">
+          <mxGeometry x="517" y="1400" width="560" height="104" as="geometry" />
+        </mxCell>
+        <mxCell id="n7" value="B6: root" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#e8f1fa;strokeColor=#243447;fontColor=#223146;" tooltip="Roslyn C# control-flow blocks: B6&#xA;&#xA;B6 (Block) — src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs:347&#xA;  root&#xA;Fall-through successor: B8 (Regular)" vertex="1" parent="1">
+          <mxGeometry x="227" y="1754" width="184" height="76" as="geometry" />
+        </mxCell>
+        <mxCell id="n8" value="B7: root + Path Directory Separator Char" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#e8f1fa;strokeColor=#243447;fontColor=#223146;" tooltip="Roslyn C# control-flow blocks: B7&#xA;&#xA;B7 (Block) — src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs:347&#xA;  root + Path.DirectorySeparatorChar&#xA;Fall-through successor: B8 (Regular)" vertex="1" parent="1">
+          <mxGeometry x="569" y="1740" width="360" height="104" as="geometry" />
+        </mxCell>
+        <mxCell id="n9" value="B8: root Prefix = Path Ends In Directory Separator root ? root : root + Path Directory Separator Char" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#e8f1fa;strokeColor=#243447;fontColor=#223146;" tooltip="Roslyn C# control-flow blocks: B8&#xA;&#xA;B8 (Block) — src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs:347&#xA;  rootPrefix = Path.EndsInDirectorySeparator(root) ? root : root + Path.DirectorySeparatorChar&#xA;Fall-through successor: B9 (Regular)" vertex="1" parent="1">
+          <mxGeometry x="374" y="2080" width="408" height="164" as="geometry" />
+        </mxCell>
+        <mxCell id="n10" value="B9: running on Windows?" style="rhombus;perimeter=rhombusPerimeter;whiteSpace=wrap;html=0;fillColor=#fff5d6;strokeColor=#243447;fontColor=#223146;" tooltip="Roslyn C# control-flow blocks: B9&#xA;&#xA;B9 (Block) — src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs:348&#xA;Branch value: OperatingSystem.IsWindows()&#xA;Condition kind: WhenFalse&#xA;Conditional successor: B11 (Regular)&#xA;Fall-through successor: B10 (Regular)" vertex="1" parent="1">
+          <mxGeometry x="330" y="2480" width="496" height="104" as="geometry" />
+        </mxCell>
+        <mxCell id="n11" value="B10: String Comparison Ordinal Ignore Case" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#e8f1fa;strokeColor=#243447;fontColor=#223146;" tooltip="Roslyn C# control-flow blocks: B10&#xA;&#xA;B10 (Block) — src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs:348&#xA;  StringComparison.OrdinalIgnoreCase&#xA;Fall-through successor: B12 (Regular)" vertex="1" parent="1">
+          <mxGeometry x="91" y="2820" width="408" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="n12" value="B11: String Comparison Ordinal" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#e8f1fa;strokeColor=#243447;fontColor=#223146;" tooltip="Roslyn C# control-flow blocks: B11&#xA;&#xA;B11 (Block) — src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs:348&#xA;  StringComparison.Ordinal&#xA;Fall-through successor: B12 (Regular)" vertex="1" parent="1">
+          <mxGeometry x="657" y="2820" width="408" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="n13" value="B12: comparison = Operating System Is Windows ? String Comparison Ordinal Ignore Case : String Comparison Ordinal" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#e8f1fa;strokeColor=#243447;fontColor=#223146;" tooltip="Roslyn C# control-flow blocks: B12&#xA;&#xA;B12 (Block) — src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs:348&#xA;  comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal&#xA;Fall-through successor: B13 (Regular)" vertex="1" parent="1">
+          <mxGeometry x="390" y="3140" width="376" height="164" as="geometry" />
+        </mxCell>
+        <mxCell id="n14" value="B13: full Path starts with root Prefix?" style="rhombus;perimeter=rhombusPerimeter;whiteSpace=wrap;html=0;fillColor=#fff5d6;strokeColor=#243447;fontColor=#223146;" tooltip="Roslyn C# control-flow blocks: B13&#xA;&#xA;B13 (Block) — src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs:349&#xA;Branch value: fullPath.StartsWith(rootPrefix, comparison)&#xA;Condition kind: WhenTrue&#xA;Conditional successor: B15 (Regular)&#xA;Fall-through successor: B14 (Regular)" vertex="1" parent="1">
+          <mxGeometry x="218" y="3540" width="720" height="104" as="geometry" />
+        </mxCell>
+        <mxCell id="n15" value="B14: throw Argument Exception" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#e8f1fa;strokeColor=#243447;fontColor=#223146;" tooltip="Roslyn C# control-flow blocks: B14&#xA;&#xA;B14 (Block) — src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs:350&#xA;Branch value: new ArgumentException($&quot;{description} path must remain inside the selected repository.&quot;)&#xA;Condition kind: None&#xA;Fall-through successor: none (Throw)" vertex="1" parent="1">
+          <mxGeometry x="123" y="3880" width="360" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="n16" value="B15: return full Path" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#e8f1fa;strokeColor=#243447;fontColor=#223146;" tooltip="Roslyn C# control-flow blocks: B15&#xA;&#xA;B15 (Block) — src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs:351&#xA;Branch value: fullPath&#xA;Condition kind: None&#xA;Fall-through successor: B16 (Return)" vertex="1" parent="1">
+          <mxGeometry x="641" y="3884" width="392" height="76" as="geometry" />
+        </mxCell>
+        <mxCell id="n17" value="Method exit" style="ellipse;perimeter=ellipsePerimeter;whiteSpace=wrap;html=0;fillColor=#e0f5eb;strokeColor=#243447;fontColor=#223146;" tooltip="Roslyn C# control-flow blocks: B16&#xA;&#xA;B16 (Exit) — src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs:342" vertex="1" parent="1">
+          <mxGeometry x="681" y="4200" width="232" height="76" as="geometry" />
+        </mxCell>
+        <mxCell id="n18" value="Exception exit" style="ellipse;perimeter=ellipsePerimeter;whiteSpace=wrap;html=0;fillColor=#e0f5eb;strokeColor=#243447;fontColor=#223146;" tooltip="Compiler-reported terminal branch from block 3.&#xA;Source: src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs:345&#xA;Branch semantics: Throw&#xA;No destination block exists in the Roslyn CFG." vertex="1" parent="1">
+          <mxGeometry x="79" y="1414" width="280" height="76" as="geometry" />
+        </mxCell>
+        <mxCell id="n19" value="Exception exit" style="ellipse;perimeter=ellipsePerimeter;whiteSpace=wrap;html=0;fillColor=#e0f5eb;strokeColor=#243447;fontColor=#223146;" tooltip="Compiler-reported terminal branch from block 14.&#xA;Source: src/BrownPants.Cli/Analysis/LocalFlowchartCommand.cs:350&#xA;Branch semantics: Throw&#xA;No destination block exists in the Roslyn CFG." vertex="1" parent="1">
+          <mxGeometry x="243" y="4200" width="280" height="76" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" value="next" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" tooltip="Roslyn branch semantics: Regular" edge="1" parent="1" source="n1" target="n2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="578" y="242" as="point" />
+              <mxPoint x="578" y="242" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e2" value="true" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" tooltip="Roslyn branch semantics: Regular" edge="1" parent="1" source="n2" target="n4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="578" y="480" as="point" />
+              <mxPoint x="210" y="480" as="point" />
+              <mxPoint x="210" y="1060" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e3" value="false" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" tooltip="Roslyn branch semantics: Regular" edge="1" parent="1" source="n2" target="n3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="578" y="582" as="point" />
+              <mxPoint x="578" y="582" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e4" value="false" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" tooltip="Roslyn branch semantics: Regular" edge="1" parent="1" source="n3" target="n5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="578" y="922" as="point" />
+              <mxPoint x="829" y="922" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e5" value="true" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" tooltip="Roslyn branch semantics: Regular" edge="1" parent="1" source="n3" target="n4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="578" y="932" as="point" />
+              <mxPoint x="303" y="932" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e6" value="throw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" tooltip="Roslyn branch semantics: Throw; CFG destination is null." edge="1" parent="1" source="n4" target="n18">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="303" y="1279" as="point" />
+              <mxPoint x="219" y="1279" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e7" value="next" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" tooltip="Roslyn branch semantics: Regular" edge="1" parent="1" source="n5" target="n6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="829" y="1282" as="point" />
+              <mxPoint x="797" y="1282" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e8" value="false" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" tooltip="Roslyn branch semantics: Regular" edge="1" parent="1" source="n6" target="n8">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="797" y="1622" as="point" />
+              <mxPoint x="749" y="1622" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e9" value="true" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" tooltip="Roslyn branch semantics: Regular" edge="1" parent="1" source="n6" target="n7">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="797" y="1629" as="point" />
+              <mxPoint x="319" y="1629" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e10" value="next" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" tooltip="Roslyn branch semantics: Regular" edge="1" parent="1" source="n7" target="n9">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="319" y="1955" as="point" />
+              <mxPoint x="578" y="1955" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e11" value="next" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" tooltip="Roslyn branch semantics: Regular" edge="1" parent="1" source="n8" target="n9">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="749" y="1962" as="point" />
+              <mxPoint x="578" y="1962" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e12" value="next" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" tooltip="Roslyn branch semantics: Regular" edge="1" parent="1" source="n9" target="n10">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="578" y="2362" as="point" />
+              <mxPoint x="578" y="2362" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e13" value="false" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" tooltip="Roslyn branch semantics: Regular" edge="1" parent="1" source="n10" target="n12">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="578" y="2702" as="point" />
+              <mxPoint x="861" y="2702" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e14" value="true" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" tooltip="Roslyn branch semantics: Regular" edge="1" parent="1" source="n10" target="n11">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="578" y="2702" as="point" />
+              <mxPoint x="295" y="2702" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e15" value="next" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" tooltip="Roslyn branch semantics: Regular" edge="1" parent="1" source="n11" target="n13">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="295" y="3022" as="point" />
+              <mxPoint x="578" y="3022" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e16" value="next" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" tooltip="Roslyn branch semantics: Regular" edge="1" parent="1" source="n12" target="n13">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="861" y="3022" as="point" />
+              <mxPoint x="578" y="3022" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e17" value="next" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" tooltip="Roslyn branch semantics: Regular" edge="1" parent="1" source="n13" target="n14">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="578" y="3422" as="point" />
+              <mxPoint x="578" y="3422" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e18" value="true" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" tooltip="Roslyn branch semantics: Regular" edge="1" parent="1" source="n14" target="n16">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="578" y="3764" as="point" />
+              <mxPoint x="837" y="3764" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e19" value="false" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" tooltip="Roslyn branch semantics: Regular" edge="1" parent="1" source="n14" target="n15">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="578" y="3762" as="point" />
+              <mxPoint x="303" y="3762" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e20" value="throw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" tooltip="Roslyn branch semantics: Throw; CFG destination is null." edge="1" parent="1" source="n15" target="n19">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="303" y="4082" as="point" />
+              <mxPoint x="383" y="4082" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e21" value="return" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;endFill=1;strokeColor=#7c8da4;fontColor=#223146;labelBackgroundColor=#f7f9fc;" tooltip="Roslyn branch semantics: Return" edge="1" parent="1" source="n16" target="n17">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="837" y="4080" as="point" />
+              <mxPoint x="797" y="4080" as="point" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

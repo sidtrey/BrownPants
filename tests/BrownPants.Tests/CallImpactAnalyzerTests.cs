@@ -9,6 +9,105 @@ namespace BrownPants.Tests;
 public sealed class CallImpactAnalyzerTests
 {
     [Fact]
+    public void CallTree_UsesExactResolvedTargetAndMarksTestPathCallersAsCandidates()
+    {
+        var semantic = CompileFixtureGraph();
+        var target = Assert.Single(semantic.Declarations!, declaration => declaration.Path == "src/Core.cs"
+            && declaration.Symbol.Contains("Core.Save", StringComparison.Ordinal));
+
+        var result = CallTreeDiagramAnalyzer.Analyze(semantic, "src/Core.cs", target.Symbol, 5, 100);
+
+        Assert.True(result.IsComplete);
+        Assert.Contains(result.Document.Nodes, node => node.Label == "Target: Core.Save");
+        Assert.Equal(1, result.DirectCallerCount);
+        Assert.Equal(1, result.TransitiveCallerCount);
+        Assert.Equal(1, result.TestCandidateCount);
+        Assert.Contains(result.Document.Nodes, node => node.Label == "Call site: src/Service.cs:1 (hop 1)");
+        Assert.Contains(result.Document.Nodes, node => node.Label == "Call site: tests/CoreTests.cs:1 (hop 2)");
+        Assert.Contains(result.Document.Nodes, node => node.Details?.Contains("Source: src/Service.cs:1", StringComparison.Ordinal) == true);
+        Assert.Contains(result.Document.Nodes, node => node.Details?.Contains("Hop depth: 2", StringComparison.Ordinal) == true);
+        Assert.Equal(4, result.Document.Edges.Count);
+        Assert.Contains(result.Document.Nodes, node => node.Label.StartsWith("Test candidate:", StringComparison.Ordinal));
+
+        var layout = LocalFlowchartLayoutEngine.Create(result.Document);
+        Assert.DoesNotContain(layout.Diagnostics ?? Array.Empty<LocalFlowchartLayoutDiagnostic>(),
+            diagnostic => diagnostic.Code == "connector-crossings");
+    }
+
+    [Fact]
+    public void CallTree_ReportsPartialSemanticCoverageInTheDiagram()
+    {
+        var semantic = CompileFixtureGraph() with
+        {
+            ProjectCoverageComplete = false,
+            ProjectsLoaded = 0,
+            ProjectsDiscovered = 1,
+            UnresolvedInvocationCount = 2
+        };
+        var target = Assert.Single(semantic.Declarations!, declaration => declaration.Path == "src/Core.cs"
+            && declaration.Symbol.Contains("Core.Save", StringComparison.Ordinal));
+
+        var result = CallTreeDiagramAnalyzer.Analyze(semantic, "src/Core.cs", target.Symbol, 5, 100);
+
+        Assert.False(result.IsComplete);
+        Assert.Contains(result.Limitations, issue => issue.Contains("projects loaded", StringComparison.Ordinal));
+        Assert.Contains(result.Limitations, issue => issue.Contains("could not be resolved", StringComparison.Ordinal));
+        Assert.Contains(result.Document.Nodes, node => node.Label.StartsWith("Analysis is partial", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void CallTree_ReportsUnresolvedDelegateTargetsSeparatelyFromUnresolvedCalls()
+    {
+        var semantic = CompileFixtureGraph() with { UnresolvedDelegateTargetCount = 3 };
+        var target = Assert.Single(semantic.Declarations!, declaration => declaration.Path == "src/Core.cs"
+            && declaration.Symbol.Contains("Core.Save", StringComparison.Ordinal));
+
+        var result = CallTreeDiagramAnalyzer.Analyze(semantic, "src/Core.cs", target.Symbol, 5, 100);
+
+        Assert.False(result.IsComplete);
+        Assert.Contains(result.Limitations,
+            issue => issue.Contains("3 delegate target(s)", StringComparison.Ordinal)
+                && issue.Contains("delegate-based callers may be missing", StringComparison.Ordinal));
+        Assert.DoesNotContain(result.Limitations,
+            issue => issue.Contains("invocation or constructor relationship(s)", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void CallTree_RejectsANameThatDoesNotExactlyMatchTheSourceDeclaration()
+    {
+        var semantic = CompileFixtureGraph();
+
+        var exception = Assert.Throws<LocalFlowchartFormatException>(() =>
+            CallTreeDiagramAnalyzer.Analyze(semantic, "src/Core.cs", "Save", 5, 100));
+
+        Assert.Contains("exactly matching", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CallTree_ReportsRelationshipsOmittedAtTheRequestedSampleLimit()
+    {
+        var semantic = CompileFixtureGraph();
+        var target = Assert.Single(semantic.Declarations!, declaration => declaration.Path == "src/Core.cs"
+            && declaration.Symbol.Contains("Core.Save", StringComparison.Ordinal));
+        var extraCaller = "global::Demo.Audit.Run()";
+        semantic = semantic with
+        {
+            Declarations = semantic.Declarations!.Append(new CSharpSemanticDeclaration(
+                "fixture.csproj", "src/Audit.cs", 1, extraCaller)).ToArray(),
+            ImpactGraphCalls = semantic.ImpactGraphCalls!.Append(new CSharpResolvedCall(
+                "fixture.csproj", "src/Audit.cs", 7, "core.Save", extraCaller, target.Symbol,
+                "src/Core.cs", 1, "method", target.Symbol)).ToArray()
+        };
+
+        var result = CallTreeDiagramAnalyzer.Analyze(semantic, "src/Core.cs", target.Symbol, 5, 1);
+
+        Assert.False(result.IsComplete);
+        Assert.Equal(1, result.OmittedRelationshipCount);
+        Assert.Contains(result.Limitations, issue => issue.Contains("omitted 1 relationship", StringComparison.Ordinal));
+        Assert.Contains(result.Document.Nodes, node => node.Label.StartsWith("Analysis is partial", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Analyze_TracesMethodImpactThroughLocalDelegateAndLambdaCaller()
     {
         var trees = new[]

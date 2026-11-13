@@ -41,11 +41,16 @@ jobs:
         run: dotnet build BrownPants.sln --configuration Release --no-restore
 
       - name: Run xUnit tests
-        run: dotnet test BrownPants.sln --configuration Release --no-build
+        shell: pwsh
+        run: ./scripts/test.ps1 -NoBuild
 
       - name: Check acceptance-criteria hash workflow
         shell: pwsh
         run: ./tests/AcceptanceCriteriaHashTests.ps1
+
+      - name: Check generated test output cleanup
+        shell: pwsh
+        run: ./tests/TestRunArtifactsTests.ps1
 
       - name: Check acceptance integrity workflow contract
         shell: pwsh
@@ -204,7 +209,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Packed tool PNG rendering failed with exit code $LASTEXITCODE." }
           $pngBytes = [System.IO.File]::ReadAllBytes((Join-Path (Get-Location) 'TestResults/packed-smoke.png'))
           if ($pngBytes.Length -lt 8 -or (($pngBytes[0..7] -join ',') -ne '137,80,78,71,13,10,26,10')) { throw 'Packed tool did not produce a PNG signature.' }
-          & $tool diagram . TestResults/packed-smoke-flow.md --output TestResults/packed-smoke.drawio --format drawio
+          & $tool diagram . TestResults/packed-smoke-flow.md --output TestResults/packed-smoke.drawio --format drawio --overwrite
           if ($LASTEXITCODE -ne 0) { throw "Packed tool draw.io rendering failed with exit code $LASTEXITCODE." }
           $diagramXml = [xml][System.IO.File]::ReadAllText((Join-Path (Get-Location) 'TestResults/packed-smoke.drawio'))
           if ($diagramXml.SelectNodes('//mxCell[@vertex="1"]').Count -ne 2 -or $diagramXml.SelectNodes('//mxCell[@edge="1"]').Count -ne 1) { throw 'Packed tool draw.io output does not contain the expected nodes and edge.' }

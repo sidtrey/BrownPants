@@ -5,6 +5,17 @@
 *.suo
 .vs/
 .idea/
-TestResults/
+# Generated test, coverage, and review output
+**/TestResults/
+**/test-results/
+**/testresults/
+**/coverage/
+*.trx
+*.coverage
+*.coveragexml
 /artifacts/
 /.tools/
+
+# Local Spec Kit and MCP caches/logs
+/.specify/extensions/.cache/
+/.Buaidh/
