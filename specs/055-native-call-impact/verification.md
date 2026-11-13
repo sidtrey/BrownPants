@@ -26,3 +26,10 @@ Ran the Release CLI against the repository root with `examples/brownfield-bug-la
 ## Evidence limits
 
 Native findings are lexical candidates from recognized MFC message maps and explicitly qualified calls. They do not establish macro expansion, active preprocessor branches, overload binding, runtime dispatch, or a C++/CLI-to-C# call edge. Mixed requests can still report managed MSBuild workspace gaps separately.
+
+## Convergence: source offsets after line comments
+
+- **External repository**: Microsoft [VCSamples](https://github.com/microsoft/VCSamples), archived repository, checkout commit `9e1d4475555b76a17a3568369867f1d7b6cc6126` with a sparse MFC/VC2017 checkout. BrownPants discovered 4,078 files and 128 native projects in the selected directories.
+- **Observed defect**: `VC2010Samples/MFC/general/viewex/maindoc.cpp` maps `IDM_CHANGEDATA` at line 29 to `CMainDoc::OnChangeData`, defined at line 64. Before the fix, `impact` and focused `evidence` reported the target at line 22 because trailing `//` comments were removed without preserving their character offsets.
+- **Fix and result**: Comment removal now replaces the trailing comment with equal-length whitespace. The regression asserts the message-map source at line 4, handler at line 8, and qualified call/target at lines 11/14 in a compact fixture. On VCSamples, source and packed Release CLI both report message-map line 29 and handler target line 64; impact is complete with one MFC candidate for the changed file.
+- **Verification**: `dotnet test BrownPants.sln -c Release --no-restore` — 389 passed. `dotnet pack` and local installation of BrownPants.Cli 0.4.0 succeeded; the packed MFC impact check returned the same line 64. Frozen acceptance criteria remain unchanged.

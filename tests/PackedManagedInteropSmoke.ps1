@@ -7,9 +7,34 @@ try {
     $managed = Join-Path $root 'managed'
     $native = Join-Path $root 'legacy/Native'
     $bridge = Join-Path $root 'legacy/Bridge'
+    $interopConsumer = Join-Path $root 'legacy/ManagedConsumer'
+    $interopBridge = Join-Path $root 'legacy/ManagedBridge'
     New-Item -ItemType Directory -Path $managed -Force | Out-Null
     New-Item -ItemType Directory -Path $native -Force | Out-Null
     New-Item -ItemType Directory -Path $bridge -Force | Out-Null
+    New-Item -ItemType Directory -Path $interopConsumer -Force | Out-Null
+    New-Item -ItemType Directory -Path $interopBridge -Force | Out-Null
+    @'
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup><Reference Include="SampleBridge"><HintPath>..\ManagedBridge\SampleBridge.dll</HintPath></Reference></ItemGroup>
+</Project>
+'@ | Set-Content -LiteralPath (Join-Path $interopConsumer 'Consumer.csproj') -Encoding utf8
+    @'
+public class Consumer
+{
+    public void Run()
+    {
+        SampleBridge.Tools tools = new SampleBridge.Tools();
+        tools.CallNative();
+    }
+}
+'@ | Set-Content -LiteralPath (Join-Path $interopConsumer 'Consumer.cs') -Encoding utf8
+    '<Project><PropertyGroup><CLRSupport>true</CLRSupport><TargetName>SampleBridge</TargetName></PropertyGroup></Project>' |
+        Set-Content -LiteralPath (Join-Path $interopBridge 'SampleBridge.vcxproj') -Encoding utf8
+    @'
+namespace Native { void Run(); } void Native::Run() { }
+namespace SampleBridge { public ref class Tools { public: void CallNative() { Native::Run(); } }; }
+'@ | Set-Content -LiteralPath (Join-Path $interopBridge 'SampleBridge.cpp') -Encoding utf8
     @'
 namespace Demo.App;
 public class Workflow
@@ -74,6 +99,26 @@ public:
     }
     if ($relations | Where-Object { $_.TargetSymbol -match 'NativeOnly|Fake' }) {
         throw 'Packed inspect treated wrong-type, comment, or string decoys as managed calls.'
+    }
+
+    $interopInventory = & $ToolPath inspect $root --format json --limit 100 | ConvertFrom-Json
+    if ($LASTEXITCODE -ne 0) { throw "Packed C#-first interop inspection failed with exit code $LASTEXITCODE." }
+    $consumerCall = @($interopInventory.ArchitecturePatterns.NativeFlow.Relations | Where-Object { $_.Kind -eq 'csharp-cppcli-call' })
+    if ($consumerCall.Count -ne 1 -or $consumerCall[0].Status -ne 'candidate' -or $consumerCall[0].TargetPath -ne 'legacy/ManagedBridge/SampleBridge.cpp') {
+        throw 'Packed inspect did not follow the legacy C# reference into the C++/CLI wrapper.'
+    }
+    if (-not ($interopInventory.ArchitecturePatterns.NativeFlow.Relations | Where-Object { $_.Kind -eq 'qualified-native-call' -and $_.TargetSymbol -eq 'Native::Run' })) {
+        throw 'Packed inspect omitted the qualified native call from the C++/CLI wrapper.'
+    }
+    $interopEvidence = & $ToolPath evidence $root --changed legacy/ManagedConsumer/Consumer.cs --format json --limit 100 | ConvertFrom-Json
+    if ($LASTEXITCODE -ne 0) { throw "Packed C#-first focused evidence failed with exit code $LASTEXITCODE." }
+    if (-not ($interopEvidence.findings | Where-Object { $_.relationKind -eq 'csharp-cppcli-call' -and $_.matchedBy -contains 'changed-path:legacy/ManagedConsumer/Consumer.cs:native-caller-impact' })) {
+        throw 'Packed focused evidence omitted the changed C# consumer candidate.'
+    }
+    $interopImpact = & $ToolPath impact $root --changed legacy/ManagedConsumer/Consumer.cs --format json --limit 100 | ConvertFrom-Json
+    if ($LASTEXITCODE -ne 0) { throw "Packed C#-first changed impact failed with exit code $LASTEXITCODE." }
+    if (-not ($interopImpact.NativeImpacts | Where-Object { $_.RelationshipKind -eq 'qualified-native-call' -and $_.Depth -eq 2 })) {
+        throw 'Packed changed-consumer impact omitted the native call behind the wrapper.'
     }
 
     $impact = & $ToolPath impact $root --changed managed/Workflow.cs --format json --limit 100 | ConvertFrom-Json

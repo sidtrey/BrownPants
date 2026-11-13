@@ -1059,7 +1059,10 @@ public static class ArchitecturePatternAnalyzer
                 }
             }
             if (current == '/' && next == '/')
+            {
+                result.Append(' ', line.Length - index);
                 break;
+            }
             if (current == '/' && next == '*')
             {
                 inBlockComment = true;

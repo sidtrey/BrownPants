@@ -40,6 +40,83 @@ public sealed class EvidenceCommandTests : IDisposable
     }
 
     [Fact]
+    public void Evidence_ReportsCSharpFirstCppCliPathAndSelectsItForChangedConsumer()
+    {
+        Write("consumer/LegacyConsumer.csproj", """
+            <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+              <ItemGroup><Reference Include="StlClrLibrary, Version=1.0.0.0">
+                <HintPath>..\Bridge\debug\StlClrLibrary.dll</HintPath>
+              </Reference></ItemGroup>
+            </Project>
+            """);
+        Write("consumer/LegacyConsumer.cs", """
+            namespace StlClr_Sample
+            {
+                public sealed class LegacyConsumer
+                {
+                    public void Sort()
+                    {
+                        StlClrLibrary.Tools tools = new StlClrLibrary.Tools();
+                        tools.BubbleSortNative();
+                    }
+                }
+            }
+            """);
+        Write("Bridge/StlClrLibrary.vcxproj", "<Project><PropertyGroup><CLRSupport>true</CLRSupport><TargetName>StlClrLibrary</TargetName></PropertyGroup></Project>");
+        Write("Bridge/StlClrLibrary.cpp", """
+            namespace Native { void BubbleSort(); } void Native::BubbleSort() {}
+            namespace StlClrLibrary
+            {
+                public ref class Tools
+                {
+                public:
+                    void BubbleSortNative()
+                    {
+                        Native::BubbleSort();
+                    }
+                };
+            }
+            """);
+
+        var full = Run("evidence", _root, "--limit", "100");
+        var focused = Run("evidence", _root, "--changed", "consumer/LegacyConsumer.cs", "--limit", "100");
+        var markdown = Run("inspect", _root);
+
+        Assert.Equal(0, full.ExitCode);
+        Assert.Equal(0, focused.ExitCode);
+        Assert.Equal(0, markdown.ExitCode);
+        using var fullJson = JsonDocument.Parse(full.Output);
+        var findings = fullJson.RootElement.GetProperty("findings").EnumerateArray().ToArray();
+        var consumer = Assert.Single(findings, item => item.TryGetProperty("relationKind", out var kind)
+            && kind.GetString() == "csharp-cppcli-call");
+        Assert.Equal("candidate", consumer.GetProperty("status").GetString());
+        Assert.Equal("consumer/LegacyConsumer.cs", consumer.GetProperty("path").GetString());
+        Assert.Equal("Bridge/StlClrLibrary.cpp", consumer.GetProperty("targetPath").GetString());
+        Assert.Contains(findings, item => item.TryGetProperty("relationKind", out var kind)
+            && kind.GetString() == "qualified-native-call"
+            && item.GetProperty("sourceSymbol").GetString() == "StlClrLibrary::Tools::BubbleSortNative");
+
+        using var focusedJson = JsonDocument.Parse(focused.Output);
+        var focus = focusedJson.RootElement.GetProperty("focus");
+        Assert.False(focus.GetProperty("impactComplete").GetBoolean());
+        Assert.Contains(focus.GetProperty("impactIssues").EnumerateArray(), item =>
+            item.GetString()!.Contains("pass --semantic", StringComparison.Ordinal));
+        var focusedConsumer = Assert.Single(focusedJson.RootElement.GetProperty("findings").EnumerateArray(), item =>
+            item.TryGetProperty("relationKind", out var kind) && kind.GetString() == "csharp-cppcli-call");
+        Assert.Contains(focusedConsumer.GetProperty("matchedBy").EnumerateArray(), item =>
+            item.GetString()!.EndsWith(":native-caller-impact", StringComparison.Ordinal));
+        Assert.True(focusedJson.RootElement.GetProperty("findings").EnumerateArray().Any(item =>
+            item.TryGetProperty("relationKind", out var kind) && kind.GetString() == "qualified-native-call"
+            && item.GetProperty("matchedBy").EnumerateArray().Any(reason =>
+                reason.GetString()!.EndsWith(":native-caller-impact", StringComparison.Ordinal))), focused.Output);
+
+        Assert.Contains("Assembly Reference: `StlClrLibrary", markdown.Output, StringComparison.Ordinal);
+        Assert.Contains("HintPath: `..\\Bridge\\debug\\StlClrLibrary.dll`", markdown.Output, StringComparison.Ordinal);
+        Assert.Contains("csharp-cppcli-call [candidate]", markdown.Output, StringComparison.Ordinal);
+        Assert.Contains("C#-to-C++/CLI relationships are source/reference candidates", markdown.Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Evidence_RepeatedCandidateGroupsPreserveRawFindings()
     {
         Write("src/SessionA.cs", """
@@ -193,6 +270,61 @@ public sealed class EvidenceCommandTests : IDisposable
         Assert.Equal("tests/OrderImportTests.cs", test.GetProperty("path").GetString());
         Assert.Contains(test.GetProperty("matchedBy").EnumerateArray(), reason =>
             reason.GetString()!.EndsWith(":content-file", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Evidence_FocusIncludesBoundedClueLocationsWhenNoFindingsMatch()
+    {
+        for (var index = 0; index < 12; index++)
+            Write($"docs/lead-{index:D2}.txt", "UniqueContextMarker");
+        Write("config/UniqueContextMarker.json", "{}");
+
+        var result = Run("evidence", _root, "--clue", "UniqueContextMarker", "--limit", "2");
+
+        Assert.Equal(0, result.ExitCode);
+        using var json = JsonDocument.Parse(result.Output);
+        var report = json.RootElement;
+        Assert.Empty(report.GetProperty("findings").EnumerateArray());
+        var clue = Assert.Single(report.GetProperty("focus").GetProperty("clues").EnumerateArray());
+        Assert.Equal(13, clue.GetProperty("matchCount").GetInt32());
+        Assert.Equal(0, clue.GetProperty("findingCount").GetInt32());
+        Assert.Equal(11, clue.GetProperty("omittedMatchCount").GetInt32());
+        var matches = clue.GetProperty("matches").EnumerateArray().ToArray();
+        Assert.Equal(2, matches.Length);
+        Assert.Equal("Path", matches[0].GetProperty("kind").GetString());
+        Assert.Equal("config/UniqueContextMarker.json", matches[0].GetProperty("path").GetString());
+        Assert.Equal("Content", matches[1].GetProperty("kind").GetString());
+        Assert.Equal("docs/lead-00.txt", matches[1].GetProperty("path").GetString());
+        Assert.False(matches[0].GetProperty("isTestCandidate").GetBoolean());
+        Assert.False(report.GetProperty("focus").GetProperty("clueMatchesTruncated").GetBoolean());
+
+        var repeated = Run("evidence", _root, "--clue", "UniqueContextMarker", "--limit", "1000");
+        Assert.Equal(0, repeated.ExitCode);
+        var repeatedSmall = Run("evidence", _root, "--clue", "UniqueContextMarker", "--limit", "2");
+        Assert.Equal(0, repeatedSmall.ExitCode);
+        Assert.Equal(result.Output, repeatedSmall.Output);
+        using var cappedJson = JsonDocument.Parse(repeated.Output);
+        var cappedClue = Assert.Single(cappedJson.RootElement.GetProperty("focus").GetProperty("clues").EnumerateArray());
+        Assert.Equal(10, cappedClue.GetProperty("matches").GetArrayLength());
+        Assert.Equal(3, cappedClue.GetProperty("omittedMatchCount").GetInt32());
+    }
+
+    [Fact]
+    public void Evidence_FocusedClueReportsBoundedReadIssueCodes()
+    {
+        Write("src/OrderFactory.cs", "namespace Sample; public class OrderFactory { }");
+        var binaryPath = Path.Combine(_root, "docs", "diagram.png");
+        Directory.CreateDirectory(Path.GetDirectoryName(binaryPath)!);
+        File.WriteAllBytes(binaryPath, [0x89, 0x50, 0x4e, 0x47, 0x00, 0x01]);
+
+        var result = Run("evidence", _root, "--clue", "OrderFactory", "--limit", "1000");
+
+        Assert.Equal(0, result.ExitCode);
+        using var json = JsonDocument.Parse(result.Output);
+        var limitations = json.RootElement.GetProperty("limitations").EnumerateArray()
+            .Select(item => item.GetString()!).ToArray();
+        Assert.Contains(limitations, item => item.Contains("BinaryFileSkipped", StringComparison.Ordinal));
+        Assert.Contains(limitations, item => item.Contains("1 file(s)", StringComparison.Ordinal));
     }
 
     [Fact]

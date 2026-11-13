@@ -72,7 +72,13 @@ public sealed record EvidenceFocusSummary(
     int EmittedFindingCount,
     int OmittedFindingCount);
 
-public sealed record EvidenceClueFocus(string Clue, int MatchCount, int FindingCount, bool Matched);
+public sealed record EvidenceClueFocus(
+    string Clue,
+    int MatchCount,
+    int FindingCount,
+    bool Matched,
+    IReadOnlyList<InvestigationMatch> Matches,
+    int OmittedMatchCount);
 
 public sealed record EvidenceChangedPathFocus(
     string Path,
@@ -115,6 +121,7 @@ public static class EvidenceReportAnalyzer
                 {
                     "mfc-dispatch" => "MFC message dispatch",
                     "cppcli-managed-call" => "C++/CLI managed method call",
+                    "csharp-cppcli-call" => "C# C++/CLI consumer call",
                     _ => "Qualified native call"
                 };
                 findings.Add(CreateFinding("native-flow-candidate", relation.Status, signal,
