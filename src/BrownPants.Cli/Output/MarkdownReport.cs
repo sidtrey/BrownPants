@@ -43,10 +43,27 @@ public static class MarkdownReport
         AppendVisualBasicAnalysis(report, inventory.VisualBasic);
         AppendArchitecturePatterns(report, inventory.ArchitecturePatterns);
         AppendJavaScriptTypeScript(report, inventory.JavaScriptTypeScript);
+        AppendImplementationPlaceholders(report, inventory.ImplementationPlaceholders);
         report.AppendLine("## Evidence limits");
         report.AppendLine();
         report.AppendLine("Default Roslyn analysis provides syntax-level evidence without evaluating MSBuild conditions, imports, or project preprocessor symbols. Semantic mode loads projects separately when requested. Neither parse diagnostics nor unresolved symbols alone prove that a project fails to build. Review source, project files, and workspace issues before planning changes.");
         return report.ToString().TrimEnd();
+    }
+
+    private static void AppendImplementationPlaceholders(StringBuilder report, ImplementationPlaceholderAnalysis analysis)
+    {
+        report.AppendLine("## No-op implementation candidates");
+        report.AppendLine();
+        report.AppendLine($"- C# source files scanned: {analysis.SourceFilesScanned}; bytes read: {analysis.BytesScanned}; files skipped by read limits or access errors: {analysis.FilesSkipped}.");
+        report.AppendLine($"- Candidate methods: {analysis.CandidateCount}; omitted by the sample limit: {analysis.OmittedCandidateCount}.");
+        report.AppendLine("- Syntax-only candidates may be intentional behavior. Review the implementation, callers, tests, and requirements before treating one as a defect.");
+        foreach (var candidate in analysis.Candidates)
+        {
+            report.AppendLine($"- {Escape(candidate.Kind)} [{Escape(candidate.Scope)}] `{Escape(candidate.Path)}:{candidate.Line}` `{Escape(candidate.ContainingType)}.{Escape(candidate.Signature)}` — `{Escape(candidate.Evidence)}`");
+        }
+        if (analysis.CandidateCount == 0)
+            report.AppendLine("No matching no-op implementation candidates found in scanned C# files.");
+        report.AppendLine();
     }
 
     private static void AppendProjectSystems(StringBuilder report, IReadOnlyList<ProjectSystemInfo> systems)

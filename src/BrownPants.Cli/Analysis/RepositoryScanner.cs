@@ -125,7 +125,8 @@ public static class RepositoryScanner
             nativeProjects,
             dotNetProjects)
         {
-            JavaScriptTypeScript = JavaScriptTypeScriptAnalyzer.Analyze(root, files, sampleLimit)
+            JavaScriptTypeScript = JavaScriptTypeScriptAnalyzer.Analyze(root, files, sampleLimit),
+            ImplementationPlaceholders = CSharpImplementationPlaceholderAnalyzer.Analyze(root, files, sampleLimit)
         };
     }
 

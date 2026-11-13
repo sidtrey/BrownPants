@@ -26,7 +26,27 @@ public sealed record RepositoryInventory(
         Array.Empty<JavaScriptTypeScriptDeclaration>(), Array.Empty<JavaScriptTypeScriptModuleRelationship>(),
         Array.Empty<JavaScriptTypeScriptCallRelationship>(), 0, 0, 0, 0, 0,
         Array.Empty<JavaScriptTypeScriptIssue>(), Array.Empty<string>());
+
+    public ImplementationPlaceholderAnalysis ImplementationPlaceholders { get; init; } =
+        new(0, 0, 0, 0, 0, Array.Empty<ImplementationPlaceholderCandidate>());
 }
+
+public sealed record ImplementationPlaceholderAnalysis(
+    int SourceFilesScanned,
+    long BytesScanned,
+    int CandidateCount,
+    int OmittedCandidateCount,
+    int FilesSkipped,
+    IReadOnlyList<ImplementationPlaceholderCandidate> Candidates);
+
+public sealed record ImplementationPlaceholderCandidate(
+    string Path,
+    int Line,
+    string Scope,
+    string ContainingType,
+    string Signature,
+    string Kind,
+    string Evidence);
 
 public sealed record InvestigationReport(
     string Root,
