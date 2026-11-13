@@ -17,7 +17,7 @@ namespace BrownPants.Cli.Analysis;
 public static class CSharpSemanticAnalyzer
 {
     private const int ImpactGraphEdgeLimit = 100_000;
-    private static readonly object MsBuildLocatorGate = new();
+    private static readonly object MSBuildLocatorGate = new();
 
     public static CSharpSemanticAnalysis AnalyzeRepository(string root, IReadOnlyList<string> projectPaths,
         IReadOnlyList<string> solutionPaths, int sampleLimit, string? controlFlowSourcePath = null,
@@ -40,7 +40,9 @@ public static class CSharpSemanticAnalyzer
 
         try
         {
-            lock (MsBuildLocatorGate)
+            // MSBuildLocator is process-global. Semantic scans can start concurrently
+            // (for example from parallel test cases), so guard its one-time registration.
+            lock (MSBuildLocatorGate)
             {
                 if (!MSBuildLocator.IsRegistered)
                     MSBuildLocator.RegisterDefaults();

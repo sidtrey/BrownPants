@@ -42,6 +42,7 @@ public static class MarkdownReport
         AppendCSharpAnalysis(report, inventory.CSharp);
         AppendVisualBasicAnalysis(report, inventory.VisualBasic);
         AppendArchitecturePatterns(report, inventory.ArchitecturePatterns);
+        AppendJavaScriptTypeScript(report, inventory.JavaScriptTypeScript);
         report.AppendLine("## Evidence limits");
         report.AppendLine();
         report.AppendLine("Default Roslyn analysis provides syntax-level evidence without evaluating MSBuild conditions, imports, or project preprocessor symbols. Semantic mode loads projects separately when requested. Neither parse diagnostics nor unresolved symbols alone prove that a project fails to build. Review source, project files, and workspace issues before planning changes.");
@@ -364,6 +365,42 @@ public static class MarkdownReport
             else if (nativeFlow.OmittedCount > 0)
                 report.AppendLine($"- {nativeFlow.OmittedCount} additional native flow relations omitted by the sample limit.");
         }
+        report.AppendLine();
+    }
+
+    private static void AppendJavaScriptTypeScript(StringBuilder report, JavaScriptTypeScriptAnalysis analysis)
+    {
+        report.AppendLine("## JavaScript and TypeScript source evidence");
+        report.AppendLine();
+        report.AppendLine($"- Analysis level: {Escape(analysis.EvidenceLevel)}");
+        report.AppendLine($"- Source files scanned: {analysis.ScannedFileCount}; declarations: {analysis.DeclarationCount}; module relationships: {analysis.ModuleRelationshipCount}; call relationships: {analysis.CallRelationshipCount}");
+        foreach (var limit in analysis.EvidenceLimits) report.AppendLine($"- Evidence limit: {Escape(limit)}");
+        report.AppendLine();
+        report.AppendLine("### Declarations");
+        report.AppendLine();
+        foreach (var item in analysis.Declarations)
+            report.AppendLine($"- {Escape(item.Kind)} `{Escape(item.Name)}` ({item.Language}): `{Escape(item.Path)}:{item.Line}:{item.Column}`" + (item.Container is null ? string.Empty : $" in `{Escape(item.Container)}`"));
+        if (analysis.DeclarationCount == 0) report.AppendLine("No supported declarations found.");
+        if (analysis.OmittedDeclarationCount > 0) report.AppendLine($"- {analysis.OmittedDeclarationCount} declarations omitted by the sample limit.");
+        report.AppendLine();
+        report.AppendLine("### Module relationships");
+        report.AppendLine();
+        foreach (var item in analysis.ModuleRelationships)
+            report.AppendLine($"- {Escape(item.Kind)} [{item.Status}] `{Escape(item.SourcePath)}:{item.SourceLine}:{item.SourceColumn}` `{Escape(item.Specifier)}`" + (item.TargetPath is null ? $" ({Escape(item.Reason ?? "no target")})" : $" → `{Escape(item.TargetPath)}`")
+                + (item.CandidateTargetPaths.Count == 0 ? string.Empty : $"; candidates: {string.Join(", ", item.CandidateTargetPaths.Select(path => $"`{Escape(path)}`"))}"));
+        if (analysis.ModuleRelationshipCount == 0) report.AppendLine("No supported module relationships found.");
+        if (analysis.OmittedModuleRelationshipCount > 0) report.AppendLine($"- {analysis.OmittedModuleRelationshipCount} module relationships omitted by the sample limit.");
+        report.AppendLine();
+        report.AppendLine("### Call relationships");
+        report.AppendLine();
+        foreach (var item in analysis.CallRelationships)
+            report.AppendLine($"- {Escape(item.Expression)} [{item.Status}] `{Escape(item.SourcePath)}:{item.SourceLine}:{item.SourceColumn}` from `{Escape(item.Caller)}`" + (item.TargetPath is null ? $" ({Escape(item.Reason ?? "no target")})" : $" → `{Escape(item.TargetPath)}:{item.TargetLine}` `{Escape(item.TargetName ?? item.Expression)}`")
+                + (item.CandidateTargets.Count == 0 ? string.Empty : $"; candidates: {string.Join(", ", item.CandidateTargets.Select(Escape))}"));
+        if (analysis.CallRelationshipCount == 0) report.AppendLine("No supported call relationships found.");
+        if (analysis.OmittedCallRelationshipCount > 0) report.AppendLine($"- {analysis.OmittedCallRelationshipCount} call relationships omitted by the sample limit.");
+        foreach (var issue in analysis.Issues)
+            report.AppendLine($"- Analysis issue `{Escape(issue.Path)}`: {Escape(issue.Code)}");
+        if (analysis.OmittedIssueCount > 0) report.AppendLine($"- {analysis.OmittedIssueCount} analysis issues omitted by the sample limit.");
         report.AppendLine();
     }
 

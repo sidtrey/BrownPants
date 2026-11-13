@@ -11,7 +11,7 @@ public static class RepositoryScanner
     private static readonly HashSet<string> IgnoredDirectories = new(StringComparer.OrdinalIgnoreCase)
     {
         ".git", ".hg", ".svn", ".vs", ".idea", "bin", "obj", "TestResults", "test-results", "testresults", "node_modules",
-        "packages", "coverage", "dist", "target", "artifacts", ".tools", "venv", ".venv", ".tox", "__pycache__",
+        "coverage", "dist", "target", "artifacts", ".tools", "venv", ".venv", ".tox", "__pycache__",
         ".gradle", ".next", ".nuxt", ".terraform", ".dart_tool", ".build", "Pods", "__pypackages__",
         ".pytest_cache", ".mypy_cache", ".ruff_cache", ".cache", "bower_components", "jspm_packages",
         ".angular", ".svelte-kit", ".vite", ".turbo", ".vercel"
@@ -92,7 +92,10 @@ public static class RepositoryScanner
             visualBasic,
             architecturePatterns,
             nativeProjects,
-            dotNetProjects);
+            dotNetProjects)
+        {
+            JavaScriptTypeScript = JavaScriptTypeScriptAnalyzer.Analyze(root, files, sampleLimit)
+        };
     }
 
     public static IReadOnlyList<string> DiscoverFiles(string path)
@@ -113,7 +116,7 @@ public static class RepositoryScanner
                 if ((attributes & FileAttributes.Directory) != 0)
                 {
                     var name = Path.GetFileName(entry);
-                    if (!IgnoredDirectories.Contains(name) && (attributes & FileAttributes.ReparsePoint) == 0)
+                    if (!ShouldIgnoreDirectory(root, entry, name) && (attributes & FileAttributes.ReparsePoint) == 0)
                         pending.Push(entry);
                 }
                 else if ((attributes & FileAttributes.ReparsePoint) == 0)
@@ -125,6 +128,74 @@ public static class RepositoryScanner
 
         files.Sort(StablePathComparer);
         return files;
+    }
+
+    private static bool ShouldIgnoreDirectory(string root, string directory, string name)
+    {
+        if (!name.Equals("packages", StringComparison.OrdinalIgnoreCase))
+            return IgnoredDirectories.Contains(name);
+
+        var relativeDirectory = Path.GetRelativePath(root, directory).Replace('\\', '/');
+        return !ReadWorkspacePatterns(root).Any(pattern => WorkspacePatternCouldContainDirectory(pattern, relativeDirectory));
+    }
+
+    private static IReadOnlyList<string> ReadWorkspacePatterns(string root)
+    {
+        var patterns = new List<string>();
+        var packageJson = Path.Combine(root, "package.json");
+        if (File.Exists(packageJson))
+        {
+            try
+            {
+                var info = new FileInfo(packageJson);
+                if (info.Length <= 1024 * 1024)
+                {
+                    using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(packageJson),
+                        new System.Text.Json.JsonDocumentOptions { MaxDepth = 64 });
+                    if (document.RootElement.TryGetProperty("workspaces", out var workspaces))
+                    {
+                        var entries = workspaces.ValueKind == System.Text.Json.JsonValueKind.Array ? workspaces :
+                            workspaces.ValueKind == System.Text.Json.JsonValueKind.Object
+                            && workspaces.TryGetProperty("packages", out var nested) ? nested : default;
+                        if (entries.ValueKind == System.Text.Json.JsonValueKind.Array)
+                            patterns.AddRange(entries.EnumerateArray().Where(item => item.ValueKind == System.Text.Json.JsonValueKind.String)
+                                .Select(item => item.GetString()!));
+                    }
+                }
+            }
+            catch (System.Text.Json.JsonException) { }
+        }
+
+        var pnpmWorkspace = Path.Combine(root, "pnpm-workspace.yaml");
+        if (File.Exists(pnpmWorkspace))
+        {
+            try
+            {
+                if (new FileInfo(pnpmWorkspace).Length <= 1024 * 1024)
+                    foreach (var line in File.ReadLines(pnpmWorkspace))
+                    {
+                        var pattern = line.Trim().Trim('-', ' ', '\'', '"');
+                        if (pattern.Length > 0 && !pattern.EndsWith(':')) patterns.Add(pattern);
+                    }
+            }
+            catch (IOException) { }
+        }
+        return patterns;
+    }
+
+    private static bool WorkspacePatternCouldContainDirectory(string pattern, string directory)
+    {
+        if (pattern.StartsWith('!')) return false;
+        var patternParts = pattern.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var directoryParts = directory.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var index = 0;
+        while (index < patternParts.Length && index < directoryParts.Length)
+        {
+            if (patternParts[index] == "**") return true;
+            if (patternParts[index] != "*" && !patternParts[index].Equals(directoryParts[index], StringComparison.OrdinalIgnoreCase)) return false;
+            index++;
+        }
+        return index == directoryParts.Length;
     }
 
     internal static bool IsTestPath(string file)

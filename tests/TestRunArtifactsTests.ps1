@@ -81,9 +81,6 @@ try {
     $qaScript = Join-Path (Split-Path -Parent $PSScriptRoot) 'scripts/qa-chart-engine.ps1'
     & pwsh -NoProfile -File $qaScript -RepositoryRoot $failedQaRoot 2>&1 | Out-Null
     Assert ($LASTEXITCODE -ne 0) 'QA failure fixture unexpectedly succeeded.'
-    # The expected non-zero child-process exit code must not become this test
-    # script's exit code on runners that propagate the final native status.
-    $global:LASTEXITCODE = 0
     $failedQaRunsRoot = Get-BrownPantsRunRoot $failedQaRoot
     $failedQaRun = Get-ChildItem -LiteralPath $failedQaRunsRoot -Directory | Select-Object -First 1
     Assert ($null -ne $failedQaRun) 'Failed QA did not keep its run directory.'
@@ -91,6 +88,9 @@ try {
     Assert ($failedQaManifest.state -eq 'failed') 'Failed QA run was not marked failed.'
     Invoke-BrownPantsRunCleanup -RepositoryRoot $failedQaRoot -Apply | Out-Null
     Assert (Test-Path -LiteralPath $failedQaRun.FullName) 'Cleanup removed a failed QA run.'
+    # The expected failing child process leaves its exit code in this PowerShell
+    # process. Clear it so the successful test script itself exits successfully.
+    $global:LASTEXITCODE = 0
     Write-Output 'Test run artifact cleanup checks passed.'
 } finally {
     if (Test-Path -LiteralPath $root) { Remove-Item -LiteralPath $root -Recurse -Force }
