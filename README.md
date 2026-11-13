@@ -41,6 +41,15 @@ For example, someone asks: “Retry failed orders.” Before writing a spec, the
 
 BrownPants is built for existing systems: its .NET 10 host can inspect legacy .NET Framework 4.x C# and Visual Basic with Roslyn without building those projects. It also inventories C/C++, MFC, and C++/CLI markers and candidate evidence for factories, dependency injection, interop, and framework patterns. When compiler context is available, semantic mode resolves managed calls and explicit constructor use, including target-typed and generic construction. Findings state their evidence level and analysis limits.
 
+For a C# call into an older C++/CLI library, `evidence` can follow a local `Reference`/`HintPath` or project reference to a matching wrapper declaration, then show supported qualified native calls. Try it on the source-only regression fixture:
+
+```powershell
+dotnet run --project src/BrownPants.Cli -- evidence examples/brownfield-bug-lab `
+  --changed legacy/ManagedConsumer/LegacyConsumer.cs --format json --limit 1000
+```
+
+These are source/reference candidates. The scan does not build the library, resolve compiler overloads, load its DLL, or establish runtime behavior; see the [fixture notes](examples/brownfield-bug-lab/legacy/ManagedConsumer/README.md).
+
 In short, SDD records **what the team intends to change and how it will know the work is done**. BrownPants helps establish **what the existing system contains and what a change may affect**. It adds context to SDD tools without replacing their specs, plans, or human decisions.
 
 New to either tool? Follow the [BrownPants + Spec Kit field guide](docs/brownpants-speckit-field-guide.md) for a worked example, manual commands, LLM prompt, lifecycle, and file/branch guidance.

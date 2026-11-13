@@ -67,6 +67,37 @@ public static class RepositoryScanner
         var managedMethodIndex = csharp.ManagedMethodIndex.Concat(visualBasic.ManagedMethodIndex).ToArray();
         var architecturePatterns = ArchitecturePatternAnalyzer.Analyze(root, files, sampleLimit,
             managedMethodIndex, csharp.ManagedMethodIndexTruncated || visualBasic.ManagedMethodIndexTruncated);
+        var nativeFlow = architecturePatterns.NativeFlow;
+        if (nativeFlow is not null)
+        {
+            var consumerRelations = ManagedNativeConsumerAnalyzer.Analyze(root, dotNetProjects, nativeProjects,
+                csharp.ManagedConsumerCalls);
+            var relationCount = nativeFlow.RelationCount + consumerRelations.Count;
+            var combinedRelations = nativeFlow.Relations.Concat(consumerRelations)
+                .DistinctBy(relation => relation.Id, StringComparer.Ordinal)
+                .OrderBy(relation => relation.SourcePath, RepositoryPathComparer.Instance)
+                .ThenBy(relation => relation.SourceLine)
+                .ThenBy(relation => relation.Kind, StringComparer.Ordinal)
+                .ThenBy(relation => relation.TargetSymbol, StringComparer.Ordinal)
+                .ThenBy(relation => relation.Id, StringComparer.Ordinal)
+                .Take(sampleLimit).ToArray();
+            var evidenceLimits = nativeFlow.EvidenceLimits.ToList();
+            if (csharp.ManagedConsumerCallIndexTruncated)
+                evidenceLimits.Add("The managed consumer call index reached its bound; additional C# interop call sites may be missing.");
+            if (consumerRelations.Count > 0)
+                evidenceLimits.Add("C#-to-C++/CLI relationships are source/reference candidates; project conditions, binary builds, compiler binding, overload selection, and runtime loading are not resolved.");
+            nativeFlow = nativeFlow with
+            {
+                RelationCount = relationCount,
+                UnresolvedCount = nativeFlow.UnresolvedCount + consumerRelations.Count(item => item.Status == "unresolved"),
+                AmbiguousCount = nativeFlow.AmbiguousCount + consumerRelations.Count(item => item.Status == "ambiguous"),
+                OmittedCount = Math.Max(0, relationCount - combinedRelations.Length),
+                Relations = combinedRelations,
+                EvidenceLimits = evidenceLimits.Distinct(StringComparer.Ordinal).OrderBy(value => value, StringComparer.Ordinal).ToArray(),
+                ManagedConsumerCallIndexTruncated = csharp.ManagedConsumerCallIndexTruncated
+            };
+            architecturePatterns = architecturePatterns with { NativeFlow = nativeFlow };
+        }
         if (analyzeSemantics)
         {
             var semantic = CSharpSemanticAnalyzer.AnalyzeRepository(

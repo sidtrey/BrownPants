@@ -476,6 +476,31 @@ public sealed class CallImpactAnalyzerTests
     }
 
     [Fact]
+    public void Analyze_FollowsChangedCSharpConsumerOutwardThroughCppCliWrapperToNativeCall()
+    {
+        var semantic = new CSharpSemanticAnalysis(0, 0, 0, 0, Array.Empty<CSharpResolvedCall>(),
+            Array.Empty<CSharpUnresolvedCall>(), Array.Empty<string>());
+        var native = new NativeFlowAnalysis(2, 2, 0, 0, 0, new[]
+        {
+            new NativeFlowRelation("consumer", "csharp-cppcli-call", "candidate", "consumer/LegacyConsumer.cs", 8,
+                "LegacyConsumer.Sort", "Bridge/StlClrLibrary.cpp", 7, "StlClrLibrary::Tools::BubbleSortNative",
+                null, 1, "StlClrLibrary.Tools tools; tools.BubbleSortNative(...)"),
+            new NativeFlowRelation("native", "qualified-native-call", "candidate", "Bridge/StlClrLibrary.cpp", 9,
+                "StlClrLibrary::Tools::BubbleSortNative", "Bridge/StlClrLibrary.cpp", 1, "Native::BubbleSort",
+                null, 1, "Native::BubbleSort() inside C++/CLI wrapper candidate")
+        }, Array.Empty<string>());
+
+        var report = CallImpactAnalyzer.Analyze(".", new[] { "consumer/LegacyConsumer.cs" },
+            new[] { "consumer/LegacyConsumer.cs", "Bridge/StlClrLibrary.cpp" }, semantic, 100, native);
+
+        Assert.True(report.IsComplete, string.Join(Environment.NewLine, report.Issues));
+        Assert.Equal(new[] { "consumer", "native" }, report.NativeImpacts.Select(item => item.RelationshipId));
+        Assert.Equal(new[] { 1, 2 }, report.NativeImpacts.Select(item => item.Depth));
+        Assert.All(report.NativeImpacts, item => Assert.Equal("consumer/LegacyConsumer.cs", item.ChangedPath));
+        Assert.All(report.NativeImpacts, item => Assert.Equal("native-lexical", item.EvidenceKind));
+    }
+
+    [Fact]
     public void Analyze_ReportsDirectTransitiveAndTestPathCallers()
     {
         var semantic = CompileFixtureGraph();

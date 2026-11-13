@@ -121,6 +121,7 @@ public static class EvidenceReportAnalyzer
                 {
                     "mfc-dispatch" => "MFC message dispatch",
                     "cppcli-managed-call" => "C++/CLI managed method call",
+                    "csharp-cppcli-call" => "C# C++/CLI consumer call",
                     _ => "Qualified native call"
                 };
                 findings.Add(CreateFinding("native-flow-candidate", relation.Status, signal,

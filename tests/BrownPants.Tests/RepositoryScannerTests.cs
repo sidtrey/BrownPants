@@ -1104,6 +1104,121 @@ public sealed class RepositoryScannerTests : IDisposable
     }
 
     [Fact]
+    public void Scan_ConnectsLegacyCSharpHintPathToReferencedCppCliWrapperAndNativeCall()
+    {
+        Write("consumer/LegacyConsumer.csproj", """
+            <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+              <PropertyGroup><TargetFrameworkVersion>v4.0</TargetFrameworkVersion></PropertyGroup>
+              <ItemGroup>
+                <Reference Include="StlClrLibrary, Version=1.0.0.0, Culture=neutral, processorArchitecture=x86">
+                  <HintPath>..\Bridge\debug\StlClrLibrary.dll</HintPath>
+                </Reference>
+              </ItemGroup>
+            </Project>
+            """);
+        Write("consumer/LegacyConsumer.cs", """
+            namespace StlClr_Sample
+            {
+                public sealed class LegacyConsumer
+                {
+                    public void Sort()
+                    {
+                        StlClrLibrary.Tools tools = new StlClrLibrary.Tools();
+                        tools.BubbleSortNative();
+                    }
+                }
+            }
+            """);
+        Write("Bridge/StlClrLibrary.vcxproj", """
+            <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+              <PropertyGroup><CLRSupport>true</CLRSupport><TargetName>StlClrLibrary</TargetName></PropertyGroup>
+            </Project>
+            """);
+        Write("Bridge/StlClrLibrary.cpp", """
+            namespace Native { void BubbleSort(); } void Native::BubbleSort() {}
+            namespace StlClrLibrary
+            {
+                public ref class Tools
+                {
+                public:
+                    void BubbleSortNative()
+                    {
+                        Native::BubbleSort();
+                    }
+                };
+            }
+            """);
+
+        var inventory = RepositoryScanner.Scan(_root, sampleLimit: 100);
+        var project = Assert.Single(inventory.DotNetProjects);
+        var reference = Assert.Single(project.AssemblyReferences);
+        Assert.StartsWith("StlClrLibrary,", reference.Include, StringComparison.Ordinal);
+        Assert.Equal("..\\Bridge\\debug\\StlClrLibrary.dll", reference.HintPath);
+        Assert.Equal("StlClrLibrary", Assert.Single(inventory.NativeProjects).TargetName);
+
+        var consumer = Assert.Single(inventory.ArchitecturePatterns.NativeFlow!.Relations, item =>
+            item.Kind == "csharp-cppcli-call");
+        Assert.Equal("candidate", consumer.Status);
+        Assert.Equal("consumer/LegacyConsumer.cs", consumer.SourcePath);
+        Assert.Equal(8, consumer.SourceLine);
+        Assert.Equal("StlClrLibrary::Tools::BubbleSortNative", consumer.TargetSymbol);
+        Assert.Equal("Bridge/StlClrLibrary.cpp", consumer.TargetPath);
+        Assert.Equal(7, consumer.TargetLine);
+        Assert.Contains("HintPath", consumer.Evidence, StringComparison.Ordinal);
+
+        var nativeCall = Assert.Single(inventory.ArchitecturePatterns.NativeFlow.Relations, item =>
+            item.Kind == "qualified-native-call");
+        Assert.Equal("StlClrLibrary::Tools::BubbleSortNative", nativeCall.SourceSymbol);
+        Assert.Equal("Native::BubbleSort", nativeCall.TargetSymbol);
+        Assert.Equal(9, nativeCall.SourceLine);
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(inventory),
+            System.Text.Json.JsonSerializer.Serialize(RepositoryScanner.Scan(_root, sampleLimit: 100)));
+    }
+
+    [Fact]
+    public void Scan_KeepsReferencedWrapperAmbiguousAndIgnoresUnreferencedSameNameDecoy()
+    {
+        Write("consumer/App.csproj", "<Project><ItemGroup><Reference Include=\"Bridge\"><HintPath>..\\bridge\\Bridge.dll</HintPath></Reference></ItemGroup></Project>");
+        Write("consumer/App.cs", "public class App { public void Run() { Bridge.Tools tools = new Bridge.Tools(); tools.Go(); } }");
+        Write("bridge/Bridge.vcxproj", "<Project><PropertyGroup><CLRSupport>true</CLRSupport><TargetName>Bridge</TargetName></PropertyGroup></Project>");
+        Write("bridge/One.cpp", "namespace Bridge { public ref class Tools { public: void Go() {} }; }");
+        Write("bridge/Two.cpp", "namespace Bridge { public ref class Tools { public: void Go() {} }; }");
+        Write("other/Decoy.vcxproj", "<Project><PropertyGroup><CLRSupport>true</CLRSupport><TargetName>Decoy</TargetName></PropertyGroup></Project>");
+        Write("other/Decoy.cpp", "namespace Bridge { public ref class Tools { public: void Go() {} }; }");
+
+        var inventory = RepositoryScanner.Scan(_root, sampleLimit: 100);
+        var relation = Assert.Single(inventory.ArchitecturePatterns.NativeFlow!.Relations,
+            item => item.Kind == "csharp-cppcli-call");
+
+        Assert.Equal("ambiguous", relation.Status);
+        Assert.Equal(2, relation.CandidateTargetCount);
+        Assert.Equal(new[] { "bridge/One.cpp", "bridge/Two.cpp" },
+            (relation.CandidateTargets ?? Array.Empty<NativeFlowTarget>()).Select(target => target.Path).Order(StringComparer.Ordinal));
+
+        Write("consumer/App.csproj", "<Project><ItemGroup><Reference Include=\"Other\"><HintPath>..\\other\\Other.dll</HintPath></Reference></ItemGroup></Project>");
+        var unreferenced = RepositoryScanner.Scan(_root, sampleLimit: 100);
+        Assert.DoesNotContain(unreferenced.ArchitecturePatterns.NativeFlow!.Relations,
+            item => item.Kind == "csharp-cppcli-call");
+    }
+
+    [Fact]
+    public void Scan_DoesNotFollowHintPathOutsideRepository()
+    {
+        Write("consumer/App.csproj", "<Project><ItemGroup><Reference Include=\"Bridge\"><HintPath>..\\..\\outside\\Bridge.dll</HintPath></Reference></ItemGroup></Project>");
+        Write("consumer/App.cs", "public class App { public void Run() { Bridge.Tools tools = new Bridge.Tools(); tools.Go(); } }");
+        Write("bridge/Bridge.vcxproj", "<Project><PropertyGroup><CLRSupport>true</CLRSupport><TargetName>Bridge</TargetName></PropertyGroup></Project>");
+        Write("bridge/Bridge.cpp", "namespace Bridge { public ref class Tools { public: void Go() {} }; }");
+
+        var inventory = RepositoryScanner.Scan(_root, sampleLimit: 100);
+
+        Assert.Equal("..\\..\\outside\\Bridge.dll", Assert.Single(inventory.DotNetProjects).AssemblyReferences[0].HintPath);
+        var relation = Assert.Single(inventory.ArchitecturePatterns.NativeFlow!.Relations,
+            item => item.Kind == "csharp-cppcli-call");
+        Assert.Equal("unresolved", relation.Status);
+        Assert.Contains("was not read", relation.Evidence, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Scan_ParsesVisualBasicLegacySourceWithRoslyn()
     {
         Write("LegacyVB/App.vbproj", "<Project xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\"><PropertyGroup><TargetFrameworkVersion>v4.8</TargetFrameworkVersion></PropertyGroup></Project>");
@@ -1449,7 +1564,7 @@ public sealed class RepositoryScannerTests : IDisposable
         Assert.Equal(filesBefore, Directory.GetFiles(_root, "*", SearchOption.AllDirectories).OrderBy(path => path).ToArray());
 
         var markdown = MarkdownReport.Render(inventory);
-        Assert.Contains("Native flow candidates", markdown);
+        Assert.Contains("Native and interop flow candidates", markdown);
         Assert.Contains("ID_RUN", markdown);
         Assert.Contains("ambiguous", markdown, StringComparison.OrdinalIgnoreCase);
 
@@ -1484,7 +1599,7 @@ public sealed class RepositoryScannerTests : IDisposable
         var inventory = RepositoryScanner.Scan(_root);
 
         Assert.Equal(0, inventory.ArchitecturePatterns.NativeFlow?.ScannedFileCount);
-        Assert.DoesNotContain("Native flow candidates", MarkdownReport.Render(inventory), StringComparison.Ordinal);
+        Assert.DoesNotContain("Native and interop flow candidates", MarkdownReport.Render(inventory), StringComparison.Ordinal);
     }
 
     [Fact]

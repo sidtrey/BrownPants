@@ -39,13 +39,26 @@ public static class DotNetProjectAnalyzer
                     .OrderBy(include => include, RepositoryPathComparer.Instance)
                     .ToArray();
 
+                var assemblyReferences = document.Descendants()
+                    .Where(element => element.Name.LocalName == "Reference")
+                    .Select(element => new DotNetAssemblyReferenceInfo(
+                        ((string?)element.Attribute("Include") ?? string.Empty).Trim(),
+                        element.Elements().FirstOrDefault(child => child.Name.LocalName == "HintPath")?.Value.Trim()))
+                    .Where(reference => reference.Include.Length > 0)
+                    .OrderBy(reference => reference.Include, RepositoryPathComparer.Instance)
+                    .ThenBy(reference => reference.HintPath ?? string.Empty, RepositoryPathComparer.Instance)
+                    .ToArray();
+
                 projects.Add(new DotNetProjectInfo(
                     relativePath,
                     frameworks,
                     languageVersions,
                     references,
                     frameworks.Any(IsLegacyFramework),
-                    null));
+                    null)
+                {
+                    AssemblyReferences = assemblyReferences
+                });
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or XmlException or ArgumentException)
             {
