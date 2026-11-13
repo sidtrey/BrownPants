@@ -273,6 +273,18 @@ public sealed class LocalFlowchartTests : IDisposable
         Assert.True(layout.Node("retry").Rank > layout.Node("parse").Rank);
         Assert.Contains(layout.Edges, edge => edge.Edge.FromId == "retry" && edge.Edge.ToId == "parse");
         AssertEdgesAvoidUnrelatedNodes(layout);
+
+        var leftToRight = LocalFlowchartLayoutEngine.Create(document,
+            new LocalFlowchartLayoutOptions(LocalFlowchartDirection.LeftToRight));
+        Assert.Equal(document.Edges.Count, leftToRight.Edges.Count);
+        Assert.Equal(
+            document.Edges.OrderBy(edge => edge.Order)
+                .Select(edge => (edge.FromId, edge.ToId, edge.Label, edge.Order)),
+            leftToRight.Edges.OrderBy(edge => edge.Edge.Order)
+                .Select(edge => (edge.Edge.FromId, edge.Edge.ToId, edge.Edge.Label, edge.Edge.Order)));
+        Assert.Equal(0, CountUnrelatedEdgeCrossings(leftToRight));
+        AssertEdgesAvoidUnrelatedNodes(leftToRight);
+        AssertEdgeLabelBoundsDoNotOverlap(leftToRight);
     }
 
     [Fact]
