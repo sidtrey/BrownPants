@@ -29,6 +29,9 @@ public sealed record RepositoryInventory(
 
     public ImplementationPlaceholderAnalysis ImplementationPlaceholders { get; init; } =
         new(0, 0, 0, 0, 0, Array.Empty<ImplementationPlaceholderCandidate>());
+
+    public DroppedCollectionMappingAnalysis DroppedCollectionMappings { get; init; } =
+        new(0, 0, 0, 0, 0, Array.Empty<DroppedCollectionMappingCandidate>());
 }
 
 public sealed record ImplementationPlaceholderAnalysis(
@@ -46,6 +49,25 @@ public sealed record ImplementationPlaceholderCandidate(
     string ContainingType,
     string Signature,
     string Kind,
+    string Evidence);
+
+public sealed record DroppedCollectionMappingAnalysis(
+    int SourceFilesScanned,
+    long BytesScanned,
+    int CandidateCount,
+    int OmittedCandidateCount,
+    int FilesSkipped,
+    IReadOnlyList<DroppedCollectionMappingCandidate> Candidates);
+
+public sealed record DroppedCollectionMappingCandidate(
+    string Path,
+    int Line,
+    string Scope,
+    string ContainingType,
+    string Signature,
+    string TargetMethod,
+    string SourceObject,
+    string EmptyArgumentIndexes,
     string Evidence);
 
 public sealed record InvestigationReport(

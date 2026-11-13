@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    {
+      "taskId": "T001",
+      "criterionIds": ["AC-001", "AC-002", "AC-003", "SC-001"],
+      "verificationCommand": "dotnet test BrownPants.sln --no-restore --filter FullyQualifiedName~CSharpDroppedCollectionMappingAnalyzerTests",
+      "result": "passed",
+      "evidencePaths": ["src/BrownPants.Cli/Analysis/CSharpDroppedCollectionMappingAnalyzer.cs", "src/BrownPants.Cli/Analysis/RepositoryInventory.cs", "tests/BrownPants.Tests/CSharpDroppedCollectionMappingAnalyzerTests.cs", "specs/080-empty-collection-mapping-candidates/test.log"]
+    },
+    {
+      "taskId": "T002",
+      "criterionIds": ["AC-004", "SC-001"],
+      "verificationCommand": "dotnet test BrownPants.sln --no-restore --filter FullyQualifiedName~CSharpDroppedCollectionMappingAnalyzerTests",
+      "result": "passed",
+      "evidencePaths": ["src/BrownPants.Cli/Output/MarkdownReport.cs", "src/BrownPants.Cli/Analysis/RepositoryScanner.cs", "tests/BrownPants.Tests/CSharpDroppedCollectionMappingAnalyzerTests.cs", "specs/080-empty-collection-mapping-candidates/test.log"]
+    },
+    {
+      "taskId": "T003",
+      "criterionIds": ["AC-001", "AC-002", "AC-003", "AC-004", "SC-001"],
+      "verificationCommand": "dotnet test BrownPants.sln --no-restore --filter FullyQualifiedName~CSharpDroppedCollectionMappingAnalyzerTests",
+      "result": "passed",
+      "evidencePaths": ["tests/BrownPants.Tests/CSharpDroppedCollectionMappingAnalyzerTests.cs", "specs/080-empty-collection-mapping-candidates/test.log"]
+    },
+    {
+      "taskId": "T004",
+      "criterionIds": ["SC-002", "SC-003", "SC-004"],
+      "verificationCommand": "dotnet build BrownPants.sln --no-restore; dotnet test BrownPants.sln --no-build; dotnet run --no-build --project src/BrownPants.Cli -- inspect <FullMetalFile-root> --format json --limit 100",
+      "result": "passed",
+      "evidencePaths": ["specs/080-empty-collection-mapping-candidates/build.log", "specs/080-empty-collection-mapping-candidates/test.log", "specs/080-empty-collection-mapping-candidates/quickstart.md", "specs/080-empty-collection-mapping-candidates/acceptance-criteria.sha256"]
+    }
+  ]
+}

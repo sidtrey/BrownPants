@@ -44,6 +44,7 @@ public static class MarkdownReport
         AppendArchitecturePatterns(report, inventory.ArchitecturePatterns);
         AppendJavaScriptTypeScript(report, inventory.JavaScriptTypeScript);
         AppendImplementationPlaceholders(report, inventory.ImplementationPlaceholders);
+        AppendDroppedCollectionMappings(report, inventory.DroppedCollectionMappings);
         report.AppendLine("## Evidence limits");
         report.AppendLine();
         report.AppendLine("Default Roslyn analysis provides syntax-level evidence without evaluating MSBuild conditions, imports, or project preprocessor symbols. Semantic mode loads projects separately when requested. Neither parse diagnostics nor unresolved symbols alone prove that a project fails to build. Review source, project files, and workspace issues before planning changes.");
@@ -63,6 +64,22 @@ public static class MarkdownReport
         }
         if (analysis.CandidateCount == 0)
             report.AppendLine("No matching no-op implementation candidates found in scanned C# files.");
+        report.AppendLine();
+    }
+
+    private static void AppendDroppedCollectionMappings(StringBuilder report, DroppedCollectionMappingAnalysis analysis)
+    {
+        report.AppendLine("## Possible dropped collection mappings");
+        report.AppendLine();
+        report.AppendLine($"- C# source files scanned: {analysis.SourceFilesScanned}; bytes read: {analysis.BytesScanned}; files skipped by read limits or access errors: {analysis.FilesSkipped}.");
+        report.AppendLine($"- Candidate calls: {analysis.CandidateCount}; omitted by the sample limit: {analysis.OmittedCandidateCount}.");
+        report.AppendLine("- Syntax-only candidates combine an empty collection argument with member reads from one source object in another argument. They do not prove the source data should be copied; review the target method and requirements.");
+        foreach (var candidate in analysis.Candidates)
+        {
+            report.AppendLine($"- [{Escape(candidate.Scope)}] `{Escape(candidate.Path)}:{candidate.Line}` `{Escape(candidate.ContainingType)}.{Escape(candidate.Signature)}` calls `{Escape(candidate.TargetMethod)}` with empty argument(s) {Escape(candidate.EmptyArgumentIndexes)} while reading `{Escape(candidate.SourceObject)}` — `{Escape(candidate.Evidence)}`");
+        }
+        if (analysis.CandidateCount == 0)
+            report.AppendLine("No matching possible dropped collection mappings found in scanned C# files.");
         report.AppendLine();
     }
 
