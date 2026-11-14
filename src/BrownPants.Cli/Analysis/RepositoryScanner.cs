@@ -126,6 +126,7 @@ public static class RepositoryScanner
             dotNetProjects)
         {
             JavaScriptTypeScript = JavaScriptTypeScriptAnalyzer.Analyze(root, files, sampleLimit),
+            WorkMarkers = WorkMarkerAnalyzer.Analyze(root, files, sampleLimit),
             ImplementationPlaceholders = CSharpImplementationPlaceholderAnalyzer.Analyze(root, files, sampleLimit),
             DroppedCollectionMappings = CSharpDroppedCollectionMappingAnalyzer.Analyze(root, files, sampleLimit)
         };

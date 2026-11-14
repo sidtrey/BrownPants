@@ -331,6 +331,53 @@ public sealed class RepositoryScannerTests : IDisposable
     }
 
     [Fact]
+    public void Scan_ReportsBoundedSourceWorkMarkersWithoutSourceText()
+    {
+        Write("src/z.cs", "// HACK: later\nvar text = \"XXX candidate\";\nvar TODOList = 1; var FIXME2 = 2;");
+        Write("src/a.ts", "// todo first FIXME second\n// fixme third\n");
+        Write("README.md", "TODO documentation marker");
+        Write("obj/Generated.cs", "// TODO generated marker");
+
+        var inventory = RepositoryScanner.Scan(_root, sampleLimit: 2);
+        var analysis = inventory.WorkMarkers;
+
+        Assert.Equal(2, analysis.SourceFilesScanned);
+        Assert.Equal(5, analysis.MarkerCount);
+        Assert.Equal(3, analysis.OmittedMarkerCount);
+        Assert.Equal(new[] { "src/a.ts", "src/a.ts" }, analysis.Markers.Select(marker => marker.Path));
+        Assert.Equal(new[] { "TODO", "FIXME" }, analysis.Markers.Select(marker => marker.Kind));
+        Assert.Equal(new[] { 1, 1 }, analysis.Markers.Select(marker => marker.Line));
+
+        var markdown = MarkdownReport.Render(inventory);
+        Assert.Contains("## Source work markers", markdown);
+        Assert.Contains("`TODO` `src/a.ts:1:4`", markdown);
+        Assert.Contains("3 marker locations omitted", markdown);
+        Assert.DoesNotContain("TODO documentation marker", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("later", markdown, StringComparison.Ordinal);
+
+        using var json = System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(inventory));
+        var jsonMarkers = json.RootElement.GetProperty("WorkMarkers");
+        Assert.Equal(5, jsonMarkers.GetProperty("MarkerCount").GetInt32());
+        Assert.Equal(markdown, MarkdownReport.Render(RepositoryScanner.Scan(_root, sampleLimit: 2)));
+    }
+
+    [Fact]
+    public void WorkMarkerAnalyzer_SkipsFilesOverThePerFileOrRemainingAggregateLimit()
+    {
+        Write("src/first.cs", "// TODO test");
+        Write("src/second.cs", "// FIXME second");
+        var sourcePaths = RepositoryScanner.DiscoverFiles(_root);
+
+        var analysis = WorkMarkerAnalyzer.Analyze(_root, sourcePaths, sampleLimit: 10, maximumFileBytes: 20, maximumAggregateBytes: 12);
+
+        Assert.Equal(1, analysis.SourceFilesScanned);
+        Assert.Equal(1, analysis.FilesSkipped);
+        Assert.Equal(12, analysis.BytesScanned);
+        Assert.Equal(1, analysis.MarkerCount);
+        Assert.Equal("TODO", Assert.Single(analysis.Markers).Kind);
+    }
+
+    [Fact]
     public void Scan_ClassifiesTestPathsWithoutSubstringFilenameFalsePositives()
     {
         Write("src/ContestController.cs", "public sealed class ContestController { }");

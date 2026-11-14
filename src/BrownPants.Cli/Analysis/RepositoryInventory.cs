@@ -27,6 +27,8 @@ public sealed record RepositoryInventory(
         Array.Empty<JavaScriptTypeScriptCallRelationship>(), 0, 0, 0, 0, 0,
         Array.Empty<JavaScriptTypeScriptIssue>(), Array.Empty<string>());
 
+    public WorkMarkerAnalysis WorkMarkers { get; init; } = new(0, 0, 0, 0, 0, Array.Empty<WorkMarker>());
+
     public ImplementationPlaceholderAnalysis ImplementationPlaceholders { get; init; } =
         new(0, 0, 0, 0, 0, Array.Empty<ImplementationPlaceholderCandidate>());
 
@@ -69,6 +71,16 @@ public sealed record DroppedCollectionMappingCandidate(
     string SourceObject,
     string EmptyArgumentIndexes,
     string Evidence);
+
+public sealed record WorkMarkerAnalysis(
+    int SourceFilesScanned,
+    long BytesScanned,
+    int MarkerCount,
+    int OmittedMarkerCount,
+    int FilesSkipped,
+    IReadOnlyList<WorkMarker> Markers);
+
+public sealed record WorkMarker(string Path, int Line, int Column, string Kind);
 
 public sealed record InvestigationReport(
     string Root,

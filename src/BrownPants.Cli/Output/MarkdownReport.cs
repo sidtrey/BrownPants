@@ -43,6 +43,7 @@ public static class MarkdownReport
         AppendVisualBasicAnalysis(report, inventory.VisualBasic);
         AppendArchitecturePatterns(report, inventory.ArchitecturePatterns);
         AppendJavaScriptTypeScript(report, inventory.JavaScriptTypeScript);
+        AppendWorkMarkers(report, inventory.WorkMarkers);
         AppendImplementationPlaceholders(report, inventory.ImplementationPlaceholders);
         AppendDroppedCollectionMappings(report, inventory.DroppedCollectionMappings);
         report.AppendLine("## Evidence limits");
@@ -64,6 +65,22 @@ public static class MarkdownReport
         }
         if (analysis.CandidateCount == 0)
             report.AppendLine("No matching no-op implementation candidates found in scanned C# files.");
+        report.AppendLine();
+    }
+
+    private static void AppendWorkMarkers(StringBuilder report, WorkMarkerAnalysis analysis)
+    {
+        report.AppendLine("## Source work markers");
+        report.AppendLine();
+        report.AppendLine($"- Markers found: {analysis.MarkerCount}; source files scanned: {analysis.SourceFilesScanned}; bytes read: {analysis.BytesScanned}; files skipped by read limits or access errors: {analysis.FilesSkipped}.");
+        report.AppendLine("- Marker locations are navigation evidence only, not proof that a marker is actionable; line contents are not included.");
+        if (analysis.Markers.Count == 0)
+            report.AppendLine("No TODO, FIXME, HACK, or XXX markers found in scanned source files.");
+        else
+            foreach (var marker in analysis.Markers)
+                report.AppendLine($"- `{Escape(marker.Kind)}` `{Escape(marker.Path)}:{marker.Line}:{marker.Column}`");
+        if (analysis.OmittedMarkerCount > 0)
+            report.AppendLine($"- {analysis.OmittedMarkerCount} marker locations omitted by the sample limit.");
         report.AppendLine();
     }
 
