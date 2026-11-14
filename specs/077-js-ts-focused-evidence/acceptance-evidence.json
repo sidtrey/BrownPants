@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    {
+      "taskId": "T001",
+      "criterionIds": [
+        "AC-002",
+        "AC-003",
+        "AC-006"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~EvidenceCommandTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/EvidenceReport.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T002",
+      "criterionIds": [
+        "AC-001",
+        "AC-004",
+        "AC-005"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~EvidenceCommandTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/EvidenceCommand.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T003",
+      "criterionIds": [
+        "AC-002",
+        "AC-003",
+        "AC-006"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~EvidenceCommandTests",
+      "evidencePaths": [
+        "src/BrownPants.Cli/Analysis/EvidenceFocusAnalyzer.cs",
+        "src/BrownPants.Cli/Analysis/JavaScriptTypeScriptModels.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T004",
+      "criterionIds": [
+        "AC-005",
+        "AC-006",
+        "AC-007"
+      ],
+      "verificationCommand": "dotnet build BrownPants.sln",
+      "evidencePaths": [
+        "src/BrownPants.Cli/EvidenceCommand.cs",
+        "src/BrownPants.Cli/Program.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T005",
+      "criterionIds": [
+        "AC-001",
+        "AC-002",
+        "AC-003",
+        "AC-004",
+        "AC-005",
+        "AC-007",
+        "SC-001",
+        "SC-002",
+        "SC-003",
+        "SC-004"
+      ],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --filter FullyQualifiedName~EvidenceCommandTests",
+      "evidencePaths": [
+        "tests/BrownPants.Tests/EvidenceCommandTests.cs"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T006",
+      "criterionIds": [
+        "SC-004",
+        "SC-005"
+      ],
+      "verificationCommand": "dotnet build BrownPants.sln; dotnet test BrownPants.sln; dotnet run --project src/BrownPants.Cli -- evidence <FullMetalFile-root> --changed frontend/src/App.tsx --limit 20 --format json",
+      "evidencePaths": [
+        "specs/077-js-ts-focused-evidence/quickstart.md",
+        "specs/077-js-ts-focused-evidence/fullmetalfile-evidence.json"
+      ],
+      "result": "passed"
+    },
+    {
+      "taskId": "T007",
+      "criterionIds": [
+        "SC-006"
+      ],
+      "verificationCommand": "pwsh -NoProfile -File scripts/check-acceptance-evidence.ps1 -RepositoryRoot . -SpecPath specs/077-js-ts-focused-evidence/spec.md -TasksPath specs/077-js-ts-focused-evidence/tasks.md -EvidencePath specs/077-js-ts-focused-evidence/acceptance-evidence.json",
+      "evidencePaths": [
+        "specs/077-js-ts-focused-evidence/acceptance-criteria.sha256",
+        "specs/077-js-ts-focused-evidence/acceptance-evidence.json"
+      ],
+      "result": "passed"
+    }
+  ]
+}

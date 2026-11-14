@@ -18,6 +18,8 @@ The reviewable live JSON is in ignored `TestResults/feature-076-fullmetal-marker
 
 ## Current FullMetalFile result (2026-11-13)
 
-A fresh default-mode inspection of the current FullMetalFile checkout scanned 369 source files and reported 0 work markers, 0 omitted markers, and 0 skipped files. The earlier 45-marker result above is historical; the inspected repository has changed since that run. The refreshed report is retained locally in ignored `TestResults/feature-076-fullmetal-markers.json`.
+A fresh scan of the current FullMetalFile checkout covered 187 supported source files and reported one work marker, zero omitted markers, and zero skipped files: `backend/src/FullMetalFile.Infrastructure/Ingestion/EmailIngestionWorker.cs:59` (`TODO`). The JSON report is retained locally in ignored `TestResults/feature-076-current-fullmetal-markers.json`; only the relative path and line are recorded here.
 
-On the current feature branch, `dotnet build BrownPants.sln` passed with 0 warnings and 0 errors, and `dotnet test BrownPants.sln --no-build` passed 406/406. The full test count differs from later local work because this branch starts from current `main` and contains only feature 076's source changes.
+The earlier 45-marker and zero-marker counts are historical snapshots from different states of the FullMetalFile checkout. The current scan demonstrates that SC-003's existing path-and-line requirement is still met, so no acceptance-criteria or baseline change is needed.
+
+On the merged feature branch, `dotnet build BrownPants.sln --no-restore` passed with 0 warnings and 0 errors, and `dotnet test BrownPants.sln --no-restore` passed 428/428.

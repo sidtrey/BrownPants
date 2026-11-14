@@ -2,7 +2,7 @@
 
 **Feature Branch**: `076-work-marker-evidence`
 **Created**: 2026-11-02
-**Status**: Implementation complete; SC-003 review pending
+**Status**: Implemented
 **Input**: BrownPants-assisted FullMetalFile inspection found an explicitly stubbed archive importer only after a separate TODO search.
 
 ## User Scenarios & Testing

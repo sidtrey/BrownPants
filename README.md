@@ -113,6 +113,7 @@ dotnet build BrownPants.sln
 dotnet run --project src/BrownPants.Cli -- inspect .
 dotnet run --project src/BrownPants.Cli -- inspect . --format json
 dotnet run --project src/BrownPants.Cli -- inspect . --format json --limit 1000
+dotnet run --project src/BrownPants.Cli -- inspect . --typescript-syntax --format markdown --limit 1000
 dotnet run --project src/BrownPants.Cli -- inspect . --semantic
 dotnet run --project src/BrownPants.Cli -- investigate . --clue "TimeoutException" --clue "ERR-42"
 dotnet run --project src/BrownPants.Cli -- investigate . --clue "TimeoutException" --format json
@@ -130,6 +131,8 @@ dotnet tool install --tool-path ./.tools --add-source ./artifacts BrownPants.Cli
 ./.tools/brownpants inspect . # Windows: .\.tools\brownpants.exe inspect .
 ./scripts/test.ps1
 ```
+
+`--typescript-syntax` explicitly loads the nearest repository-local TypeScript parser through Node.js for syntax verification and React component/hook candidates. It does not install packages, run package scripts, type-check, or build the scanned project. Default inspection does not start Node.
 
 ### Use an approved NuGet mirror
 

@@ -9,4 +9,4 @@
 ## Phase 2: Verify against FullMetalFile
 
 - [x] T004 Build and test BrownPants, scan FullMetalFile, verify a remaining source marker appears, and record evidence.
-- [ ] T005 Reconcile SC-003 with the current FullMetalFile scan, obtain maintainer review of the proposed criteria wording, and refresh the baseline only after approval.
+- [x] T005 Confirm the existing SC-003 against a fresh FullMetalFile scan, verify the unchanged acceptance hash, and validate the evidence ledger.

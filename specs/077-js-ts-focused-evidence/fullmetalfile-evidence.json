@@ -1,0 +1,435 @@
+{
+  "schemaVersion": 1,
+  "root": "$FULLMETALFILE_ROOT",
+  "context": {
+    "projectSystems": [
+      ".NET",
+      "JavaScript/TypeScript"
+    ],
+    "languages": [
+      {
+        "name": "C#",
+        "sourceFileCount": 177,
+        "analysisLevel": "Roslyn syntax and candidate patterns"
+      },
+      {
+        "name": "CSS",
+        "sourceFileCount": 1,
+        "analysisLevel": "Inventory only"
+      },
+      {
+        "name": "HTML",
+        "sourceFileCount": 1,
+        "analysisLevel": "Inventory only"
+      },
+      {
+        "name": "PowerShell",
+        "sourceFileCount": 2,
+        "analysisLevel": "Inventory only"
+      },
+      {
+        "name": "TypeScript",
+        "sourceFileCount": 6,
+        "analysisLevel": "Bounded syntax and lexical candidate patterns"
+      }
+    ]
+  },
+  "findings": [
+    {
+      "id": "826af1d4c2fe8b78",
+      "category": "architecture-candidate",
+      "status": "candidate",
+      "signal": "Factory method",
+      "path": "frontend/src/App.tsx",
+      "line": 1710,
+      "callerSignature": null,
+      "targetSignature": null,
+      "evidence": "async function createTenant(event: FormEvent) {",
+      "matchedBy": [
+        "changed-path:frontend/src/App.tsx:source-file"
+      ]
+    },
+    {
+      "id": "eee42687568d0d49",
+      "category": "architecture-candidate",
+      "status": "candidate",
+      "signal": "Factory method",
+      "path": "frontend/src/App.tsx",
+      "line": 1795,
+      "callerSignature": null,
+      "targetSignature": null,
+      "evidence": "async function createTemplateVersionSnapshot() {",
+      "matchedBy": [
+        "changed-path:frontend/src/App.tsx:source-file"
+      ]
+    },
+    {
+      "id": "ea105061aed2e4d4",
+      "category": "architecture-candidate",
+      "status": "candidate",
+      "signal": "Factory method",
+      "path": "frontend/src/App.tsx",
+      "line": 3847,
+      "callerSignature": null,
+      "targetSignature": null,
+      "evidence": "function buildSearchExplanationReport() {",
+      "matchedBy": [
+        "changed-path:frontend/src/App.tsx:source-file"
+      ]
+    },
+    {
+      "id": "4191fced4c66822f",
+      "category": "javascript-typescript-call",
+      "status": "unresolved",
+      "signal": "JS/TS syntax call candidate",
+      "path": "frontend/src/App.tsx",
+      "line": 299,
+      "callerSignature": "isCriticalDiffProperty",
+      "targetSignature": "property.trim",
+      "evidence": "unresolved: property.trim; target evidence: ReceiverTypeNotResolved",
+      "relationKind": "javascript-typescript-syntax",
+      "candidateTargetCount": 0,
+      "column": 31,
+      "matchedBy": [
+        "changed-path:frontend/src/App.tsx:source-file"
+      ]
+    },
+    {
+      "id": "5d3673b546f97d16",
+      "category": "javascript-typescript-call",
+      "status": "unresolved",
+      "signal": "JS/TS syntax call candidate",
+      "path": "frontend/src/App.tsx",
+      "line": 299,
+      "callerSignature": "isCriticalDiffProperty",
+      "targetSignature": "toLowerCase",
+      "evidence": "unresolved: toLowerCase; target evidence: NoUniqueInRepositoryDeclaration",
+      "relationKind": "javascript-typescript-syntax",
+      "candidateTargetCount": 0,
+      "column": 38,
+      "matchedBy": [
+        "changed-path:frontend/src/App.tsx:source-file"
+      ]
+    },
+    {
+      "id": "862c813e9e6e536d",
+      "category": "javascript-typescript-call",
+      "status": "syntax-resolved",
+      "signal": "JS/TS syntax call candidate",
+      "path": "frontend/src/App.tsx",
+      "line": 310,
+      "callerSignature": "getDiffSeverityClass",
+      "targetSignature": "isCriticalDiffProperty",
+      "evidence": "syntax-resolved: isCriticalDiffProperty; target evidence: frontend/src/App.tsx:298:isCriticalDiffProperty",
+      "targetPath": "frontend/src/App.tsx",
+      "targetLine": 298,
+      "relationKind": "javascript-typescript-syntax",
+      "targetSymbol": "isCriticalDiffProperty",
+      "candidateTargetCount": 0,
+      "column": 10,
+      "matchedBy": [
+        "changed-path:frontend/src/App.tsx:source-file",
+        "changed-path:frontend/src/App.tsx:syntax-caller-candidate"
+      ]
+    },
+    {
+      "id": "faeb1af36ab8547c",
+      "category": "javascript-typescript-call",
+      "status": "unresolved",
+      "signal": "JS/TS syntax call candidate",
+      "path": "frontend/src/App.tsx",
+      "line": 314,
+      "callerSignature": "getJobStatusTone",
+      "targetSignature": "status.trim",
+      "evidence": "unresolved: status.trim; target evidence: ReceiverTypeNotResolved",
+      "relationKind": "javascript-typescript-syntax",
+      "candidateTargetCount": 0,
+      "column": 24,
+      "matchedBy": [
+        "changed-path:frontend/src/App.tsx:source-file"
+      ]
+    },
+    {
+      "id": "8e68cb6cf3f2831a",
+      "category": "javascript-typescript-call",
+      "status": "unresolved",
+      "signal": "JS/TS syntax call candidate",
+      "path": "frontend/src/App.tsx",
+      "line": 314,
+      "callerSignature": "getJobStatusTone",
+      "targetSignature": "toLowerCase",
+      "evidence": "unresolved: toLowerCase; target evidence: NoUniqueInRepositoryDeclaration",
+      "relationKind": "javascript-typescript-syntax",
+      "candidateTargetCount": 0,
+      "column": 31,
+      "matchedBy": [
+        "changed-path:frontend/src/App.tsx:source-file"
+      ]
+    },
+    {
+      "id": "228bbc32971d92f5",
+      "category": "javascript-typescript-call",
+      "status": "unresolved",
+      "signal": "JS/TS syntax call candidate",
+      "path": "frontend/src/App.tsx",
+      "line": 321,
+      "callerSignature": "text",
+      "targetSignature": "toLowerCase",
+      "evidence": "unresolved: toLowerCase; target evidence: NoUniqueInRepositoryDeclaration",
+      "relationKind": "javascript-typescript-syntax",
+      "candidateTargetCount": 0,
+      "column": 64,
+      "matchedBy": [
+        "changed-path:frontend/src/App.tsx:source-file"
+      ]
+    },
+    {
+      "id": "c792bbdc718fdb19",
+      "category": "javascript-typescript-call",
+      "status": "unresolved",
+      "signal": "JS/TS syntax call candidate",
+      "path": "frontend/src/App.tsx",
+      "line": 324,
+      "callerSignature": "hasHigh",
+      "targetSignature": "highSignals.some",
+      "evidence": "unresolved: highSignals.some; target evidence: ReceiverTypeNotResolved",
+      "relationKind": "javascript-typescript-syntax",
+      "candidateTargetCount": 0,
+      "column": 31,
+      "matchedBy": [
+        "changed-path:frontend/src/App.tsx:source-file"
+      ]
+    },
+    {
+      "id": "52d686bfc8956e89",
+      "category": "javascript-typescript-call",
+      "status": "unresolved",
+      "signal": "JS/TS syntax call candidate",
+      "path": "frontend/src/App.tsx",
+      "line": 324,
+      "callerSignature": "hasHigh",
+      "targetSignature": "text.includes",
+      "evidence": "unresolved: text.includes; target evidence: ReceiverTypeNotResolved",
+      "relationKind": "javascript-typescript-syntax",
+      "candidateTargetCount": 0,
+      "column": 53,
+      "matchedBy": [
+        "changed-path:frontend/src/App.tsx:source-file"
+      ]
+    },
+    {
+      "id": "6ae1b7caf2afdeff",
+      "category": "javascript-typescript-call",
+      "status": "unresolved",
+      "signal": "JS/TS syntax call candidate",
+      "path": "frontend/src/App.tsx",
+      "line": 328,
+      "callerSignature": "hasMedium",
+      "targetSignature": "mediumSignals.some",
+      "evidence": "unresolved: mediumSignals.some; target evidence: ReceiverTypeNotResolved",
+      "relationKind": "javascript-typescript-syntax",
+      "candidateTargetCount": 0,
+      "column": 35,
+      "matchedBy": [
+        "changed-path:frontend/src/App.tsx:source-file"
+      ]
+    },
+    {
+      "id": "782c66a3b9c7f650",
+      "category": "javascript-typescript-call",
+      "status": "unresolved",
+      "signal": "JS/TS syntax call candidate",
+      "path": "frontend/src/App.tsx",
+      "line": 328,
+      "callerSignature": "hasMedium",
+      "targetSignature": "text.includes",
+      "evidence": "unresolved: text.includes; target evidence: ReceiverTypeNotResolved",
+      "relationKind": "javascript-typescript-syntax",
+      "candidateTargetCount": 0,
+      "column": 57,
+      "matchedBy": [
+        "changed-path:frontend/src/App.tsx:source-file"
+      ]
+    },
+    {
+      "id": "10ee66d0dc95bc28",
+      "category": "javascript-typescript-call",
+      "status": "unresolved",
+      "signal": "JS/TS syntax call candidate",
+      "path": "frontend/src/App.tsx",
+      "line": 336,
+      "callerSignature": "formatDuration",
+      "targetSignature": "Number.isFinite",
+      "evidence": "unresolved: Number.isFinite; target evidence: ReceiverTypeNotResolved",
+      "relationKind": "javascript-typescript-syntax",
+      "candidateTargetCount": 0,
+      "column": 15,
+      "matchedBy": [
+        "changed-path:frontend/src/App.tsx:source-file"
+      ]
+    },
+    {
+      "id": "774b411e03dce00a",
+      "category": "javascript-typescript-call",
+      "status": "unresolved",
+      "signal": "JS/TS syntax call candidate",
+      "path": "frontend/src/App.tsx",
+      "line": 337,
+      "callerSignature": "formatDuration",
+      "targetSignature": "Math.floor",
+      "evidence": "unresolved: Math.floor; target evidence: ReceiverTypeNotResolved",
+      "relationKind": "javascript-typescript-syntax",
+      "candidateTargetCount": 0,
+      "column": 29,
+      "matchedBy": [
+        "changed-path:frontend/src/App.tsx:source-file"
+      ]
+    },
+    {
+      "id": "f2d5a7c477285f83",
+      "category": "javascript-typescript-call",
+      "status": "unresolved",
+      "signal": "JS/TS syntax call candidate",
+      "path": "frontend/src/App.tsx",
+      "line": 339,
+      "callerSignature": "formatDuration",
+      "targetSignature": "Math.floor",
+      "evidence": "unresolved: Math.floor; target evidence: ReceiverTypeNotResolved",
+      "relationKind": "javascript-typescript-syntax",
+      "candidateTargetCount": 0,
+      "column": 29,
+      "matchedBy": [
+        "changed-path:frontend/src/App.tsx:source-file"
+      ]
+    },
+    {
+      "id": "47c9ed851dd1899d",
+      "category": "javascript-typescript-call",
+      "status": "unresolved",
+      "signal": "JS/TS syntax call candidate",
+      "path": "frontend/src/App.tsx",
+      "line": 341,
+      "callerSignature": "formatDuration",
+      "targetSignature": "Math.floor",
+      "evidence": "unresolved: Math.floor; target evidence: ReceiverTypeNotResolved",
+      "relationKind": "javascript-typescript-syntax",
+      "candidateTargetCount": 0,
+      "column": 22,
+      "matchedBy": [
+        "changed-path:frontend/src/App.tsx:source-file"
+      ]
+    },
+    {
+      "id": "29a29cf487b60dd3",
+      "category": "javascript-typescript-call",
+      "status": "unresolved",
+      "signal": "JS/TS syntax call candidate",
+      "path": "frontend/src/App.tsx",
+      "line": 348,
+      "callerSignature": "getJobTimelineSummary",
+      "targetSignature": "Date",
+      "evidence": "unresolved: Date; target evidence: NoUniqueInRepositoryDeclaration",
+      "relationKind": "javascript-typescript-syntax",
+      "candidateTargetCount": 0,
+      "column": 25,
+      "matchedBy": [
+        "changed-path:frontend/src/App.tsx:source-file"
+      ]
+    },
+    {
+      "id": "a057919b6e2850b7",
+      "category": "javascript-typescript-call",
+      "status": "unresolved",
+      "signal": "JS/TS syntax call candidate",
+      "path": "frontend/src/App.tsx",
+      "line": 349,
+      "callerSignature": "getJobTimelineSummary",
+      "targetSignature": "Date",
+      "evidence": "unresolved: Date; target evidence: NoUniqueInRepositoryDeclaration",
+      "relationKind": "javascript-typescript-syntax",
+      "candidateTargetCount": 0,
+      "column": 41,
+      "matchedBy": [
+        "changed-path:frontend/src/App.tsx:source-file"
+      ]
+    },
+    {
+      "id": "ad03de2334f7d9ab",
+      "category": "javascript-typescript-call",
+      "status": "unresolved",
+      "signal": "JS/TS syntax call candidate",
+      "path": "frontend/src/App.tsx",
+      "line": 350,
+      "callerSignature": "getJobTimelineSummary",
+      "targetSignature": "Date",
+      "evidence": "unresolved: Date; target evidence: NoUniqueInRepositoryDeclaration",
+      "relationKind": "javascript-typescript-syntax",
+      "candidateTargetCount": 0,
+      "column": 45,
+      "matchedBy": [
+        "changed-path:frontend/src/App.tsx:source-file"
+      ]
+    }
+  ],
+  "completeness": {
+    "totalFindingCount": 2426,
+    "emittedFindingCount": 20,
+    "findingsTruncated": true,
+    "semanticAnalysisRequested": false,
+    "semanticProjectCoverageComplete": null,
+    "unresolvedCallCount": 0
+  },
+  "limitations": [
+    "Architecture, framework, and test-path findings are candidates and require source review.",
+    "JavaScript/TypeScript call relationships are bounded syntax candidates; type checking, overload binding, and runtime dispatch are not resolved.",
+    "JavaScript/TypeScript changed-path caller matches are bounded syntax candidates; type-based, dynamic, and runtime dispatch are not resolved.",
+    "Macro expansion, active preprocessor branches, overload binding, unqualified calls, project references, C++/CLI-to-managed compiler binding, runtime dispatch, and execution are not resolved.",
+    "Native flow links are lexical candidates, not compiler-resolved calls.",
+    "Native, ORM, reflection, and runtime relationships are not inferred as managed edges; constructor and local-delegate edges require explicit compiler-bound source evidence.",
+    "Semantic analysis was not requested; no resolved managed call findings are included."
+  ],
+  "repeatedCandidateGroups": [
+    {
+      "category": "architecture-candidate",
+      "signal": "Factory method",
+      "path": "frontend/src/App.tsx",
+      "locationCount": 3,
+      "locations": [
+        {
+          "findingId": "826af1d4c2fe8b78",
+          "line": 1710
+        },
+        {
+          "findingId": "eee42687568d0d49",
+          "line": 1795
+        },
+        {
+          "findingId": "ea105061aed2e4d4",
+          "line": 3847
+        }
+      ]
+    }
+  ],
+  "focus": {
+    "clues": [],
+    "changedPaths": [
+      {
+        "path": "frontend/src/App.tsx",
+        "found": true,
+        "sourceFindingCount": 2426,
+        "callerImpactCount": 338,
+        "testImpactCount": 0,
+        "matched": true
+      }
+    ],
+    "semanticImpactAnalyzed": false,
+    "impactComplete": true,
+    "impactIssues": [],
+    "clueReadIssueCount": 0,
+    "clueMatchesTruncated": false,
+    "sourceEvidenceTruncated": false,
+    "totalMatchedFindingCount": 2426,
+    "emittedFindingCount": 20,
+    "omittedFindingCount": 2406
+  }
+}

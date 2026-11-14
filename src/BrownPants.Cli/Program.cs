@@ -93,6 +93,7 @@ public static class Program
         var format = "markdown";
         var sampleLimit = 200;
         var analyzeSemantics = false;
+        var verifyTypeScriptSyntax = false;
         for (var index = 1; index < args.Length; index++)
         {
             if (args[index] == "--format")
@@ -115,6 +116,10 @@ public static class Program
             else if (args[index] == "--semantic")
             {
                 analyzeSemantics = true;
+            }
+            else if (args[index] == "--typescript-syntax")
+            {
+                verifyTypeScriptSyntax = true;
             }
             else if (args[index].StartsWith("-", StringComparison.Ordinal))
             {
@@ -141,7 +146,7 @@ public static class Program
 
         try
         {
-            var inventory = RepositoryScanner.Scan(path, sampleLimit, analyzeSemantics);
+            var inventory = RepositoryScanner.Scan(path, sampleLimit, analyzeSemantics, verifyTypeScriptSyntax);
             output.WriteLine(format == "json"
                 ? JsonSerializer.Serialize(inventory, new JsonSerializerOptions { WriteIndented = true })
                 : MarkdownReport.Render(inventory));
@@ -456,14 +461,16 @@ public static class Program
         }
         if (command.Equals("inspect", StringComparison.OrdinalIgnoreCase))
         {
-            output.WriteLine("Usage: brownpants inspect [path] [--format markdown|json] [--limit 1..10000] [--semantic]");
+            output.WriteLine("Usage: brownpants inspect [path] [--format markdown|json] [--limit 1..10000] [--semantic] [--typescript-syntax]");
             output.WriteLine("  path                 Repository to inspect (default: current directory).");
             output.WriteLine("  --format             Report as markdown (default) or json.");
             output.WriteLine("  --limit              Maximum sampled entries, from 1 to 10000 (default: 200).");
             output.WriteLine("  --semantic           Opt in to MSBuild project loading and semantic call-target resolution.");
+            output.WriteLine("  --typescript-syntax  Opt in to a local Node.js TypeScript parser for JS/TS syntax only.");
             output.WriteLine("Without --semantic, invocation names are syntax-only and targets are not resolved.");
             output.WriteLine("Semantic reports include project coverage and compiler diagnostics; partial coverage is identified.");
             output.WriteLine("Semantic project evaluation may execute imported MSBuild targets.");
+            output.WriteLine("--typescript-syntax loads the repository-local TypeScript parser; it does not build or type-check.");
             return 0;
         }
         if (command.Equals("investigate", StringComparison.OrdinalIgnoreCase))

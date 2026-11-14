@@ -25,7 +25,8 @@ public static class RepositoryScanner
         "Gemfile", "composer.json"
     };
 
-    public static RepositoryInventory Scan(string path, int sampleLimit = 200, bool analyzeSemantics = false)
+    public static RepositoryInventory Scan(string path, int sampleLimit = 200, bool analyzeSemantics = false,
+        bool verifyTypeScriptSyntax = false)
     {
         if (sampleLimit is < 1 or > 10_000)
             throw new ArgumentOutOfRangeException(nameof(sampleLimit), "Sample limit must be between 1 and 10000.");
@@ -125,7 +126,8 @@ public static class RepositoryScanner
             nativeProjects,
             dotNetProjects)
         {
-            JavaScriptTypeScript = JavaScriptTypeScriptAnalyzer.Analyze(root, files, sampleLimit),
+            JavaScriptTypeScript = JavaScriptTypeScriptAnalyzer.Analyze(root, files, sampleLimit,
+                verifyTypeScriptSyntax ? new TypeScriptSyntaxVerifier() : null),
             WorkMarkers = WorkMarkerAnalyzer.Analyze(root, files, sampleLimit),
             ImplementationPlaceholders = CSharpImplementationPlaceholderAnalyzer.Analyze(root, files, sampleLimit),
             DroppedCollectionMappings = CSharpDroppedCollectionMappingAnalyzer.Analyze(root, files, sampleLimit)

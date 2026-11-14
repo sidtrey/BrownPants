@@ -131,6 +131,20 @@ public static class EvidenceReportAnalyzer
             }
         }
 
+        var javaScriptTypeScript = inventory.JavaScriptTypeScript;
+        foreach (var call in javaScriptTypeScript.CallRelationships)
+        {
+            var targetEvidence = call.TargetPath is null
+                ? call.CandidateTargets.Count > 0 ? string.Join(", ", call.CandidateTargets) : call.Reason ?? call.Status
+                : $"{call.TargetPath}:{call.TargetLine}:{call.TargetName}";
+            findings.Add(CreateFinding("javascript-typescript-call", call.Status, "JS/TS syntax call candidate",
+                call.SourcePath, call.SourceLine, call.Caller, call.Expression,
+                $"{call.Status}: {call.Expression}; target evidence: {targetEvidence}",
+                call.TargetPath, call.TargetLine, relationKind: "javascript-typescript-syntax",
+                targetSymbol: call.TargetName, candidateTargetCount: call.CandidateTargets.Count,
+                column: call.SourceColumn));
+        }
+
         if (semanticRequested && semantic is not null)
         {
             foreach (var call in semantic.ResolvedCalls)
@@ -169,7 +183,8 @@ public static class EvidenceReportAnalyzer
             ? semantic.ResolvedInvocationCount + semantic.ResolvedConstructorCount + semantic.ResolvedDelegateTargetCount
             : 0;
         var knownTotal = inventory.ArchitecturePatterns.SignalCount + semanticTotal
-            + inventory.TestPaths.Count(IsSourceTestPath) + (nativeFlow?.RelationCount ?? 0);
+            + inventory.TestPaths.Count(IsSourceTestPath) + (nativeFlow?.RelationCount ?? 0)
+            + javaScriptTypeScript.CallRelationshipCount;
 
         var limitations = new SortedSet<string>(StringComparer.Ordinal)
         {
@@ -195,6 +210,9 @@ public static class EvidenceReportAnalyzer
             foreach (var limit in nativeFlow.EvidenceLimits) limitations.Add(limit);
         if (nativeFlow is { OmittedCount: > 0 })
             limitations.Add($"Native-flow relations were sampled: {nativeFlow.Relations.Count} of {nativeFlow.RelationCount} retained.");
+        limitations.Add("JavaScript/TypeScript call relationships are bounded syntax candidates; type checking, overload binding, and runtime dispatch are not resolved.");
+        if (javaScriptTypeScript.OmittedCallRelationshipCount > 0)
+            limitations.Add($"JavaScript/TypeScript call relationships were sampled: {javaScriptTypeScript.CallRelationships.Count} retained and {javaScriptTypeScript.OmittedCallRelationshipCount} omitted.");
 
         var report = new EvidenceReport(
             1,
@@ -210,6 +228,7 @@ public static class EvidenceReportAnalyzer
                 ordered.Length < Math.Max(knownTotal, allOrdered.Length)
                     || inventory.ArchitecturePatterns.SignalCount > inventory.ArchitecturePatterns.Signals.Count
                     || nativeFlow is { OmittedCount: > 0 }
+                    || javaScriptTypeScript.OmittedCallRelationshipCount > 0
                     || (semanticRequested && semantic is not null
                         && semantic.ResolvedInvocationCount + semantic.ResolvedConstructorCount + semantic.ResolvedDelegateTargetCount > semantic.ResolvedCalls.Count),
                 semanticRequested,

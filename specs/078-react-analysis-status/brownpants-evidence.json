@@ -1,0 +1,194 @@
+{
+  "schemaVersion": 1,
+  "root": "$BROWNPANTS_ROOT",
+  "context": {
+    "projectSystems": [
+      ".NET",
+      "C/C\u002B\u002B"
+    ],
+    "languages": [
+      {
+        "name": "C#",
+        "sourceFileCount": 125,
+        "analysisLevel": "Roslyn syntax and candidate patterns"
+      },
+      {
+        "name": "C/C\u002B\u002B",
+        "sourceFileCount": 4,
+        "analysisLevel": "Lexical candidate patterns"
+      },
+      {
+        "name": "PowerShell",
+        "sourceFileCount": 57,
+        "analysisLevel": "Inventory only"
+      }
+    ]
+  },
+  "findings": [
+    {
+      "id": "fd886e524c20099a",
+      "category": "architecture-candidate",
+      "status": "candidate",
+      "signal": "Factory method",
+      "path": "src/BrownPants.Cli/Analysis/JavaScriptTypeScriptAnalyzer.cs",
+      "line": 529,
+      "callerSignature": null,
+      "targetSignature": null,
+      "evidence": "private static List\u003CJavaScriptTypeScriptModuleRelationship\u003E ResolveModules(string root, IReadOnlyList\u003CSourceUnit\u003E units, IReadOnlyList\u003Cstring\u003E allPaths, IssueCollector issues)",
+      "matchedBy": [
+        "changed-path:src/BrownPants.Cli/Analysis/JavaScriptTypeScriptAnalyzer.cs:source-file"
+      ]
+    },
+    {
+      "id": "56b1870745a1ceaf",
+      "category": "architecture-candidate",
+      "status": "candidate",
+      "signal": "Factory method",
+      "path": "src/BrownPants.Cli/Analysis/JavaScriptTypeScriptAnalyzer.cs",
+      "line": 556,
+      "callerSignature": null,
+      "targetSignature": null,
+      "evidence": "private static ModuleTargetResolution ResolveSpecifier(string root, string sourcePath, string specifier, HashSet\u003Cstring\u003E paths, IReadOnlyDictionary\u003Cstring, IReadOnlyList\u003CWorkspacePackage\u003E\u003E workspacePackages, IReadOnlyList\u003CPathAlias\u003E aliases, IssueCollector issues)",
+      "matchedBy": [
+        "changed-path:src/BrownPants.Cli/Analysis/JavaScriptTypeScriptAnalyzer.cs:source-file"
+      ]
+    },
+    {
+      "id": "509fbcbf37c17759",
+      "category": "architecture-candidate",
+      "status": "candidate",
+      "signal": "Factory method",
+      "path": "src/BrownPants.Cli/Analysis/JavaScriptTypeScriptAnalyzer.cs",
+      "line": 812,
+      "callerSignature": null,
+      "targetSignature": null,
+      "evidence": "private static List\u003CJavaScriptTypeScriptCallRelationship\u003E ResolveCalls(IReadOnlyList\u003CSourceUnit\u003E units, IReadOnlyList\u003CJavaScriptTypeScriptDeclaration\u003E declarations, IReadOnlyList\u003CJavaScriptTypeScriptModuleRelationship\u003E modules)",
+      "matchedBy": [
+        "changed-path:src/BrownPants.Cli/Analysis/JavaScriptTypeScriptAnalyzer.cs:source-file"
+      ]
+    },
+    {
+      "id": "1598fa1ed85ad6d3",
+      "category": "architecture-candidate",
+      "status": "candidate",
+      "signal": "Factory method",
+      "path": "src/BrownPants.Cli/Analysis/JavaScriptTypeScriptAnalyzer.cs",
+      "line": 906,
+      "callerSignature": null,
+      "targetSignature": null,
+      "evidence": "private static IReadOnlyList\u003CJavaScriptTypeScriptDeclaration\u003E ResolveExportedDeclarations(string modulePath, string name, IReadOnlyDictionary\u003Cstring, SourceUnit\u003E units, IReadOnlyDictionary\u003Cstring, Dictionary\u003Cstring, JavaScriptTypeScriptDeclaration[]\u003E\u003E exports, IReadOnlyDictionary\u003Cstring, JavaScriptTypeScriptDeclaration[]\u003E defaults, IReadOnlyDictionary\u003Cstring, JavaScriptTypeScriptModuleRelationship[]\u003E modules, HashSet\u003Cstring\u003E visited)",
+      "matchedBy": [
+        "changed-path:src/BrownPants.Cli/Analysis/JavaScriptTypeScriptAnalyzer.cs:source-file"
+      ]
+    },
+    {
+      "id": "74a4a75512f94297",
+      "category": "test-identification",
+      "status": "candidate",
+      "signal": "test path",
+      "path": "tests/BrownPants.Tests/TypeScriptSyntaxVerifierTests.cs",
+      "line": null,
+      "callerSignature": null,
+      "targetSignature": null,
+      "evidence": "Repository test-path heuristic; inspect the file to confirm relevance.",
+      "matchedBy": [
+        "changed-path:tests/BrownPants.Tests/TypeScriptSyntaxVerifierTests.cs:source-file"
+      ]
+    }
+  ],
+  "completeness": {
+    "totalFindingCount": 5,
+    "emittedFindingCount": 5,
+    "findingsTruncated": false,
+    "semanticAnalysisRequested": false,
+    "semanticProjectCoverageComplete": null,
+    "unresolvedCallCount": 0
+  },
+  "limitations": [
+    "Architecture, framework, and test-path findings are candidates and require source review.",
+    "Caller impact was not analyzed for managed changed paths; pass --semantic to resolve managed callers. Native candidate impact may still be included.",
+    "JavaScript/TypeScript call relationships are bounded syntax candidates; type checking, overload binding, and runtime dispatch are not resolved.",
+    "Macro expansion, active preprocessor branches, overload binding, unqualified calls, project references, C\u002B\u002B/CLI-to-managed compiler binding, runtime dispatch, and execution are not resolved.",
+    "Native flow links are lexical candidates, not compiler-resolved calls.",
+    "Native, ORM, reflection, and runtime relationships are not inferred as managed edges; constructor and local-delegate edges require explicit compiler-bound source evidence.",
+    "Semantic analysis was not requested; no resolved managed call findings are included."
+  ],
+  "repeatedCandidateGroups": [
+    {
+      "category": "architecture-candidate",
+      "signal": "Factory method",
+      "path": "src/BrownPants.Cli/Analysis/JavaScriptTypeScriptAnalyzer.cs",
+      "locationCount": 4,
+      "locations": [
+        {
+          "findingId": "fd886e524c20099a",
+          "line": 529
+        },
+        {
+          "findingId": "56b1870745a1ceaf",
+          "line": 556
+        },
+        {
+          "findingId": "509fbcbf37c17759",
+          "line": 812
+        },
+        {
+          "findingId": "1598fa1ed85ad6d3",
+          "line": 906
+        }
+      ]
+    }
+  ],
+  "focus": {
+    "clues": [],
+    "changedPaths": [
+      {
+        "path": "src/BrownPants.Cli/Analysis/JavaScriptTypeScriptAnalyzer.cs",
+        "found": true,
+        "sourceFindingCount": 4,
+        "callerImpactCount": 0,
+        "testImpactCount": 0,
+        "matched": true
+      },
+      {
+        "path": "src/BrownPants.Cli/Analysis/JavaScriptTypeScriptModels.cs",
+        "found": true,
+        "sourceFindingCount": 0,
+        "callerImpactCount": 0,
+        "testImpactCount": 0,
+        "matched": false
+      },
+      {
+        "path": "src/BrownPants.Cli/Output/MarkdownReport.cs",
+        "found": true,
+        "sourceFindingCount": 0,
+        "callerImpactCount": 0,
+        "testImpactCount": 0,
+        "matched": false
+      },
+      {
+        "path": "tests/BrownPants.Tests/TypeScriptSyntaxVerifierTests.cs",
+        "found": true,
+        "sourceFindingCount": 1,
+        "callerImpactCount": 0,
+        "testImpactCount": 0,
+        "matched": true
+      }
+    ],
+    "semanticImpactAnalyzed": false,
+    "impactComplete": false,
+    "impactIssues": [
+      "Changed path \u0027src/BrownPants.Cli/Analysis/JavaScriptTypeScriptAnalyzer.cs\u0027 has no mapped method declarations in the loaded semantic graph.",
+      "Changed path \u0027src/BrownPants.Cli/Analysis/JavaScriptTypeScriptModels.cs\u0027 has no mapped method declarations in the loaded semantic graph.",
+      "Changed path \u0027src/BrownPants.Cli/Output/MarkdownReport.cs\u0027 has no mapped method declarations in the loaded semantic graph.",
+      "Changed path \u0027tests/BrownPants.Tests/TypeScriptSyntaxVerifierTests.cs\u0027 has no mapped method declarations in the loaded semantic graph.",
+      "Managed caller impact was not analyzed; pass --semantic to resolve direct and transitive C#/VB callers."
+    ],
+    "clueReadIssueCount": 0,
+    "clueMatchesTruncated": false,
+    "sourceEvidenceTruncated": false,
+    "totalMatchedFindingCount": 5,
+    "emittedFindingCount": 5,
+    "omittedFindingCount": 0
+  }
+}

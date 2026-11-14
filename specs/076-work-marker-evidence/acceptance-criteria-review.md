@@ -20,4 +20,4 @@
 
 **Proposed SC-003**: A BrownPants scan of current FullMetalFile reports bounded work-marker totals and omissions; if markers are present, each reported marker has a repository-relative path and one-based line. Fixture tests demonstrate detection when the current repository contains no markers.
 
-**Approval state**: Pending maintainer review. The accepted spec and baseline remain unchanged.
+**Resolution**: The latest scan of the current FullMetalFile checkout reports one source marker at `backend/src/FullMetalFile.Infrastructure/Ingestion/EmailIngestionWorker.cs:59`. Therefore the accepted SC-003 remains accurate. The proposed zero-marker rewording and digest above were not applied; the existing baseline remains authoritative. No acceptance-criteria review or rebaseline is needed.

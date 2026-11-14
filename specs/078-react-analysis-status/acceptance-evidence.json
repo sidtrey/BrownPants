@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "tasks": [
+    {
+      "taskId": "T001",
+      "criterionIds": ["AC-001", "AC-002", "AC-003", "SC-002"],
+      "verificationCommand": "Focused model and analyzer tests for default and parser-derived statuses",
+      "evidencePaths": ["src/BrownPants.Cli/Analysis/JavaScriptTypeScriptModels.cs", "src/BrownPants.Cli/Analysis/JavaScriptTypeScriptAnalyzer.cs"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T002",
+      "criterionIds": ["AC-001", "AC-002", "AC-003", "SC-001", "SC-002", "SC-003"],
+      "verificationCommand": "Markdown report tests for not-requested, verified, unavailable, and failed states",
+      "evidencePaths": ["src/BrownPants.Cli/Output/MarkdownReport.cs", "tests/BrownPants.Tests/TypeScriptSyntaxVerifierTests.cs"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T003",
+      "criterionIds": ["AC-001", "AC-002", "AC-003", "SC-004"],
+      "verificationCommand": "dotnet test tests/BrownPants.Tests/BrownPants.Tests.csproj --no-restore --filter FullyQualifiedName~TypeScriptSyntaxVerifierTests",
+      "evidencePaths": ["tests/BrownPants.Tests/TypeScriptSyntaxVerifierTests.cs"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T004",
+      "criterionIds": ["AC-001", "AC-002", "AC-003", "SC-001", "SC-002", "SC-003", "SC-004"],
+      "verificationCommand": "Build BrownPants, run focused tests, and inspect FullMetalFile with and without --typescript-syntax",
+      "evidencePaths": ["specs/078-react-analysis-status/quickstart.md"],
+      "result": "passed"
+    },
+    {
+      "taskId": "T005",
+      "criterionIds": ["SC-001", "SC-002", "SC-003"],
+      "verificationCommand": "BrownPants changed-path evidence and acceptance criteria/evidence checks",
+      "evidencePaths": ["specs/078-react-analysis-status/brownpants-evidence.json", "specs/078-react-analysis-status/acceptance-criteria.sha256", "specs/078-react-analysis-status/quickstart.md"],
+      "result": "passed"
+    }
+  ]
+}

@@ -338,6 +338,135 @@ public sealed class EvidenceCommandTests : IDisposable
         Assert.Contains("repository-relative", result.Error, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("app.js")]
+    [InlineData("view.jsx")]
+    [InlineData("module.mjs")]
+    [InlineData("legacy.cjs")]
+    [InlineData("model.ts")]
+    [InlineData("Capture.tsx")]
+    [InlineData("module.mts")]
+    [InlineData("legacy.cts")]
+    public void Evidence_FocusAcceptsSupportedJavaScriptAndTypeScriptChangedPaths(string fileName)
+    {
+        var relativePath = $"src/{fileName}";
+        Write(relativePath, "export function changedRecord() { return true; }");
+
+        var result = Run("evidence", _root, "--changed", relativePath, "--limit", "1000");
+
+        Assert.Equal(0, result.ExitCode);
+        using var json = JsonDocument.Parse(result.Output);
+        var focus = Assert.Single(json.RootElement.GetProperty("focus").GetProperty("changedPaths").EnumerateArray());
+        Assert.True(focus.GetProperty("found").GetBoolean());
+        Assert.DoesNotContain(json.RootElement.GetProperty("focus").GetProperty("impactIssues").EnumerateArray(), item =>
+            item.GetString()!.Contains("Unsupported changed path", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Evidence_FocusByChangedTypeScriptTargetIncludesUniqueTsxCallerAsSyntaxCandidate()
+    {
+        Write("src/records.ts", "export function storeRecord() { return true; }");
+        Write("src/Capture.tsx", "import { storeRecord } from './records'; export function Capture() { storeRecord(); return null; }");
+
+        var result = Run("evidence", _root, "--changed", "src/records.ts", "--limit", "1000");
+
+        Assert.Equal(0, result.ExitCode);
+        using var json = JsonDocument.Parse(result.Output);
+        var report = json.RootElement;
+        var focus = report.GetProperty("focus");
+        Assert.True(focus.GetProperty("impactComplete").GetBoolean());
+        var changedPath = Assert.Single(focus.GetProperty("changedPaths").EnumerateArray());
+        Assert.Equal(1, changedPath.GetProperty("callerImpactCount").GetInt32());
+        var caller = Assert.Single(report.GetProperty("findings").EnumerateArray(), item =>
+            item.GetProperty("path").GetString() == "src/Capture.tsx"
+            && item.GetProperty("category").GetString() == "javascript-typescript-call");
+        Assert.Equal("syntax-resolved", caller.GetProperty("status").GetString());
+        Assert.Equal("src/records.ts", caller.GetProperty("targetPath").GetString());
+        Assert.Contains(caller.GetProperty("matchedBy").EnumerateArray(), item =>
+            item.GetString()!.EndsWith(":syntax-caller-candidate", StringComparison.Ordinal));
+        Assert.Contains(report.GetProperty("limitations").EnumerateArray(), item =>
+            item.GetString()!.Contains("type checking, overload binding, and runtime dispatch", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Evidence_FocusExcludesAmbiguousAndDynamicCallers()
+    {
+        Write("package.json", "{\"workspaces\":[\"packages/*\"]}");
+        Write("packages/one/package.json", "{\"name\":\"@demo/shared\",\"main\":\"index.js\"}");
+        Write("packages/one/index.js", "export function open() {}\n");
+        Write("packages/two/package.json", "{\"name\":\"@demo/shared\",\"main\":\"index.js\"}");
+        Write("packages/two/index.js", "export function open() {}\n");
+        Write("app/main.ts", "import { open } from '@demo/shared'; open();\n");
+        Write("app/dynamic.ts", "export function dispatch(handler: () => void) { handler(); }\n");
+
+        var analysis = RepositoryScanner.Scan(_root).JavaScriptTypeScript;
+        Assert.Contains(analysis.ModuleRelationships, item => item.Specifier == "@demo/shared"
+            && item.Status == "ambiguous" && item.CandidateTargetPaths.Count == 2);
+        Assert.Contains(analysis.CallRelationships, item => item.Expression == "open" && item.Status == "unresolved");
+        Assert.Contains(analysis.CallRelationships, item => item.Expression == "handler" && item.Status == "unresolved");
+
+        var full = Run("evidence", _root, "--limit", "1000");
+        var focused = Run("evidence", _root, "--changed", "packages/one/index.js", "--limit", "1000");
+
+        Assert.Equal(0, full.ExitCode);
+        Assert.Equal(0, focused.ExitCode);
+        using var fullJson = JsonDocument.Parse(full.Output);
+        Assert.Contains(fullJson.RootElement.GetProperty("findings").EnumerateArray(), item =>
+            item.GetProperty("category").GetString() == "javascript-typescript-call"
+            && item.GetProperty("path").GetString() == "app/main.ts"
+            && item.GetProperty("status").GetString() == "unresolved");
+        Assert.Contains(fullJson.RootElement.GetProperty("findings").EnumerateArray(), item =>
+            item.GetProperty("category").GetString() == "javascript-typescript-call"
+            && item.GetProperty("path").GetString() == "app/dynamic.ts"
+            && item.GetProperty("targetSignature").GetString() == "handler"
+            && item.GetProperty("status").GetString() == "unresolved");
+        using var focusedJson = JsonDocument.Parse(focused.Output);
+        var changed = Assert.Single(focusedJson.RootElement.GetProperty("focus").GetProperty("changedPaths").EnumerateArray());
+        Assert.Equal("packages/one/index.js", changed.GetProperty("path").GetString());
+        Assert.Equal(0, changed.GetProperty("callerImpactCount").GetInt32());
+        Assert.DoesNotContain(focusedJson.RootElement.GetProperty("findings").EnumerateArray(), item =>
+            item.GetProperty("path").GetString() == "app/main.ts"
+            && item.GetProperty("matchedBy").EnumerateArray().Any(reason =>
+                reason.GetString()!.EndsWith(":syntax-caller-candidate", StringComparison.Ordinal)));
+        Assert.DoesNotContain(focusedJson.RootElement.GetProperty("findings").EnumerateArray(), item =>
+            item.GetProperty("path").GetString() == "app/dynamic.ts"
+            && item.GetProperty("matchedBy").EnumerateArray().Any(reason =>
+                reason.GetString()!.EndsWith(":syntax-caller-candidate", StringComparison.Ordinal)));
+        Assert.Contains(focusedJson.RootElement.GetProperty("limitations").EnumerateArray(), item =>
+            item.GetString()!.Contains("type-based, dynamic, and runtime dispatch are not resolved", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Evidence_FocusWithMixedTypeScriptAndManagedPathsDoesNotSendTypeScriptToManagedAnalyzer()
+    {
+        Write("src/records.ts", "export function storeRecord() { return true; }");
+        Write("src/Capture.tsx", "import { storeRecord } from './records'; export function Capture() { storeRecord(); return null; }");
+        Write("src/Store.cs", "namespace Sample; public class Store { public void Save() { } }");
+
+        var result = Run("evidence", _root, "--changed", "src/records.ts", "--changed", "src/Store.cs", "--limit", "1000");
+
+        Assert.Equal(0, result.ExitCode);
+        using var json = JsonDocument.Parse(result.Output);
+        Assert.Equal(2, json.RootElement.GetProperty("focus").GetProperty("changedPaths").GetArrayLength());
+        Assert.DoesNotContain(json.RootElement.GetProperty("focus").GetProperty("impactIssues").EnumerateArray(), item =>
+            item.GetString()!.Contains("supports C#", StringComparison.Ordinal));
+        Assert.Contains(json.RootElement.GetProperty("findings").EnumerateArray(), item =>
+            item.GetProperty("category").GetString() == "javascript-typescript-call"
+            && item.GetProperty("matchedBy").EnumerateArray().Any(reason =>
+                reason.GetString()!.EndsWith(":syntax-caller-candidate", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void Evidence_FocusRejectsUnsupportedChangedSourceExtension()
+    {
+        Write("src/app.py", "def changed(): pass");
+
+        var result = Run("evidence", _root, "--changed", "src/app.py");
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.Contains("JavaScript, or TypeScript", result.Error, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Evidence_FocusBoundsChangedPathSelectors()
     {

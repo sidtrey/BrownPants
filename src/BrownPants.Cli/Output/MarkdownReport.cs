@@ -434,6 +434,36 @@ public static class MarkdownReport
         report.AppendLine($"- Analysis level: {Escape(analysis.EvidenceLevel)}");
         report.AppendLine($"- Source files scanned: {analysis.ScannedFileCount}; declarations: {analysis.DeclarationCount}; module relationships: {analysis.ModuleRelationshipCount}; call relationships: {analysis.CallRelationshipCount}");
         foreach (var limit in analysis.EvidenceLimits) report.AppendLine($"- Evidence limit: {Escape(limit)}");
+        if (analysis.ReactSupport.ProjectCount > 0)
+        {
+            report.AppendLine();
+            report.AppendLine("### React project and UI evidence");
+            report.AppendLine();
+            foreach (var project in analysis.ReactSupport.Projects)
+                report.AppendLine($"- React project `{Escape(project.Name)}` declared version `{Escape(project.Version ?? "unknown")}` in `{Escape(project.ManifestPath)}`.");
+            if (analysis.ReactSupport.OmittedProjectCount > 0)
+                report.AppendLine($"- {analysis.ReactSupport.OmittedProjectCount} React project manifests omitted by the sample limit.");
+            if (analysis.ReactSupport.CandidateAnalysisStatus == "not-requested")
+            {
+                report.AppendLine("- React source candidate analysis was not requested; function component and hook-call counts are unavailable. Run `inspect --typescript-syntax` to request parser-backed candidates.");
+            }
+            else if (analysis.ReactSupport.CandidateAnalysisStatus is "verified" or "partial")
+            {
+                report.AppendLine($"- React candidate analysis status: {Escape(analysis.ReactSupport.CandidateAnalysisStatus)}; function component candidates: {analysis.ReactSupport.ComponentCount}; hook-call candidates: {analysis.ReactSupport.HookCallCount}. These are syntax evidence and do not prove runtime use.");
+            }
+            else
+            {
+                report.AppendLine($"- React candidate analysis status: {Escape(analysis.ReactSupport.CandidateAnalysisStatus)}; function component and hook-call candidate counts are unavailable.");
+            }
+            foreach (var candidate in analysis.ReactSupport.Components)
+                report.AppendLine($"- React {Escape(candidate.Kind)} `{Escape(candidate.Name)}`: `{Escape(candidate.Path)}:{candidate.Line}:{candidate.Column}`.");
+            if (analysis.ReactSupport.OmittedComponentCount > 0)
+                report.AppendLine($"- {analysis.ReactSupport.OmittedComponentCount} React component candidates omitted by the sample limit.");
+            foreach (var candidate in analysis.ReactSupport.HookCalls)
+                report.AppendLine($"- React {Escape(candidate.Kind)} `{Escape(candidate.Name)}`: `{Escape(candidate.Path)}:{candidate.Line}:{candidate.Column}`.");
+            if (analysis.ReactSupport.OmittedHookCallCount > 0)
+                report.AppendLine($"- {analysis.ReactSupport.OmittedHookCallCount} React hook-call candidates omitted by the sample limit.");
+        }
         report.AppendLine();
         report.AppendLine("### Declarations");
         report.AppendLine();
@@ -458,8 +488,41 @@ public static class MarkdownReport
         if (analysis.CallRelationshipCount == 0) report.AppendLine("No supported call relationships found.");
         if (analysis.OmittedCallRelationshipCount > 0) report.AppendLine($"- {analysis.OmittedCallRelationshipCount} call relationships omitted by the sample limit.");
         foreach (var issue in analysis.Issues)
-            report.AppendLine($"- Analysis issue `{Escape(issue.Path)}`: {Escape(issue.Code)}");
+        {
+            var label = issue.EvidenceKind == "SyntaxHeuristic"
+                ? "Syntax heuristic (not compiler-verified)"
+                : "Analysis issue";
+            report.AppendLine($"- {label} `{Escape(issue.Path)}`: {Escape(issue.Code)}");
+        }
         if (analysis.OmittedIssueCount > 0) report.AppendLine($"- {analysis.OmittedIssueCount} analysis issues omitted by the sample limit.");
+        if (analysis.SyntaxVerification is { } verification)
+        {
+            report.AppendLine();
+            report.AppendLine("### Optional TypeScript parser verification");
+            report.AppendLine();
+            report.AppendLine($"- Status: {Escape(verification.Status)}; files checked: {verification.FileCount}; parser diagnostics: {verification.DiagnosticCount}.");
+            report.AppendLine("- This explicit mode loads the resolved local TypeScript parser through Node.js; it checks syntax only and does not type-check, build, or execute project source.");
+            foreach (var parser in verification.Parsers)
+                report.AppendLine($"- Parser: {Escape(parser.Name)} {Escape(parser.Version)} at `{Escape(parser.Path)}`.");
+            foreach (var file in verification.Files)
+                report.AppendLine($"- File `{Escape(file.Path)}`: {Escape(file.Status)}" + (file.Message is null ? string.Empty : $" ({Escape(file.Message)})"));
+            if (verification.OmittedFileCount > 0)
+                report.AppendLine($"- {verification.OmittedFileCount} file statuses omitted by the sample limit.");
+            foreach (var diagnostic in verification.Diagnostics)
+            {
+                var location = diagnostic.Line is null ? string.Empty : $":{diagnostic.Line}:{diagnostic.Column ?? 1}";
+                report.AppendLine($"- Parser diagnostic `{diagnostic.Code}` `{Escape(diagnostic.Path)}{location}`: {Escape(diagnostic.Message)}");
+            }
+            if (verification.DiagnosticCount == 0) report.AppendLine("No parser syntax errors found in verified files.");
+            if (verification.OmittedDiagnosticCount > 0)
+                report.AppendLine($"- {verification.OmittedDiagnosticCount} parser diagnostics omitted by the sample limit.");
+            foreach (var finding in verification.HeuristicFindings)
+                report.AppendLine($"- Heuristic finding (not a compiler diagnostic) `{Escape(finding.Path)}`: {Escape(finding.Code)}");
+            if (verification.OmittedHeuristicFindingCount > 0)
+                report.AppendLine($"- {verification.OmittedHeuristicFindingCount} heuristic findings omitted by the sample limit.");
+            if (verification.Message is not null)
+                report.AppendLine($"- Verification note: {Escape(verification.Message)}");
+        }
         report.AppendLine();
     }
 

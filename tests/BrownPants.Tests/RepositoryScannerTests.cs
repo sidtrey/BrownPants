@@ -24,6 +24,7 @@ public sealed class RepositoryScannerTests : IDisposable
 
     [Theory]
     [InlineData("inspect", "--help", "--semantic")]
+    [InlineData("inspect", "--help", "--typescript-syntax")]
     [InlineData("investigate", "-h", "--clue")]
     [InlineData("impact", "--help", "--changed")]
     [InlineData("evidence", "--help", "candidate")]
