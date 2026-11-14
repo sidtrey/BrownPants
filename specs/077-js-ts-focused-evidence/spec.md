@@ -47,7 +47,7 @@ As a maintainer, I need focused JavaScript/TypeScript impact to remain clearly d
 - **SC-002**: A changed TypeScript target selects a source-located TSX caller only when the analyzer reports a unique syntax-resolved target.
 - **SC-003**: Reports do not label JS/TS call candidates compiler-resolved and clearly state omitted semantic guarantees.
 - **SC-004**: Existing BrownPants build and tests pass with unchanged C#/VB/native focused-evidence behavior.
-- **SC-005**: A focused FullMetalFile React handoff using `--changed FullMetalFile.Client/src/CaptureWorkspace.tsx` succeeds and returns relevant evidence.
+- **SC-005**: A focused FullMetalFile React handoff using `--changed frontend/src/App.tsx` succeeds and returns bounded, source-located JavaScript/TypeScript candidate evidence with syntax limitations visible.
 - **SC-006**: Spec Kit acceptance evidence validates against the recorded criteria digest.
 
 ## Assumptions

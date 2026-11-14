@@ -24,5 +24,5 @@ Accept the eight supported JS/TS extensions only after the existing repository-r
 
 - Focused `EvidenceCommandTests` for TS/TSX callers and mixed paths.
 - `dotnet build BrownPants.sln` and `dotnet test BrownPants.sln`.
-- `brownpants evidence <FullMetalFile-root> --changed FullMetalFile.Client/src/CaptureWorkspace.tsx --format json`.
+- `brownpants evidence <FullMetalFile-root> --changed frontend/src/App.tsx --format json`.
 - Acceptance criteria hash and evidence ledger validation.
