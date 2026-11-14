@@ -26,10 +26,16 @@ public static class JavaScriptTypeScriptAnalyzer
 
     public static JavaScriptTypeScriptAnalysis Analyze(string root, IEnumerable<string> sourcePaths, int sampleLimit)
         => Analyze(root, sourcePaths, sampleLimit, MaxSourceFiles, MaxTotalSourceCharacters,
-            MaxTotalTokens, MaxRecordsPerKind, MaxIssues);
+            MaxTotalTokens, MaxRecordsPerKind, MaxIssues, null);
 
     internal static JavaScriptTypeScriptAnalysis Analyze(string root, IEnumerable<string> sourcePaths, int sampleLimit,
-        int maxSourceFiles, int maxTotalSourceCharacters, int maxTotalTokens, int maxRecordsPerKind, int maxIssues)
+        ITypeScriptSyntaxVerifier? syntaxVerifier)
+        => Analyze(root, sourcePaths, sampleLimit, MaxSourceFiles, MaxTotalSourceCharacters,
+            MaxTotalTokens, MaxRecordsPerKind, MaxIssues, syntaxVerifier);
+
+    internal static JavaScriptTypeScriptAnalysis Analyze(string root, IEnumerable<string> sourcePaths, int sampleLimit,
+        int maxSourceFiles, int maxTotalSourceCharacters, int maxTotalTokens, int maxRecordsPerKind, int maxIssues,
+        ITypeScriptSyntaxVerifier? syntaxVerifier = null)
     {
         if (sampleLimit < 1 || maxSourceFiles < 1 || maxTotalSourceCharacters < 1 || maxTotalTokens < 1
             || maxRecordsPerKind < 1 || maxIssues < 1)
@@ -50,6 +56,7 @@ public static class JavaScriptTypeScriptAnalyzer
         long totalSourceCharacters = 0;
         var totalTokens = 0;
         var processedFileCount = 0;
+        var parserSourcePaths = new List<string>();
         var declarationsRetained = 0;
         var moduleSpecsRetained = 0;
         var callsRetained = 0;
@@ -76,6 +83,7 @@ public static class JavaScriptTypeScriptAnalyzer
                     break;
                 }
                 totalSourceCharacters += source.Length;
+                parserSourcePaths.Add(path);
                 var tokenized = Tokenize(source);
                 issues.AddRange(tokenized.IssueCodes.Select(code => new JavaScriptTypeScriptIssue(path, code)));
                 var tokens = tokenized.Tokens;
@@ -104,6 +112,7 @@ public static class JavaScriptTypeScriptAnalyzer
         }
 
         var allDeclarations = units.SelectMany(unit => unit.Declarations).ToArray();
+        var reactSupport = ReactProjectAnalyzer.Analyze(root, allPaths, sampleLimit);
         var modules = ResolveModules(root, units, resolutionPaths, issues);
         var calls = ResolveCalls(units, allDeclarations, modules);
         var sortedDeclarations = allDeclarations.OrderBy(item => item.Path, RepositoryPathComparer.Instance)
@@ -125,14 +134,60 @@ public static class JavaScriptTypeScriptAnalyzer
             "Syntax-resolved calls do not prove TypeScript type correctness, overload binding, runtime dispatch, module execution, or installed dependencies.",
             $"Analysis caps: {maxSourceFiles:N0} source files, {MaxResolutionMetadataFiles:N0} workspace/config files, {MaxMetadataFileBytes:N0} bytes per metadata file, {MaxTotalMetadataBytes:N0} aggregate metadata bytes, {maxTotalSourceCharacters:N0} total source characters, {maxTotalTokens:N0} total tokens, {maxRecordsPerKind:N0} records per category, and {maxIssues:N0} diagnostics. A corresponding issue identifies a reached cap; reported record or diagnostic counts are lower bounds when their cap is present."
         };
-        var orderedIssues = issues.ToOutput();
+        var allIssues = issues.ToOutput();
+        TypeScriptSyntaxVerification? syntaxVerification = null;
+        if (syntaxVerifier is not null)
+        {
+            syntaxVerification = syntaxVerifier.Verify(root, parserSourcePaths, allPaths,
+                reactSupport.AllProjectManifestPaths, sampleLimit);
+            var verifiedPaths = syntaxVerification.AllVerifiedSourcePaths;
+            var heuristicFindings = allIssues.Where(issue => verifiedPaths.Contains(issue.Path)
+                    && IsHeuristicSyntaxIssue(issue.Code))
+                .OrderBy(issue => issue.Path, RepositoryPathComparer.Instance).ThenBy(issue => issue.Code, StringComparer.Ordinal)
+                .ToArray();
+            if (heuristicFindings.Length > 0)
+            {
+                var remainingIssues = allIssues.Where(issue => !verifiedPaths.Contains(issue.Path)
+                    || !IsHeuristicSyntaxIssue(issue.Code)).ToArray();
+                syntaxVerification = syntaxVerification with
+                {
+                    HeuristicFindingCount = heuristicFindings.Length,
+                    OmittedHeuristicFindingCount = Math.Max(0, heuristicFindings.Length - sampleLimit),
+                    HeuristicFindings = heuristicFindings.Take(sampleLimit).ToArray()
+                };
+                allIssues = remainingIssues;
+            }
+            var components = syntaxVerification.AllReactComponents
+                .OrderBy(item => item.Path, RepositoryPathComparer.Instance).ThenBy(item => item.Line)
+                .ThenBy(item => item.Column).ThenBy(item => item.Name, StringComparer.Ordinal).ToArray();
+            var hookCalls = syntaxVerification.AllReactHookCalls
+                .OrderBy(item => item.Path, RepositoryPathComparer.Instance).ThenBy(item => item.Line)
+                .ThenBy(item => item.Column).ThenBy(item => item.Name, StringComparer.Ordinal).ToArray();
+            reactSupport = reactSupport with
+            {
+                CandidateAnalysisStatus = syntaxVerification.Status,
+                ComponentCount = components.Length,
+                OmittedComponentCount = Math.Max(0, components.Length - sampleLimit),
+                Components = components.Take(sampleLimit).ToArray(),
+                HookCallCount = hookCalls.Length,
+                OmittedHookCallCount = Math.Max(0, hookCalls.Length - sampleLimit),
+                HookCalls = hookCalls.Take(sampleLimit).ToArray()
+            };
+        }
+        var orderedIssues = allIssues;
         return new JavaScriptTypeScriptAnalysis("Bounded JavaScript/TypeScript syntax analysis", processedFileCount,
             orderedDeclarations.Length, orderedModules.Length, orderedCalls.Length,
             orderedDeclarations.Take(sampleLimit).ToArray(), orderedModules.Take(sampleLimit).ToArray(), orderedCalls.Take(sampleLimit).ToArray(),
             Math.Max(0, orderedDeclarations.Length - sampleLimit), Math.Max(0, orderedModules.Length - sampleLimit),
             Math.Max(0, orderedCalls.Length - sampleLimit), orderedIssues.Length, Math.Max(0, orderedIssues.Length - sampleLimit),
-            orderedIssues.Take(sampleLimit).ToArray(), limits);
+            orderedIssues.Take(sampleLimit).ToArray(), limits)
+        {
+            SyntaxVerification = syntaxVerification,
+            ReactSupport = reactSupport
+        };
     }
+
+    private static bool IsHeuristicSyntaxIssue(string code) => JavaScriptTypeScriptIssue.IsHeuristicSyntaxCode(code);
 
     private static bool IsResolutionMetadataPath(string path)
     {

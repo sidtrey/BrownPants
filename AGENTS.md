@@ -12,6 +12,7 @@
 - Add `--format json` for machine-readable inventory.
 - Add `--limit 1000` to retain larger Roslyn symbol samples (valid range: 1–10000).
 - Add `--semantic` to opt into MSBuildWorkspace and semantic call-target resolution; project evaluation may execute imported build targets.
+- Add `--typescript-syntax` to opt into a repository-local TypeScript parser for JS/TS syntax and React candidates; this does not type-check or build projects.
 
 ## Coding Style & Naming Conventions
 
