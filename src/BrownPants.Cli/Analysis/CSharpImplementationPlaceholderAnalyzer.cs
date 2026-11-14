@@ -42,11 +42,37 @@ public static class CSharpImplementationPlaceholderAnalyzer
                 var syntaxRoot = CSharpSyntaxTree.ParseText(source, path: relativePath).GetRoot();
                 foreach (var type in syntaxRoot.DescendantNodes().OfType<TypeDeclarationSyntax>())
                 {
-                    foreach (var method in type.Members.OfType<MethodDeclarationSyntax>())
+                    var methods = type.Members.OfType<MethodDeclarationSyntax>().ToArray();
+                    var methodNameCounts = methods.GroupBy(method => method.Identifier.ValueText, StringComparer.Ordinal)
+                        .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
+                    var helperNames = methods
+                        .Where(method => methodNameCounts[method.Identifier.ValueText] == 1 && IsDirectNotImplementedFactory(method))
+                        .Select(method => method.Identifier.ValueText)
+                        .ToHashSet(StringComparer.Ordinal);
+
+                    foreach (var member in type.Members)
                     {
-                        if (TryClassify(method, out var kind, out var evidence))
+                        if (member is MethodDeclarationSyntax method)
                         {
-                            AddCandidate(relativePath, type, method.Identifier, FormatSignature(method), kind, evidence);
+                            if (TryClassify(method, out var kind, out var evidence))
+                            {
+                                AddCandidate(relativePath, type, method.Identifier, FormatSignature(method), kind, evidence);
+                                continue;
+                            }
+                        }
+
+                        if (member is MethodDeclarationSyntax or PropertyDeclarationSyntax
+                            && TryGetDelegatedHelper(member, out var helperName)
+                            && helperNames.Contains(helperName))
+                        {
+                            var (identifier, signature) = member switch
+                            {
+                                MethodDeclarationSyntax wrapperMethod => (wrapperMethod.Identifier, FormatSignature(wrapperMethod)),
+                                PropertyDeclarationSyntax property => (property.Identifier, FormatSignature(property)),
+                                _ => throw new InvalidOperationException("Unexpected member kind.")
+                            };
+                            AddCandidate(relativePath, type, identifier, signature,
+                                "Indirect NotImplementedException", $"delegates to {helperName}()");
                         }
                     }
 
@@ -167,6 +193,86 @@ public static class CSharpImplementationPlaceholderAnalyzer
         return false;
     }
 
+    private static bool IsDirectNotImplementedFactory(MethodDeclarationSyntax method)
+    {
+        ExpressionSyntax? expression = method.ExpressionBody?.Expression;
+        if (method.Body is { } body)
+        {
+            if (body.Statements.Count != 1)
+                return false;
+
+            expression = body.Statements[0] switch
+            {
+                ReturnStatementSyntax returnStatement => returnStatement.Expression,
+                ThrowStatementSyntax throwStatement => throwStatement.Expression,
+                _ => null
+            };
+        }
+
+        if (expression is ThrowExpressionSyntax throwExpression)
+            expression = throwExpression.Expression;
+
+        return expression is ObjectCreationExpressionSyntax creation
+            && IsNotImplementedException(creation.Type);
+    }
+
+    private static bool TryGetDelegatedHelper(MemberDeclarationSyntax member, out string helperName)
+    {
+        helperName = string.Empty;
+        ExpressionSyntax? expression = member switch
+        {
+            MethodDeclarationSyntax method => GetSingleExpression(method.ExpressionBody?.Expression, method.Body),
+            PropertyDeclarationSyntax property => GetPropertyGetterExpression(property),
+            _ => null
+        };
+
+        if (expression is ThrowExpressionSyntax throwExpression)
+            expression = throwExpression.Expression;
+
+        if (expression is not InvocationExpressionSyntax invocation)
+            return false;
+
+        switch (invocation.Expression)
+        {
+            case IdentifierNameSyntax identifier:
+                helperName = identifier.Identifier.ValueText;
+                return true;
+            case MemberAccessExpressionSyntax
+                {
+                    Expression: ThisExpressionSyntax,
+                    Name: IdentifierNameSyntax name
+                }:
+                helperName = name.Identifier.ValueText;
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static ExpressionSyntax? GetPropertyGetterExpression(PropertyDeclarationSyntax property)
+    {
+        if (property.ExpressionBody is { } expressionBody)
+            return expressionBody.Expression;
+
+        var getter = property.AccessorList?.Accessors
+            .FirstOrDefault(accessor => accessor.IsKind(SyntaxKind.GetAccessorDeclaration));
+        return getter is null ? null : GetSingleExpression(getter.ExpressionBody?.Expression, getter.Body);
+    }
+
+    private static ExpressionSyntax? GetSingleExpression(ExpressionSyntax? expressionBody, BlockSyntax? body)
+    {
+        if (expressionBody is not null)
+            return expressionBody;
+        if (body is null || body.Statements.Count != 1)
+            return null;
+        return body.Statements[0] switch
+        {
+            ReturnStatementSyntax returnStatement => returnStatement.Expression,
+            ThrowStatementSyntax throwStatement => throwStatement.Expression,
+            _ => null
+        };
+    }
+
     private static bool IsCompletedTask(ExpressionSyntax expression) =>
         expression is MemberAccessExpressionSyntax memberAccess
         && memberAccess.Name.Identifier.ValueText == "CompletedTask"
@@ -239,6 +345,16 @@ public static class CSharpImplementationPlaceholderAnalyzer
             parameter.Type is null ? parameter.Identifier.ValueText : $"{parameter.Type} {parameter.Identifier}"));
         var signature = $"{method.ReturnType} {method.Identifier}{method.TypeParameterList}({parameters})";
         return Bound(signature);
+    }
+
+    private static string FormatSignature(PropertyDeclarationSyntax property)
+    {
+        var accessors = property.AccessorList?.Accessors
+            .Select(accessor => accessor.Keyword.ValueText)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray() ?? Array.Empty<string>();
+        var accessorText = accessors.Length == 0 ? "{ get; }" : $"{{ {string.Join("; ", accessors)}; }}";
+        return Bound($"{property.Type} {property.Identifier} {accessorText}");
     }
 
     private static bool IsTestSource(string relativePath) =>

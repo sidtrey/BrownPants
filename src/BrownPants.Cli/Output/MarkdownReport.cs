@@ -57,8 +57,8 @@ public static class MarkdownReport
         report.AppendLine("## No-op implementation candidates");
         report.AppendLine();
         report.AppendLine($"- C# source files scanned: {analysis.SourceFilesScanned}; bytes read: {analysis.BytesScanned}; files skipped by read limits or access errors: {analysis.FilesSkipped}.");
-        report.AppendLine($"- Candidate methods: {analysis.CandidateCount}; omitted by the sample limit: {analysis.OmittedCandidateCount}.");
-        report.AppendLine("- Syntax-only candidates may be intentional behavior. Review the implementation, callers, tests, and requirements before treating one as a defect.");
+        report.AppendLine($"- Candidate methods and properties: {analysis.CandidateCount}; omitted by the sample limit: {analysis.OmittedCandidateCount}.");
+        report.AppendLine("- Syntax-only candidates may be intentional behavior. Indirect candidates identify one-hop same-type wrappers to a direct NotImplementedException factory. Review the implementation, overloads, callers, tests, and requirements before treating one as a defect.");
         foreach (var candidate in analysis.Candidates)
         {
             report.AppendLine($"- {Escape(candidate.Kind)} [{Escape(candidate.Scope)}] `{Escape(candidate.Path)}:{candidate.Line}` `{Escape(candidate.ContainingType)}.{Escape(candidate.Signature)}` — `{Escape(candidate.Evidence)}`");

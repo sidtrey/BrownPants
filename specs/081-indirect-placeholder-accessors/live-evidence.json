@@ -1,0 +1,48 @@
+{
+  "targetRoot": "FullMetalFile_React/FullMetalFile.Infrastructure",
+  "targetFile": "Persistence/PostgreSQL/PostgreSqlUnitOfWork.cs",
+  "expectedAccessors": [
+    "Templates",
+    "FieldDefinitions",
+    "TemplateRelationships",
+    "DocumentVersions"
+  ],
+  "observedIndirectCandidates": [
+    {
+      "line": 33,
+      "signature": "ITemplateRepository Templates { get; }",
+      "kind": "Indirect NotImplementedException",
+      "evidence": "delegates to CreateNotImplemented()"
+    },
+    {
+      "line": 34,
+      "signature": "IFieldDefinitionRepository FieldDefinitions { get; }",
+      "kind": "Indirect NotImplementedException",
+      "evidence": "delegates to CreateNotImplemented()"
+    },
+    {
+      "line": 35,
+      "signature": "ITemplateRelationshipRepository TemplateRelationships { get; }",
+      "kind": "Indirect NotImplementedException",
+      "evidence": "delegates to CreateNotImplemented()"
+    },
+    {
+      "line": 41,
+      "signature": "IDocumentVersionRepository DocumentVersions { get; }",
+      "kind": "Indirect NotImplementedException",
+      "evidence": "delegates to CreateNotImplemented()"
+    }
+  ],
+  "sourceCSharpFileCount": 71,
+  "totalPlaceholderCandidates": 6,
+  "totalIndirectCandidateCount": 4,
+  "targetIndirectCandidateCount": 4,
+  "omittedCandidateCount": 0,
+  "filesSkipped": 0,
+  "targetConstructorInitializedAccessor": {
+    "name": "IndexingSessions",
+    "assignmentLine": 29,
+    "reportedAsPlaceholder": false
+  },
+  "scanDate": "2026-11-13"
+}

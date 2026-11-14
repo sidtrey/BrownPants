@@ -88,9 +88,51 @@ public sealed class CSharpImplementationPlaceholderAnalyzerTests : IDisposable
     }
 
     [Fact]
+    public void Analyze_FindsOneHopPropertyAndMethodWrappersToUnimplementedHelper()
+    {
+        Write("src/UnitOfWork.cs", """
+            class UnitOfWork {
+                private static System.NotImplementedException CreateNotImplemented() { return new System.NotImplementedException(); }
+                public object Templates => throw CreateNotImplemented();
+                public object Sessions { get => throw CreateNotImplemented(); }
+                public object BlockSessions { get { throw CreateNotImplemented(); } }
+                public object GetVersions() { throw CreateNotImplemented(); }
+                private static System.NotImplementedException GetException() => new System.NotImplementedException();
+                private static System.NotImplementedException WrappedException() => GetException();
+                public object MultiHop => throw WrappedException();
+                private static System.Exception CreateOtherException() => new System.Exception();
+                public object Other => throw CreateOtherException();
+                private static System.NotImplementedException Ambiguous() => new System.NotImplementedException();
+                private static System.Exception Ambiguous(int code) => new System.NotImplementedException();
+                public object Overloaded => throw Ambiguous();
+            }
+            class OtherType {
+                public static System.NotImplementedException CreateNotImplemented() => new System.NotImplementedException();
+            }
+            class ExternalWrapper {
+                public object Value => throw OtherType.CreateNotImplemented();
+            }
+            """);
+
+        var analysis = CSharpImplementationPlaceholderAnalyzer.Analyze(_root, ["src/UnitOfWork.cs"], sampleLimit: 20);
+        var indirect = analysis.Candidates.Where(item => item.Kind == "Indirect NotImplementedException").ToArray();
+
+        Assert.Equal(5, indirect.Length);
+        Assert.Contains(indirect, item => item.Signature.Contains("Templates") && item.Evidence.Contains("CreateNotImplemented"));
+        Assert.Contains(indirect, item => item.Signature.Contains("Sessions") && item.Evidence.Contains("CreateNotImplemented"));
+        Assert.Contains(indirect, item => item.Signature.Contains("BlockSessions") && item.Evidence.Contains("CreateNotImplemented"));
+        Assert.Contains(indirect, item => item.Signature.Contains("GetVersions") && item.Evidence.Contains("CreateNotImplemented"));
+        Assert.Contains(indirect, item => item.Signature.Contains("WrappedException") && item.Evidence.Contains("GetException"));
+        Assert.DoesNotContain(indirect, item => item.Signature.Contains("MultiHop"));
+        Assert.DoesNotContain(indirect, item => item.Signature.Contains("Other"));
+        Assert.DoesNotContain(indirect, item => item.Signature.Contains("Overloaded"));
+        Assert.DoesNotContain(indirect, item => item.Signature.Contains("ExternalWrapper"));
+    }
+
+    [Fact]
     public void RepositoryScanner_ExposesCandidatesInJsonAndMarkdown()
     {
-        Write("src/Repository.cs", "class Repository { System.Threading.Tasks.Task Save() => System.Threading.Tasks.Task.CompletedTask; private System.NotImplementedException CreateNotImplemented() => new System.NotImplementedException(); }");
+        Write("src/Repository.cs", "class Repository { System.Threading.Tasks.Task Save() => System.Threading.Tasks.Task.CompletedTask; }");
         Write("Repository.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>");
 
         var inventory = RepositoryScanner.Scan(_root, sampleLimit: 10);
@@ -98,12 +140,32 @@ public sealed class CSharpImplementationPlaceholderAnalyzerTests : IDisposable
         var markdown = MarkdownReport.Render(inventory);
 
         Assert.Contains("Save", json, StringComparison.Ordinal);
-        Assert.Equal(2, inventory.ImplementationPlaceholders.CandidateCount);
-        Assert.Contains("CreateNotImplemented", json, StringComparison.Ordinal);
-        Assert.Contains("NotImplementedException", json, StringComparison.Ordinal);
+        Assert.Equal(1, inventory.ImplementationPlaceholders.CandidateCount);
         Assert.Contains("No-op implementation candidates", markdown, StringComparison.Ordinal);
         Assert.Contains("may be intentional behavior", markdown, StringComparison.Ordinal);
         Assert.Contains("src/Repository.cs:1", markdown, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RepositoryScanner_RendersIndirectAccessorEvidenceInJsonAndMarkdown()
+    {
+        Write("src/UnitOfWork.cs", """
+            class UnitOfWork {
+                private static System.NotImplementedException CreateNotImplemented() { return new System.NotImplementedException(); }
+                public object Sessions => throw CreateNotImplemented();
+            }
+            """);
+        Write("Repository.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>");
+
+        var inventory = RepositoryScanner.Scan(_root, sampleLimit: 10);
+        var json = JsonSerializer.Serialize(inventory);
+        var markdown = MarkdownReport.Render(inventory);
+
+        Assert.Contains("Indirect NotImplementedException", json, StringComparison.Ordinal);
+        Assert.Contains("delegates to CreateNotImplemented()", json, StringComparison.Ordinal);
+        Assert.Contains("Sessions", json, StringComparison.Ordinal);
+        Assert.Contains("Candidate methods and properties", markdown, StringComparison.Ordinal);
+        Assert.Contains("one-hop same-type wrappers", markdown, StringComparison.Ordinal);
     }
 
     public void Dispose()
