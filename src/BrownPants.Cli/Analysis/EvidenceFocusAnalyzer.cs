@@ -45,13 +45,14 @@ public static class EvidenceFocusAnalyzer
         var discovered = new HashSet<string>(RepositoryScanner.DiscoverFiles(inventory.Root), PathComparer());
         var foundPaths = new HashSet<string>(changedCounts.Keys.Where(discovered.Contains), PathComparer());
         var impactIssues = new List<string>();
-        var impactComplete = false;
+        var impactComplete = normalizedChanged.Length == 0;
         var impactAnalyzed = false;
         var semanticImpactAnalyzed = false;
         var semantic = inventory.CSharp.Semantic;
         var declarations = semantic?.Declarations ?? Array.Empty<CSharpSemanticDeclaration>();
-        var managedChanged = normalizedChanged.Any(path => path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
-            || path.EndsWith(".vb", StringComparison.OrdinalIgnoreCase));
+        var managedPaths = normalizedChanged.Where(IsManagedPath).ToArray();
+        var nativePaths = normalizedChanged.Where(IsNativePath).ToArray();
+        var javaScriptTypeScriptPaths = normalizedChanged.Where(IsJavaScriptTypeScriptPath).ToArray();
 
         foreach (var path in normalizedChanged)
         {
@@ -62,17 +63,45 @@ public static class EvidenceFocusAnalyzer
             }
         }
 
-        if (normalizedChanged.Length > 0)
+        if (javaScriptTypeScriptPaths.Length > 0)
         {
-            semanticImpactAnalyzed = semantic is not null;
+            impactAnalyzed = true;
+            var analysis = inventory.JavaScriptTypeScript;
+            impactComplete = analysis.OmittedCallRelationshipCount == 0;
+            if (analysis.OmittedCallRelationshipCount > 0)
+                impactIssues.Add($"JavaScript/TypeScript caller candidates were sampled; {analysis.OmittedCallRelationshipCount} call relationship(s) were omitted.");
+
+            foreach (var changedPath in javaScriptTypeScriptPaths)
+            foreach (var call in analysis.CallRelationships.Where(item =>
+                         item.Status == "syntax-resolved" && item.TargetPath is not null
+                         && PathEquals(item.TargetPath, changedPath)))
+            {
+                var finding = fullReport.Findings.FirstOrDefault(candidate =>
+                    candidate.Category == "javascript-typescript-call"
+                    && PathEquals(candidate.Path, call.SourcePath)
+                    && candidate.Line == call.SourceLine
+                    && candidate.Column == call.SourceColumn
+                    && candidate.CallerSignature == call.Caller
+                    && candidate.TargetSignature == call.Expression);
+                if (finding is null) continue;
+                changedCounts[changedPath][1]++;
+                Add(finding.Id, [$"changed-path:{changedPath}:syntax-caller-candidate"]);
+            }
+        }
+
+        var impactPaths = managedPaths.Concat(nativePaths).ToArray();
+        if (impactPaths.Length > 0)
+        {
+            semanticImpactAnalyzed = managedPaths.Length > 0 && semantic is not null;
             impactAnalyzed = true;
             var semanticForImpact = semantic ?? new CSharpSemanticAnalysis(0, 0, 0, 0,
                 Array.Empty<CSharpResolvedCall>(), Array.Empty<CSharpUnresolvedCall>(), Array.Empty<string>());
-            var impact = CallImpactAnalyzer.Analyze(inventory.Root, normalizedChanged, discovered.ToArray(),
+            var impact = CallImpactAnalyzer.Analyze(inventory.Root, impactPaths, discovered.ToArray(),
                 semanticForImpact, 10_000, inventory.ArchitecturePatterns.NativeFlow);
-            impactComplete = impact.IsComplete && (!managedChanged || semantic is not null);
+            impactComplete = impactComplete || javaScriptTypeScriptPaths.Length == 0;
+            impactComplete &= impact.IsComplete && (managedPaths.Length == 0 || semantic is not null);
             impactIssues.AddRange(impact.Issues);
-            if (managedChanged && semantic is null)
+            if (managedPaths.Length > 0 && semantic is null)
                 impactIssues.Add("Managed caller impact was not analyzed; pass --semantic to resolve direct and transitive C#/VB callers.");
 
             foreach (var item in impact.Impacts)
@@ -88,7 +117,7 @@ public static class EvidenceFocusAnalyzer
                     var declaration = declarations.FirstOrDefault(value => value.Symbol == item.ChangedMethod);
                     var changedPath = declaration is null ? null : normalizedChanged.FirstOrDefault(path =>
                         PathEquals(path, declaration.Path));
-                    changedPath ??= normalizedChanged[0];
+                    changedPath ??= managedPaths.FirstOrDefault() ?? impactPaths[0];
                     if (changedCounts.TryGetValue(changedPath, out var counts)) counts[1]++;
                     Add(finding.Id, [$"changed-path:{changedPath}:caller-impact"]);
                 }
@@ -100,8 +129,8 @@ public static class EvidenceFocusAnalyzer
                     if (testFinding is not null)
                     {
                         var declaration = declarations.FirstOrDefault(value => value.Symbol == item.ChangedMethod);
-                        var changedPath = declaration is null ? normalizedChanged[0] : normalizedChanged.FirstOrDefault(path =>
-                            PathEquals(path, declaration.Path)) ?? normalizedChanged[0];
+                        var changedPath = declaration is null ? managedPaths.FirstOrDefault() ?? impactPaths[0] : impactPaths.FirstOrDefault(path =>
+                            PathEquals(path, declaration.Path)) ?? managedPaths.FirstOrDefault() ?? impactPaths[0];
                         if (changedCounts.TryGetValue(changedPath, out var counts)) counts[2]++;
                         Add(testFinding.Id, [$"changed-path:{changedPath}:test-impact"]);
                     }
@@ -164,8 +193,10 @@ public static class EvidenceFocusAnalyzer
             emitted.Length,
             omitted);
         var limitations = fullReport.Limitations.ToList();
-        if (normalizedChanged.Length > 0 && managedChanged && !semanticImpactAnalyzed)
+        if (managedPaths.Length > 0 && !semanticImpactAnalyzed)
             limitations.Add("Caller impact was not analyzed for managed changed paths; pass --semantic to resolve managed callers. Native candidate impact may still be included.");
+        if (javaScriptTypeScriptPaths.Length > 0)
+            limitations.Add("JavaScript/TypeScript changed-path caller matches are bounded syntax candidates; type-based, dynamic, and runtime dispatch are not resolved.");
         if (clueReadIssueCount > 0)
         {
             var issueSummary = string.Join(", ", clueReadIssues
@@ -231,6 +262,11 @@ public static class EvidenceFocusAnalyzer
         while (normalized.StartsWith("./", StringComparison.Ordinal)) normalized = normalized[2..];
         return normalized;
     }
+    private static bool IsManagedPath(string path) => Path.GetExtension(path).ToLowerInvariant() is ".cs" or ".vb";
+    private static bool IsNativePath(string path) => Path.GetExtension(path).ToLowerInvariant() is
+        ".c" or ".cc" or ".cpp" or ".cxx" or ".h" or ".hh" or ".hpp" or ".hxx" or ".inl" or ".ipp";
+    private static bool IsJavaScriptTypeScriptPath(string path) => Path.GetExtension(path).ToLowerInvariant() is
+        ".js" or ".jsx" or ".mjs" or ".cjs" or ".ts" or ".tsx" or ".mts" or ".cts";
     private static bool PathEquals(string left, string right) => PathComparer().Equals(NormalizePath(left), NormalizePath(right));
     private static StringComparer PathComparer() => OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 }

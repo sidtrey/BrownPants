@@ -59,7 +59,7 @@ internal static class EvidenceCommand
                 case "--changed":
                     if (++index >= args.Length || string.IsNullOrWhiteSpace(args[index]) || args[index].StartsWith("--", StringComparison.Ordinal))
                     {
-                        error.WriteLine("Missing or empty value for focus option --changed. Provide a repository-relative C#, Visual Basic, or C/C++ source path.");
+                        error.WriteLine("Missing or empty value for focus option --changed. Provide a repository-relative C#, Visual Basic, C/C++, JavaScript, or TypeScript source path.");
                         return 2;
                     }
                     changedPaths.Add(args[index]);
@@ -127,8 +127,9 @@ internal static class EvidenceCommand
         output.WriteLine("Usage: brownpants evidence [repository] [--format json] [--limit 1..10000] [--semantic] [--clue <literal> ...] [--changed <relative-source-path> ...]");
         output.WriteLine("Produces a structured, source-located evidence handoff for any SDD engine.");
         output.WriteLine("--clue and --changed select task-focused findings; selectors combine as a union and findings explain why they matched.");
-        output.WriteLine("--changed without --semantic selects source-local candidates and native-flow impact; add --semantic to include resolved managed callers.");
-        output.WriteLine("Architecture, framework, and test-path findings are candidates; only Roslyn-resolved calls are resolved.");
+        output.WriteLine("--changed accepts C#, Visual Basic, C/C++, JavaScript, and TypeScript source paths.");
+        output.WriteLine("--changed without --semantic selects source-local findings, managed/native impact, and unique JS/TS syntax caller candidates.");
+        output.WriteLine("JS/TS relationships are syntax candidates; only managed calls selected with --semantic are Roslyn-resolved.");
         output.WriteLine("--semantic loads MSBuild projects; imported build targets may execute.");
     }
 
@@ -151,10 +152,9 @@ internal static class EvidenceCommand
             if (segments.Any(segment => segment is ".." or ""))
                 throw new ArgumentException($"Invalid focus path '{input}': parent traversal and empty path segments are not allowed.");
             var extension = Path.GetExtension(normalized).ToLowerInvariant();
-            if (!normalized.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
-                && !normalized.EndsWith(".vb", StringComparison.OrdinalIgnoreCase)
-                && extension is not (".c" or ".cc" or ".cpp" or ".cxx" or ".h" or ".hh" or ".hpp" or ".hxx" or ".inl" or ".ipp"))
-                throw new ArgumentException($"Invalid focus path '{normalized}': changed paths must be C#, Visual Basic, or C/C++ source files.");
+            if (extension is not (".cs" or ".vb" or ".c" or ".cc" or ".cpp" or ".cxx" or ".h" or ".hh" or ".hpp" or ".hxx" or ".inl" or ".ipp"
+                or ".js" or ".jsx" or ".mjs" or ".cjs" or ".ts" or ".tsx" or ".mts" or ".cts"))
+                throw new ArgumentException($"Invalid focus path '{normalized}': changed paths must be C#, Visual Basic, C/C++, JavaScript, or TypeScript source files.");
             var absolute = Path.GetFullPath(Path.Combine(root, normalized.Replace('/', Path.DirectorySeparatorChar)));
             var rootPrefix = root.EndsWith(Path.DirectorySeparatorChar)
                 ? root
